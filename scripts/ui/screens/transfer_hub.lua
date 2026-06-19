@@ -209,7 +209,7 @@ function TransferHub._buildTopDeals(gameState)
     return {
         Theme.Card {
             children = {
-                Theme.Subtitle { text = "赛季最贵签约 Top " .. #top },
+                Theme.Subtitle { text = "历史最贵签约 Top " .. #top },
                 UI.Panel { width = "100%", children = rows },
             }
         },
@@ -336,6 +336,7 @@ function TransferHub._buildRumours(gameState)
 
         local typeLabel = "永久"
         if bid.type == "loan" then typeLabel = "租借" end
+        local statusLabel = TransferHub._bidStatusLabel(bid.status)
 
         table.insert(rows, UI.Panel {
             width = "100%",
@@ -361,7 +362,7 @@ function TransferHub._buildRumours(gameState)
                             flexGrow = 1,
                         },
                         UI.Label {
-                            text = typeLabel,
+                            text = typeLabel .. " · " .. statusLabel,
                             fontSize = 10,
                             color = Theme.COLORS.ACCENT,
                             backgroundColor = {51, 41, 10, 255},
@@ -408,6 +409,20 @@ end
 ---------------------------------------------------------------------------
 -- 通用组件
 ---------------------------------------------------------------------------
+function TransferHub._bidStatusLabel(status)
+    local labels = {
+        pending = "待回复",
+        negotiating = "谈判中",
+        counter_pending = "还价待回复",
+        fee_agreed = "费用已同意",
+        player_considering = "球员考虑",
+        awaiting_confirmation = "待确认签入",
+        player_considering_sale = "球员考虑",
+        awaiting_sale_confirmation = "待确认出售",
+    }
+    return labels[status] or "进行中"
+end
+
 function TransferHub._transferRow(t, gameState)
     local typeLabel = "转会"
     local typeColor = Theme.COLORS.PRIMARY

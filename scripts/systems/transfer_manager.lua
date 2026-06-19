@@ -875,6 +875,12 @@ function TransferManager._completeTransfer(gameState, bid, opts)
     local player = gameState.players[bid.playerId]
     if not player then return end
 
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
+    if not moveOk then
+        TransferManager._rejectBid(gameState, bid, moveErr)
+        return
+    end
+
     local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
     if not sellerOk then
         TransferManager._rejectBid(gameState, bid, sellerErr)
@@ -1060,7 +1066,13 @@ end
 ------------------------------------------------------
 
 local AI_TRANSFER_BATCH_SIZE = 40
-local AI_TRANSFER_PASSES_PER_WEEK = 2
+local AI_TRANSFER_PASSES_PER_WEEK = 1
+local AI_TRANSFER_BASELINE_PASSES_PER_WEEK = 2
+local AI_DAILY_LISTED_MATCH_SCALE = 0.5
+
+local function _getAITransferLoadScale()
+    return AI_TRANSFER_PASSES_PER_WEEK / AI_TRANSFER_BASELINE_PASSES_PER_WEEK
+end
 
 function TransferManager._getDailyQuota(gameState, totalPerPass, passesPerWeek)
     local weeklyQuota = (tonumber(totalPerPass) or 0) * (passesPerWeek or AI_TRANSFER_PASSES_PER_WEEK)
@@ -1133,8 +1145,8 @@ function TransferManager._getAITransferBatchTeams(gameState, opts)
 
     local batchSize = AI_TRANSFER_BATCH_SIZE
     if opts.daily then
-        -- 将原先每周 2 次全量 AI 主动引援，精确摊到 7 天：
-        -- 例如 120 队 => 35,35,34,34,34,34,34，整周仍是 240 队次。
+        -- 将 AI 主动引援按周强度精确摊到 7 天：
+        -- 例如 120 队、每周 1 轮 => 18,17,17,17,17,17,17，整周仍是 120 队次。
         batchSize = TransferManager._getDailyQuota(gameState, total, AI_TRANSFER_PASSES_PER_WEEK)
         batchSize = math.max(1, math.min(total, batchSize))
     end
@@ -1960,6 +1972,7 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
 
     local function consider(player)
         if player.retired then return end
+        if TransferManager.hasMovedInCurrentWindow(gameState, player.id) then return end
         local isFree = (player.teamId == nil)
         if isFree then
             -- 自由球员：仅在允许时纳入（每窗签约数量上限由调用方控制），排除国家队虚拟球员
@@ -2045,6 +2058,8 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
     opts = opts or {}
     -- 预签约锁定检查：已被预签约的球员不可再交易
     if player.preContractLockedBy then return false end
+    local moveOk = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
+    if not moveOk then return false end
 
     -- 满员处理：仅"AI↔AI 主动升级"允许窗口期先买后卖超员（关窗收敛回 30）；
     -- 其余场景（买玩家挂牌球员/普通满员）维持硬顶拒绝。
@@ -2991,9 +3006,30 @@ function TransferManager._completeIncomingSale(gameState, bid)
     local player = gameState.players[bid.playerId]
     local sellerTeam = gameState.teams[bid.sellerTeamId]
     local buyerTeam = gameState.teams[bid.buyerTeamId]
-    if not player or not sellerTeam or not buyerTeam then return end
+    if not player or not sellerTeam or not buyerTeam then
+        if bid then bid.status = "rejected" end
+        return false, "出售交易数据异常"
+    end
 
-    TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id)
+    local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
+    if not sellerOk then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        return false, sellerErr
+    end
+
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
+    if not moveOk then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        return false, moveErr
+    end
+
+    if not TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id) then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        return false, "买方一线队已满员，出售无法完成"
+    end
     player.listedForSale = false
     player.isYouth = false
     player.squadRole = "first_team"
@@ -3053,7 +3089,15 @@ function TransferManager._completeIncomingSale(gameState, bid)
         })
     end
 
-    -- 清理同一球员的其他活跃 incoming bid（球员已转会，其他报价自动失效）
+    bid.status = "completed"
+
+    -- 清理同一球员的其他活跃报价（球员已转会，其他报价自动失效）
+    TransferManager._invalidateActiveBidsForPlayer(gameState, player.id, {
+        excludeBidId = bid.id,
+        soldToTeamId = buyerTeam.id,
+    })
+
+    -- 兼容旧状态集合：确保 incoming bid 也被清理。
     for _, otherBid in ipairs(gameState.transfers.bids) do
         if otherBid.playerId == bid.playerId and otherBid.id ~= bid.id and otherBid.isIncomingBid then
             local activeStatuses = {
@@ -3066,6 +3110,7 @@ function TransferManager._completeIncomingSale(gameState, bid)
             end
         end
     end
+    return true, nil
 end
 
 --- 确认出售球员（玩家最终确认，公开API）
@@ -3073,10 +3118,8 @@ function TransferManager.confirmSale(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
         if _bidIdsEqual(bid.id, bidId) and bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid then
-            bid.status = "completed"
             bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-            TransferManager._completeIncomingSale(gameState, bid)
-            return true, nil
+            return TransferManager._completeIncomingSale(gameState, bid)
         end
     end
     return false, "未找到待确认的出售交易"
@@ -3523,6 +3566,11 @@ end
 function TransferManager.offerFreeAgent(gameState, playerId, wageOffer, yearsOffer)
     TransferManager._ensureData(gameState)
 
+    local windowOk = TransferManager._checkTransferWindow(gameState)
+    if not windowOk then
+        return nil, "当前不在转会窗口期（夏窗7-8月/冬窗1月），无法签约自由球员"
+    end
+
     -- 拒绝冷却期检查
     local cooldownOk, cooldownErr = TransferManager._checkRejectionCooldown(gameState, playerId)
     if not cooldownOk then return nil, cooldownErr end
@@ -3546,7 +3594,9 @@ function TransferManager.offerFreeAgent(gameState, playerId, wageOffer, yearsOff
         gameState.transfers.freeAgentNegos = {}
     end
     for _, n in ipairs(gameState.transfers.freeAgentNegos) do
-        if n.playerId == playerId and (n.status == "pending" or n.status == "negotiating") then
+        if n.playerId == playerId
+            and (n.status == "pending" or n.status == "negotiating"
+                or n.status == "awaiting_confirmation") then
             return nil, "已有进行中的谈判"
         end
     end
@@ -3600,6 +3650,12 @@ function TransferManager.reviseOffer(gameState, negoId, newWage, newYears)
 
     for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
         if nego.id == negoId and nego.status == "negotiating" then
+            if not nego.isPreContract then
+                local windowOk = TransferManager._checkTransferWindow(gameState)
+                if not windowOk then
+                    return false, "当前不在转会窗口期（夏窗7-8月/冬窗1月），无法签约自由球员"
+                end
+            end
             local player = gameState.players[nego.playerId]
             if not player then return false, "球员不存在" end
 
@@ -3655,6 +3711,14 @@ function TransferManager.confirmFreeAgent(gameState, negoId)
     if not gameState.transfers.freeAgentNegos then return nil, "无谈判数据" end
     for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
         if nego.id == negoId and nego.status == "awaiting_confirmation" then
+            if not nego.isPreContract then
+                local windowOk = TransferManager._checkTransferWindow(gameState)
+                if not windowOk then
+                    nego.status = "cancelled"
+                    nego.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                    return nil, "当前不在转会窗口期（夏窗7-8月/冬窗1月），无法签约自由球员"
+                end
+            end
             local player = gameState.players[nego.playerId]
             local team = gameState.teams[nego.teamId]
             if not player or not team then
@@ -3793,7 +3857,9 @@ function TransferManager.hasPendingFreeAgentNego(gameState, playerId)
     TransferManager._ensureData(gameState)
     if not gameState.transfers.freeAgentNegos then return false end
     for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
-        if nego.playerId == playerId and (nego.status == "pending" or nego.status == "negotiating") then
+        if nego.playerId == playerId
+            and (nego.status == "pending" or nego.status == "negotiating"
+                or nego.status == "awaiting_confirmation") then
             return true
         end
     end
@@ -3804,6 +3870,26 @@ end
 function TransferManager.processDailyFreeAgentNegos(gameState)
     TransferManager._ensureData(gameState)
     if not gameState.transfers.freeAgentNegos then return end
+
+    if not TransferManager.isInTransferWindow(gameState) then
+        local cancelled = 0
+        for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
+            if not nego.isPreContract and _ACTIVE_FREE_AGENT_NEGO_STATUSES[nego.status] then
+                nego.status = "cancelled"
+                nego.cancelReason = "transfer_window_closed"
+                nego.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                cancelled = cancelled + 1
+            end
+        end
+        if cancelled > 0 then
+            gameState:sendMessage({
+                category = "transfer",
+                title = "自由球员谈判已取消",
+                body = string.format("转会窗口已关闭，%d 笔未完成的自由球员签约已自动取消。", cancelled),
+                priority = "normal",
+            })
+        end
+    end
 
     for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
         if nego.status == "pending" then
@@ -3970,6 +4056,16 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
         return
     end
 
+    if not nego.isPreContract then
+        local windowOk = TransferManager._checkTransferWindow(gameState)
+        if not windowOk then
+            nego.status = "cancelled"
+            nego.cancelReason = "transfer_window_closed"
+            nego.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            return
+        end
+    end
+
     -- 防止重复签约：球员已有球队时直接取消
     if player.teamId then
         nego.status = "cancelled"
@@ -4099,6 +4195,11 @@ end
 --- 旧接口保持向后兼容（直接签约，用于AI签约等内部流程）
 function TransferManager.signFreeAgent(gameState, playerId, wage, years)
     TransferManager._ensureData(gameState)
+    local windowOk = TransferManager._checkTransferWindow(gameState)
+    if not windowOk then
+        return false, "当前不在转会窗口期（夏窗7-8月/冬窗1月），无法签约自由球员"
+    end
+
     local player = gameState.players[playerId]
     if not player then return false, "球员不存在" end
     if player.teamId then return false, "球员已有球队" end
@@ -4165,7 +4266,9 @@ function TransferManager.getFreeAgents(gameState, positionFilter)
     end
 
     for _, player in pairs(gameState.players) do
-        if not player.teamId and not player.retired then
+        if not player.teamId and not player.retired
+            and not player._isVirtual
+            and not player.preContractLockedBy then
             if not positionSet or positionSet[player.position] then
                 table.insert(result, player)
             end
@@ -5642,7 +5745,7 @@ function TransferManager.processDailyBids(gameState)
             gameState:sendMessage({
                 category = "transfer",
                 title = "转会窗口已关闭",
-                body = string.format("转会窗口已关闭，%d 笔未完成的俱乐部间交易已自动取消。自由球员签约不受影响。",
+                body = string.format("转会窗口已关闭，%d 笔未完成的俱乐部间交易已自动取消。",
                     cancelledCount),
                 priority = "normal",
             })
@@ -5656,10 +5759,13 @@ function TransferManager.processDailyBids(gameState)
 
     -- 挂牌出售：转会窗内每日推进（弥补冬窗仅 1 月、原先仅周一/四 AI 转会的问题）
     if TransferManager.isInTransferWindow(gameState) then
+        -- 此处是日常挂牌撮合，后面每日 AI slice 还会做一次市场脉冲；
+        -- 隐藏 AI-AI 撮合额外降半档，避免两个入口叠加后低价交易过密。
+        local aiLoadScale = _getAITransferLoadScale() * AI_DAILY_LISTED_MATCH_SCALE
         TransferManager._processListedPlayerOffers(gameState, {
             playerAttractChance = 0.35,
-            aiAttractChance = 0.03,
-            maxAIAttempts = 35,
+            aiAttractChance = 0.03 * aiLoadScale,
+            maxAIAttempts = math.max(1, math.floor(35 * aiLoadScale)),
         })
         -- 玩家阵容人数阈值提醒（28/30/33）
         TransferManager._notifyPlayerSquadThresholds(gameState)
@@ -5920,16 +6026,29 @@ function TransferManager._processLoanBidResponse(gameState, bid)
     TransferManager._processAILoanResponse(gameState, bid)
 end
 
---- 获取所有活跃报价（状态为 pending 或 negotiating）
+--- 获取所有活跃报价
 ---@param gameState table
 ---@return table[]
 function TransferManager.getActiveBids(gameState)
     TransferManager._ensureData(gameState)
     local activeBids = {}
+    local activeStatuses = {
+        pending = true,
+        negotiating = true,
+        counter_pending = true,
+        fee_agreed = true,
+        player_considering = true,
+        awaiting_confirmation = true,
+        awaiting_sale_confirmation = true,
+        player_considering_sale = true,
+    }
     for _, bid in ipairs(gameState.transfers.bids or {}) do
-        if bid.status == "pending" or bid.status == "negotiating"
-            or bid.status == "counter_pending" or bid.status == "awaiting_sale_confirmation" then
-            table.insert(activeBids, bid)
+        if activeStatuses[bid.status] then
+            local player = gameState.players[bid.playerId]
+            local sellerTeamId = bid.sellerTeamId or bid.fromTeamId
+            if player and (not sellerTeamId or player.teamId == sellerTeamId) then
+                table.insert(activeBids, bid)
+            end
         end
     end
     return activeBids

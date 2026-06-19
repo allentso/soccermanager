@@ -1835,8 +1835,13 @@ function Market._showFreeAgentConfirmSheet(gameState, nego)
                 marginBottom = 8,
                 onClick = function()
                     BottomSheet.close()
-                    TransferManager.confirmFreeAgent(gameState, negoId)
-                    UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
+                    local _, err = TransferManager.confirmFreeAgent(gameState, negoId)
+                    if err then
+                        AudioManager.deny()
+                        UI.Toast.Show({ message = err, variant = "error" })
+                    else
+                        UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
+                    end
                     Router.replaceWith("market", { tab = "free" })
                 end,
             },
