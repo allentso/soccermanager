@@ -116,12 +116,12 @@ FormationShape.SLOT_COMPATIBILITY = {
     LB = { LB = 1.0, CB = 0.6, LM = 0.7, RB = 0.8 },
     CDM = { CDM = 1.0, CM = 0.8, CB = 0.5 },
     CM = { CM = 1.0, CDM = 0.8, CAM = 0.7, RM = 0.6, LM = 0.6 },
-    CAM = { CAM = 1.0, CM = 0.7, RW = 0.6, LW = 0.6, ST = 0.5 },
+    CAM = { CAM = 1.0, CM = 0.7, CF = 0.6, RW = 0.6, LW = 0.6, ST = 0.5 },
     RM = { RM = 1.0, RW = 0.9, CM = 0.6, RB = 0.5, LM = 0.7 },
     LM = { LM = 1.0, LW = 0.9, CM = 0.6, LB = 0.5, RM = 0.7 },
-    RW = { RW = 1.0, RM = 0.9, ST = 0.6, CAM = 0.6, LW = 0.7 },
-    LW = { LW = 1.0, LM = 0.9, ST = 0.6, CAM = 0.6, RW = 0.7 },
-    ST = { ST = 1.0, CAM = 0.6, RW = 0.5, LW = 0.5 },
+    RW = { RW = 1.0, RM = 0.9, ST = 0.6, CF = 0.6, CAM = 0.6, LW = 0.7 },
+    LW = { LW = 1.0, LM = 0.9, ST = 0.6, CF = 0.6, CAM = 0.6, RW = 0.7 },
+    ST = { ST = 1.0, CF = 0.9, CAM = 0.6, RW = 0.5, LW = 0.5 },
     CF = { CF = 1.0, ST = 0.9, CAM = 0.6 },
 }
 

@@ -222,6 +222,7 @@ function Migrations.v4_to_v5(gameStateData)
         LeftWinger = "LW", RightWinger = "RW",
         LeftWing = "LW", RightWing = "RW",
         Striker = "ST",
+        CentreForward = "CF", CenterForward = "CF",
     }
 
     local legendPositions = {}  -- legendName → 正确的缩写位置
@@ -652,6 +653,40 @@ function Migrations.v11_to_v12(gameStateData)
     print("[SaveMigration] v11→v12: 已补全 " .. count .. " 条球队财务底盘记录")
 end
 
+--- v12 → v13: 修正 CentreForward 球员位置映射（之前 POSITION_MAP 缺少该条目导致 fallback 到 CM）
+function Migrations.v12_to_v13(gameStateData)
+    local players = gameStateData.players
+    if not players then return end
+
+    local LegendsLoader = require("scripts/data/legends_loader")
+
+    -- 从 JSON 数据构建 CentreForward 传奇球员名单
+    local cfLegends = {}  -- legendName → true
+    for _, lData in ipairs(LegendsLoader.loadAllPlayers()) do
+        if lData.position == "CentreForward" then
+            local name = lData.full_name_cn or lData.match_name
+            if name then cfLegends[name] = true end
+        end
+    end
+
+    local migrated = 0
+    for _, pData in pairs(players) do
+        if pData.isLegend and pData.legendName and cfLegends[pData.legendName] then
+            if pData.position ~= "CF" then
+                local oldPos = pData.position
+                pData.position = "CF"
+                -- 修正 naturalPositions 列表中的主位置
+                if type(pData.naturalPositions) == "table" then
+                    pData.naturalPositions[1] = "CF"
+                end
+                migrated = migrated + 1
+            end
+        end
+    end
+
+    print("[SaveMigration] v12→v13: 修正了 " .. migrated .. " 名 CentreForward 传奇球员的位置映射(CM→CF)")
+end
+
 --- 迁移路由：根据存档版本逐级升级
 --- @param saveData table 完整的存档顶层数据 {version, game_state, saved_at}
 --- @return number 迁移后的最终版本号
@@ -711,6 +746,11 @@ function Migrations.run(saveData)
     if version < 12 then
         Migrations.v11_to_v12(saveData.game_state)
         version = 12
+    end
+
+    if version < 13 then
+        Migrations.v12_to_v13(saveData.game_state)
+        version = 13
     end
 
     saveData.version = version

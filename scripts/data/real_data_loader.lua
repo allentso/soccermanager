@@ -27,6 +27,8 @@ local POSITION_MAP = {
     LeftWing = "LW",       -- JSON变体写法
     RightWing = "RW",      -- JSON变体写法
     Striker = "ST",
+    CentreForward = "CF",  -- 托蒂等传奇球员使用此位置
+    CenterForward = "CF",  -- 兼容美式拼写
 }
 
 -- 属性名映射：JSON → 游戏内（pace → speed）
