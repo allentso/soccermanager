@@ -927,6 +927,15 @@ function Dashboard._buildMatchHero(gameState, team)
             marginBottom = 12,
             alignItems = "center",
             children = {
+                -- 右上角设置按钮（与主页比赛卡片风格统一）
+                UI.Panel {
+                    position = "absolute",
+                    top = 10, right = 10,
+                    zIndex = 10,
+                    children = {
+                        Dashboard._buildSettingsChip(),
+                    },
+                },
                 UI.Label {
                     text = "当前无执教球队",
                     fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
@@ -935,36 +944,18 @@ function Dashboard._buildMatchHero(gameState, team)
                     text = "等待俱乐部邀约或主动申请空缺职位",
                     fontSize = 13, color = Theme.COLORS.TEXT_MUTED, marginTop = 6,
                 },
-                UI.Panel {
-                    flexDirection = "row",
+                UI.Button {
+                    text = "我的资料",
+                    height = 36,
+                    paddingLeft = 20, paddingRight = 20,
+                    backgroundColor = Theme.COLORS.ACCENT,
+                    borderRadius = 8,
+                    fontSize = 13,
+                    color = "#FFFFFF",
                     marginTop = 16,
-                    children = {
-                        UI.Button {
-                            text = "我的资料",
-                            height = 36,
-                            paddingLeft = 16, paddingRight = 16,
-                            backgroundColor = Theme.COLORS.ACCENT,
-                            borderRadius = 8,
-                            fontSize = 13,
-                            color = "#FFFFFF",
-                            marginRight = 12,
-                            onClick = function()
-                                Router.navigate("manager_view")
-                            end,
-                        },
-                        UI.Button {
-                            text = "设置",
-                            height = 36,
-                            paddingLeft = 16, paddingRight = 16,
-                            backgroundColor = Theme.COLORS.BG_SURFACE,
-                            borderRadius = 8,
-                            fontSize = 13,
-                            color = Theme.COLORS.TEXT_SECONDARY,
-                            onClick = function()
-                                Router.navigate("settings")
-                            end,
-                        },
-                    },
+                    onClick = function()
+                        Router.navigate("manager_view")
+                    end,
                 },
             },
         }
