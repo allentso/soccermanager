@@ -200,25 +200,13 @@ return function(TransferManager)
             return false
         end
 
-        -- 移除残留引用（替代原先对全部球队执行完整 _removePlayerFromTeam 的 O(球队×结构) 全扫描，
-        -- 该全扫描是转会日卡顿主因之一）：
-        --   1) 对球员「当前所属球队」做完整清理（含 startingXI/bench/战术方案等结构，球员确实离队）；
-        --   2) 对其余球队仅做廉价的 playerIds 去重——运行时唯一会出现的多队污染就是 playerIds 重复
-        --      （历史 bug / 损坏存档，见 roster_dup 回归）；纯战术结构 stale 引用由读档 Housekeeping 兜底。
+        -- 移除球员在来源队的所有引用（startingXI/bench/战术方案等完整清理）。
+        -- 全队 dedup 扫描已移除：正常流程不会产生多队 playerIds 重复，
+        -- 损坏存档由读档 Housekeeping.reconcileRosters 兜底修复。
         local fromTeamId = player.teamId
         if fromTeamId and fromTeamId ~= teamId then
             local fromTeam = gameState.teams[fromTeamId]
             if fromTeam then TransferManager._removePlayerFromTeam(fromTeam, player.id) end
-        end
-        for tid, otherTeam in pairs(gameState.teams or {}) do
-            if tid ~= teamId and tid ~= fromTeamId then
-                local pids = otherTeam.playerIds
-                if pids then
-                    for i = #pids, 1, -1 do
-                        if pids[i] == player.id then table.remove(pids, i) end
-                    end
-                end
-            end
         end
         -- 玩家窗内处于 30<人数<33 缓冲区时，需绕过 addPlayer 的 30 人硬顶
         local addOpts = opts

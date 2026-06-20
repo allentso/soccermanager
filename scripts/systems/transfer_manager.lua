@@ -2131,10 +2131,15 @@ local function _posToGroup()
     return m
 end
 
---- 按位置组预分桶可转会球员（每个 processAITransfers pass 构建一次）。
---- 让 _findTransferTarget 只遍历对应位置组（约 1/4 球员），避免每队全表扫描
---- 造成的 O(球队×全部球员) 开销——这是转会窗周一/四 AI 引援卡顿的主因。
+--- 按位置组预分桶可转会球员，窗口级缓存（同一转会窗内复用，避免每天重建+排序）。
+--- 池存的是球员引用，teamId/retired/listedForSale 等字段由 _findTransferTarget 的
+--- consider() 实时检查，无需因转会完成而失效。OVR 窗口内几乎不变（训练日增≤0.1）。
 function TransferManager._buildTransferCandidatePool(gameState)
+    local windowKey = TransferManager.getTransferWindowKey(gameState) or ""
+    if TransferManager._candidatePoolWindowKey == windowKey and TransferManager._candidatePoolCache then
+        return TransferManager._candidatePoolCache
+    end
+
     local p2g = _posToGroup()
     local pool = { GK = {}, DEF = {}, MID = {}, FWD = {} }
     for _, player in pairs(gameState.players) do
@@ -2153,6 +2158,9 @@ function TransferManager._buildTransferCandidatePool(gameState)
     table.sort(pool.DEF, byOvr)
     table.sort(pool.MID, byOvr)
     table.sort(pool.FWD, byOvr)
+
+    TransferManager._candidatePoolCache = pool
+    TransferManager._candidatePoolWindowKey = windowKey
     return pool
 end
 
