@@ -102,6 +102,7 @@ function Youth.create(params)
         }
     else
         tabContent = {
+            Youth._buildOrphanReclaimBanner(gameState),
             Youth._buildLegendGachaSection(gameState),
             Youth._buildCandidatesSection(candidates, gameState),
         }
@@ -1082,6 +1083,217 @@ function Youth._showLegendPoolListModal(gameState, poolId)
                         backgroundColor = Theme.COLORS.PRIMARY,
                         borderRadius = 10,
                         fontSize = 14, color = {255, 255, 255, 255}, fontWeight = "bold",
+                        onClick = function()
+                            UI.CloseOverlay()
+                        end,
+                    },
+                },
+            },
+        },
+    })
+end
+
+------------------------------------------------------
+-- 漏签传奇补领
+------------------------------------------------------
+function Youth._buildOrphanReclaimBanner(gameState)
+    local orphans = YouthManager.getOrphanedPulledLegends(gameState)
+    if #orphans == 0 then
+        return UI.Panel { height = 0 }
+    end
+
+    return UI.Panel {
+        width = "100%",
+        marginBottom = 10,
+        children = {
+            UI.Panel {
+                width = "100%",
+                padding = 10,
+                backgroundColor = {45, 35, 20, 255},
+                borderRadius = 10,
+                borderWidth = 1,
+                borderColor = Theme.COLORS.GOLD,
+                flexDirection = "row",
+                alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = "⚠",
+                        fontSize = 16,
+                        marginRight = 8,
+                    },
+                    UI.Panel {
+                        flexGrow = 1,
+                        children = {
+                            UI.Label {
+                                text = string.format("您有 %d 名传奇尚未签入", #orphans),
+                                fontSize = 13,
+                                color = Theme.COLORS.GOLD,
+                                fontWeight = "bold",
+                            },
+                            UI.Label {
+                                text = "抽卡记录已消耗，可从下方补领签入青训",
+                                fontSize = 10,
+                                color = Theme.COLORS.TEXT_MUTED,
+                                marginTop = 2,
+                            },
+                        },
+                    },
+                    UI.Button {
+                        text = "查看补领",
+                        height = 32,
+                        paddingLeft = 12,
+                        paddingRight = 12,
+                        backgroundColor = Theme.COLORS.GOLD,
+                        borderRadius = 8,
+                        fontSize = 12,
+                        fontWeight = "bold",
+                        color = "#000000",
+                        onClick = function()
+                            Youth._showOrphanReclaimModal(gameState)
+                        end,
+                    },
+                },
+            },
+        },
+    }
+end
+
+function Youth._showOrphanReclaimModal(gameState)
+    local orphans = YouthManager.getOrphanedPulledLegends(gameState)
+    if #orphans == 0 then
+        UI.Toast.Show({ message = "暂无待补签传奇", variant = "info" })
+        return
+    end
+
+    local rows = {}
+    for _, lData in ipairs(orphans) do
+        local entry = lData
+        local name = entry.full_name_cn or entry.match_name or "传奇"
+        local pos = Constants.POSITION_NAMES[entry.position] or entry.position or ""
+        local imgPath = LegendImageRegistry.getPath(entry.id) or ""
+
+        table.insert(rows, UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            alignItems = "center",
+            backgroundColor = Theme.COLORS.BG_CARD,
+            borderRadius = 10,
+            borderWidth = 1,
+            borderColor = Theme.COLORS.BORDER,
+            padding = 8,
+            marginBottom = 8,
+            children = {
+                UI.Panel {
+                    width = 44,
+                    height = 58,
+                    borderRadius = 6,
+                    overflow = "hidden",
+                    backgroundImage = imgPath,
+                    backgroundSize = "cover",
+                    backgroundColor = Theme.COLORS.BG_DARK,
+                    marginRight = 10,
+                },
+                UI.Panel {
+                    flexGrow = 1,
+                    children = {
+                        UI.Label {
+                            text = name,
+                            fontSize = 14,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            fontWeight = "bold",
+                        },
+                        UI.Label {
+                            text = pos,
+                            fontSize = 11,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            marginTop = 2,
+                        },
+                    },
+                },
+                UI.Button {
+                    text = "签入青训",
+                    height = 34,
+                    paddingLeft = 10,
+                    paddingRight = 10,
+                    backgroundColor = Theme.COLORS.SECONDARY,
+                    borderRadius = 8,
+                    fontSize = 12,
+                    fontWeight = "bold",
+                    color = {255, 255, 255, 255},
+                    onClick = function()
+                        local ok, err = YouthManager.reclaimOrphanedLegend(gameState, entry)
+                        if ok then
+                            SaveManager.save(gameState, "auto")
+                            UI.CloseOverlay()
+                            UI.Toast.Show({
+                                message = name .. " 已补签加入青训队",
+                                variant = "success",
+                            })
+                            Router.replaceWith("youth", { tab = "recruit" })
+                        else
+                            UI.Toast.Show({
+                                message = err or "签入失败",
+                                variant = "error",
+                            })
+                        end
+                    end,
+                },
+            },
+        })
+    end
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%",
+        height = "100%",
+        justifyContent = "center",
+        alignItems = "center",
+        backgroundColor = {0, 0, 0, 210},
+        children = {
+            UI.Panel {
+                width = "94%",
+                maxHeight = "80%",
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                borderRadius = 18,
+                borderWidth = 1,
+                borderColor = Theme.COLORS.BORDER_LIGHT,
+                paddingTop = 16,
+                paddingBottom = 16,
+                paddingLeft = 14,
+                paddingRight = 14,
+                children = {
+                    UI.Label {
+                        text = "漏签传奇补领",
+                        fontSize = 16,
+                        color = Theme.COLORS.GOLD,
+                        fontWeight = "bold",
+                        marginBottom = 4,
+                    },
+                    UI.Label {
+                        text = "以下传奇已抽中但未签入，可在此直接签入青训队",
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginBottom = 12,
+                    },
+                    UI.ScrollView {
+                        width = "100%",
+                        flexGrow = 1,
+                        marginBottom = 12,
+                        children = {
+                            UI.Panel {
+                                width = "100%",
+                                children = rows,
+                            },
+                        },
+                    },
+                    UI.Button {
+                        text = "关闭",
+                        width = "100%",
+                        height = 40,
+                        backgroundColor = Theme.COLORS.PRIMARY,
+                        borderRadius = 10,
+                        fontSize = 14,
+                        color = {255, 255, 255, 255},
+                        fontWeight = "bold",
                         onClick = function()
                             UI.CloseOverlay()
                         end,

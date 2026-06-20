@@ -1606,6 +1606,132 @@ function YouthManager.markLegendCollected(gameState, lData)
     _markLegendPulled(state, lData)
 end
 
+-- 漏签补偿：传奇 JSON 索引（lazy）
+local _legendById = nil
+local _legendByName = nil
+
+local function _ensureLegendIndex()
+    if _legendById then return end
+    local LegendsLoader = require("scripts/data/legends_loader")
+    _legendById = {}
+    _legendByName = {}
+    for _, p in ipairs(LegendsLoader.loadAllPlayers()) do
+        if p.id then _legendById[p.id] = p end
+        local name = p.full_name_cn or p.match_name
+        if name then _legendByName[name] = p end
+    end
+end
+
+--- 按 id 或中文名查找传奇 JSON 数据
+---@param idOrName string
+---@return table|nil lData
+function YouthManager.findLegendData(idOrName)
+    if not idOrName or idOrName == "" then return nil end
+    _ensureLegendIndex()
+    return _legendById[idOrName] or _legendByName[idOrName]
+end
+
+---@param set table
+---@param lData table
+---@return boolean
+local function _legendKeysPresent(set, lData)
+    if lData.id and set[lData.id] then return true end
+    local name = lData.full_name_cn or lData.match_name
+    return name and set[name] or false
+end
+
+---@param gameState table
+---@return table set
+local function _collectLegendKeysFromPlayers(gameState)
+    local set = {}
+    for _, p in pairs(gameState.players or {}) do
+        if p.isLegend then
+            if p.legendData and p.legendData.id then set[p.legendData.id] = true end
+            if p.legendName then set[p.legendName] = true end
+        end
+    end
+    return set
+end
+
+---@param gameState table
+---@return table set
+local function _collectLegendKeysFromCandidates(gameState)
+    local set = {}
+    for _, c in ipairs(gameState._youthCandidates or {}) do
+        if c.isLegend then
+            if c.legendData and c.legendData.id then set[c.legendData.id] = true end
+            if c.legendName then set[c.legendName] = true end
+        end
+    end
+    return set
+end
+
+--- 已抽但未签入、且存档中无对应 Player 实体的传奇（漏签）
+---@param gameState table
+---@return table[] lData list
+function YouthManager.getOrphanedPulledLegends(gameState)
+    local state = YouthManager.getLegendGachaState(gameState)
+    local entityKeys = _collectLegendKeysFromPlayers(gameState)
+    local pendingKeys = _collectLegendKeysFromCandidates(gameState)
+    local seen = {}
+    local out = {}
+
+    local function tryAdd(lData)
+        if not lData then return end
+        local dedupeKey = lData.id or (lData.full_name_cn or lData.match_name)
+        if not dedupeKey or seen[dedupeKey] then return end
+        if _legendKeysPresent(entityKeys, lData) then return end
+        if _legendKeysPresent(pendingKeys, lData) then return end
+        seen[dedupeKey] = true
+        table.insert(out, lData)
+    end
+
+    for _, id in ipairs(state.pulledLegendIds or {}) do
+        tryAdd(YouthManager.findLegendData(id))
+    end
+    for _, name in ipairs(state.pulledLegends or {}) do
+        tryAdd(YouthManager.findLegendData(name))
+    end
+    return out
+end
+
+--- 补签漏签传奇：重建候选并直接签入青训队
+---@param gameState table
+---@param lData table
+---@return boolean ok
+---@return string|nil err
+function YouthManager.reclaimOrphanedLegend(gameState, lData)
+    if not lData then return false, "无效的传奇数据" end
+
+    local stillOrphan = false
+    for _, o in ipairs(YouthManager.getOrphanedPulledLegends(gameState)) do
+        if lData.id and o.id == lData.id then
+            stillOrphan = true
+            break
+        end
+        local a = lData.full_name_cn or lData.match_name
+        local b = o.full_name_cn or o.match_name
+        if a and b and a == b then
+            stillOrphan = true
+            break
+        end
+    end
+    if not stillOrphan then
+        return false, "该传奇无需补签或已在候选/队中"
+    end
+
+    local candidate = _makeLegendCandidate(gameState, lData)
+    gameState._youthCandidates = gameState._youthCandidates or {}
+    table.insert(gameState._youthCandidates, candidate)
+    local idx = #gameState._youthCandidates
+    local ok, err = YouthManager.signCandidate(gameState, idx)
+    if not ok then
+        table.remove(gameState._youthCandidates, idx)
+        return false, err
+    end
+    return true
+end
+
 --- 观看广告（解锁阶段）
 ---@param gameState table
 ---@return boolean unlocked 是否刚刚解锁
