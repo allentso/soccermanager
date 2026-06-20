@@ -644,35 +644,7 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
         UI.Panel { flexGrow = 1 },
     }
 
-    -- 无球队时（失业等）没有比赛卡片，个人资料和设置保留在顶栏
-    if not team then
-        table.insert(children, UI.Button {
-            text = "👤 我的资料",
-            height = 30,
-            backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
-            borderRadius = 6,
-            fontSize = 11,
-            color = Theme.COLORS.TEXT_SECONDARY,
-            paddingLeft = 8, paddingRight = 8,
-            marginRight = 6,
-            onClick = function()
-                Router.navigate("manager_view")
-            end,
-        })
-        table.insert(children, UI.Button {
-            text = "⚙",
-            width = 30,
-            height = 30,
-            backgroundColor = Theme.COLORS.TRANSPARENT,
-            borderRadius = 15,
-            fontSize = 16,
-            color = Theme.COLORS.TEXT_MUTED,
-            marginRight = 6,
-            onClick = function()
-                Router.navigate("settings")
-            end,
-        })
-    end
+    -- 无球队时（失业等）：设置和个人资料入口已移至滚动区域的状态卡片中
 
     -- 失业状态：快进到邀约按钮
     if gameState._isUnemployed then
@@ -945,7 +917,58 @@ end
 -- [Hero区] 下一场比赛大卡
 ------------------------------------------------------
 function Dashboard._buildMatchHero(gameState, team)
-    if not team then return UI.Panel { height = 0 } end
+    if not team then
+        -- 空闲状态：替代比赛卡片，提供个人资料和设置入口
+        return UI.Panel {
+            width = "100%",
+            backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+            borderRadius = 14,
+            paddingTop = 20, paddingBottom = 20, paddingLeft = 16, paddingRight = 16,
+            marginBottom = 12,
+            alignItems = "center",
+            children = {
+                UI.Label {
+                    text = "当前无执教球队",
+                    fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                },
+                UI.Label {
+                    text = "等待俱乐部邀约或主动申请空缺职位",
+                    fontSize = 13, color = Theme.COLORS.TEXT_MUTED, marginTop = 6,
+                },
+                UI.Panel {
+                    flexDirection = "row",
+                    marginTop = 16,
+                    children = {
+                        UI.Button {
+                            text = "我的资料",
+                            height = 36,
+                            paddingLeft = 16, paddingRight = 16,
+                            backgroundColor = Theme.COLORS.ACCENT,
+                            borderRadius = 8,
+                            fontSize = 13,
+                            color = "#FFFFFF",
+                            marginRight = 12,
+                            onClick = function()
+                                Router.navigate("manager_view")
+                            end,
+                        },
+                        UI.Button {
+                            text = "设置",
+                            height = 36,
+                            paddingLeft = 16, paddingRight = 16,
+                            backgroundColor = Theme.COLORS.BG_SURFACE,
+                            borderRadius = 8,
+                            fontSize = 13,
+                            color = Theme.COLORS.TEXT_SECONDARY,
+                            onClick = function()
+                                Router.navigate("settings")
+                            end,
+                        },
+                    },
+                },
+            },
+        }
+    end
 
     local league = gameState.league
 
