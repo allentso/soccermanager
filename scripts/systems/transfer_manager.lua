@@ -32,10 +32,14 @@ end
 function TransferManager._ensureData(gameState)
     if not gameState.transfers then
         gameState.transfers = {
-            bids = {},       -- 所有活跃报价
-            history = {},    -- 历史完成的转会
+            bids = {},           -- 活跃报价（日常逻辑只扫这里）
+            closedBids = {},     -- 终态报价归档（仅 UI 历史展示 + 冷却期查询）
+            history = {},        -- 历史完成的转会
             nextBidId = 1,
         }
+    end
+    if not gameState.transfers.closedBids then
+        gameState.transfers.closedBids = {}
     end
     if not gameState.scoutReports then
         gameState.scoutReports = {}
@@ -51,6 +55,42 @@ function TransferManager._invalidateListedPlayerCache(gameState)
     gameState.transfers._listedForLoanIds = nil
     gameState.transfers._listedForSaleMarketIds = nil
     gameState.transfers._listedForSaleMarketWindowKey = nil
+end
+
+local _TERMINAL_BID_STATUSES = {
+    rejected = true,
+    cancelled = true,
+    completed = true,
+    accepted = true,  -- accepted 后很快变 completed，兜底归档
+}
+
+--- 每日处理末尾调用：将终态 bid 从 bids 移到 closedBids，保持主数组精简。
+--- closedBids 保留最近 MAX_CLOSED_BIDS 条（FIFO），防止多赛季无限膨胀。
+local MAX_CLOSED_BIDS = 200
+function TransferManager._compactBids(gameState)
+    TransferManager._ensureData(gameState)
+    local bids = gameState.transfers.bids
+    local closedBids = gameState.transfers.closedBids
+    local alive = {}
+    for _, bid in ipairs(bids) do
+        if _TERMINAL_BID_STATUSES[bid.status] then
+            closedBids[#closedBids + 1] = bid
+        else
+            alive[#alive + 1] = bid
+        end
+    end
+    -- 只在有变动时替换，避免无谓 GC 压力
+    if #alive < #bids then
+        gameState.transfers.bids = alive
+        -- FIFO 限流：保留最新的 MAX_CLOSED_BIDS 条
+        if #closedBids > MAX_CLOSED_BIDS then
+            local trimmed = {}
+            for i = #closedBids - MAX_CLOSED_BIDS + 1, #closedBids do
+                trimmed[#trimmed + 1] = closedBids[i]
+            end
+            gameState.transfers.closedBids = trimmed
+        end
+    end
 end
 
 --- 获取挂牌球员快照；缓存只存 id，返回前会校验当前挂牌状态，避免成交后 stale id 参与撮合。
@@ -375,17 +415,20 @@ end
 function TransferManager._checkRejectionCooldown(gameState, playerId)
     local today = gameState.date
 
-    -- 检查 bids 中的拒绝记录
-    if gameState.transfers.bids then
-        for _, bid in ipairs(gameState.transfers.bids) do
-            if bid.playerId == playerId
-                and bid.buyerTeamId == gameState.playerTeamId
-                and bid.status == "rejected"
-                and bid.rejectedDate then
-                local daysSince = _daysBetweenDates(bid.rejectedDate, today)
-                if daysSince >= 0 and daysSince < REJECTION_COOLDOWN_DAYS then
-                    local remaining = REJECTION_COOLDOWN_DAYS - daysSince
-                    return false, string.format("该球员的报价在 %d 天前被拒绝，需等待 %d 天后才能重新报价", daysSince, remaining)
+    -- 检查 bids + closedBids 中的拒绝记录
+    local bidSources = { gameState.transfers.bids, gameState.transfers.closedBids }
+    for _, source in ipairs(bidSources) do
+        if source then
+            for _, bid in ipairs(source) do
+                if bid.playerId == playerId
+                    and bid.buyerTeamId == gameState.playerTeamId
+                    and bid.status == "rejected"
+                    and bid.rejectedDate then
+                    local daysSince = _daysBetweenDates(bid.rejectedDate, today)
+                    if daysSince >= 0 and daysSince < REJECTION_COOLDOWN_DAYS then
+                        local remaining = REJECTION_COOLDOWN_DAYS - daysSince
+                        return false, string.format("该球员的报价在 %d 天前被拒绝，需等待 %d 天后才能重新报价", daysSince, remaining)
+                    end
                 end
             end
         end
@@ -556,9 +599,15 @@ end
 function TransferManager.getPlayerBids(gameState)
     TransferManager._ensureData(gameState)
     local result = {}
+    -- 合并活跃 + 归档 bid（UI 展示历史用）
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.buyerTeamId == gameState.playerTeamId then
-            table.insert(result, bid)
+            result[#result + 1] = bid
+        end
+    end
+    for _, bid in ipairs(gameState.transfers.closedBids) do
+        if bid.buyerTeamId == gameState.playerTeamId then
+            result[#result + 1] = bid
         end
     end
     -- 按日期倒序
@@ -6270,6 +6319,9 @@ function TransferManager.processDailyBids(gameState)
 
     -- 竞争性报价处理
     TransferManager.processCompetitiveBids(gameState)
+
+    -- 日末归档：将终态 bid 移出主数组，保持次日扫描量精简
+    TransferManager._compactBids(gameState)
 end
 
 function TransferManager._processLoanBidResponse(gameState, bid)
