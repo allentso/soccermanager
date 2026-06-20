@@ -2135,9 +2135,11 @@ end
 --- 池存的是球员引用，teamId/retired/listedForSale 等字段由 _findTransferTarget 的
 --- consider() 实时检查，无需因转会完成而失效。OVR 窗口内几乎不变（训练日增≤0.1）。
 function TransferManager._buildTransferCandidatePool(gameState)
+    TransferManager._ensureData(gameState)
+    local transfers = gameState.transfers
     local windowKey = TransferManager.getTransferWindowKey(gameState) or ""
-    if TransferManager._candidatePoolWindowKey == windowKey and TransferManager._candidatePoolCache then
-        return TransferManager._candidatePoolCache
+    if transfers._candidatePoolWindowKey == windowKey and transfers._candidatePoolCache then
+        return transfers._candidatePoolCache
     end
 
     local p2g = _posToGroup()
@@ -2159,8 +2161,8 @@ function TransferManager._buildTransferCandidatePool(gameState)
     table.sort(pool.MID, byOvr)
     table.sort(pool.FWD, byOvr)
 
-    TransferManager._candidatePoolCache = pool
-    TransferManager._candidatePoolWindowKey = windowKey
+    transfers._candidatePoolCache = pool
+    transfers._candidatePoolWindowKey = windowKey
     return pool
 end
 
