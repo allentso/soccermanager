@@ -644,8 +644,21 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
         UI.Panel { flexGrow = 1 },
     }
 
-    -- 无球队时（失业等）没有比赛卡片，设置保留在顶栏
+    -- 无球队时（失业等）没有比赛卡片，个人资料和设置保留在顶栏
     if not team then
+        table.insert(children, UI.Button {
+            text = "👤 我的资料",
+            height = 30,
+            backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+            borderRadius = 6,
+            fontSize = 11,
+            color = Theme.COLORS.TEXT_SECONDARY,
+            paddingLeft = 8, paddingRight = 8,
+            marginRight = 6,
+            onClick = function()
+                Router.navigate("manager_view")
+            end,
+        })
         table.insert(children, UI.Button {
             text = "⚙",
             width = 30,
