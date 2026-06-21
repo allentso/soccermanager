@@ -1484,13 +1484,20 @@ function TransferManager.processDailyAITransferSlice(gameState)
     if not _isTransferWindowMonth(gameState) then return end
 
     local batchTeams = TransferManager._getAITransferBatchTeams(gameState, { daily = true })
-    TransferManager._aiListPlayersForSale(gameState, { teams = batchTeams })
-    TransferManager._aiListPlayersForLoan(gameState, {
-        teams = batchTeams,
-        maxGlobal = TransferManager._getDailyQuota(gameState, AI_LOAN_LIST_MAX_GLOBAL, AI_TRANSFER_PASSES_PER_WEEK),
-    })
+
+    -- AI 挂牌改为周频：窗口首日（月初）全量 + 每周一增量，避免每天排序开销
+    local isWindowFirstDay = (gameState.date.day == 1)
+    local isMonday = (gameState.dayOfWeek == 1)
+    if isWindowFirstDay or isMonday then
+        TransferManager._aiListPlayersForSale(gameState, { teams = isWindowFirstDay and nil or batchTeams })
+        TransferManager._aiListPlayersForLoan(gameState, {
+            teams = isWindowFirstDay and nil or batchTeams,
+            maxGlobal = AI_LOAN_LIST_MAX_GLOBAL,
+        })
+    end
     TransferManager._processWeeklyTransferMarketPulse(gameState, {
-        playerAttractChance = 0.80 * AI_TRANSFER_PASSES_PER_WEEK / 7,
+        -- playerAttractChance 提高到 0.40：合并了原 processDailyBids 中的 0.35 概率入口
+        playerAttractChance = 0.40,
         aiAttractChance = 0.30 * AI_TRANSFER_PASSES_PER_WEEK / 7,
         maxAIAttempts = TransferManager._getDailyQuota(gameState, 120, AI_TRANSFER_PASSES_PER_WEEK),
         loanAttractChance = 0.70 * AI_TRANSFER_PASSES_PER_WEEK / 7,
@@ -6067,24 +6074,22 @@ function TransferManager.processDailyBids(gameState)
         -- 下方的处理循环只作用于仍有效的 bid，已 cancelled 的会跳过
     end
 
-    -- 挂牌出售：转会窗内每日推进（弥补冬窗仅 1 月、原先仅周一/四 AI 转会的问题）
+    -- 挂牌撮合已统一由 processDailyAITransferSlice → _processWeeklyTransferMarketPulse 处理，
+    -- 不再在此重复调用（省一次 incIdx + buyerTeamCache 构建）。
     if TransferManager.isInTransferWindow(gameState) then
-        -- 此处是日常挂牌撮合，后面每日 AI slice 还会做一次市场脉冲；
-        -- 隐藏 AI-AI 撮合额外降半档，避免两个入口叠加后低价交易过密。
-        local aiLoadScale = _getAITransferLoadScale() * AI_DAILY_LISTED_MATCH_SCALE
-        TransferManager._processListedPlayerOffers(gameState, {
-            playerAttractChance = 0.35,
-            aiAttractChance = 0.03 * aiLoadScale,
-            maxAIAttempts = math.max(1, math.floor(35 * aiLoadScale)),
-        })
         -- 玩家阵容人数阈值提醒（28/30/33）
         TransferManager._notifyPlayerSquadThresholds(gameState)
     end
 
-    -- 存档修复：incoming 出售 bid 异常（读档后首日也会执行，此处每日兜底）
-    TransferManager.repairIncomingSaleBids(gameState)
-    TransferManager.repairStaleFreeAgentNegos(gameState, { silent = true })
-    TransferManager.repairStaleTransferSignBids(gameState, { silent = true })
+    -- 存档修复：降频为窗口首日 + 每周一执行（正常流程不产生 stale 数据，无需每天跑）
+    local needRepair = (gameState.date.day == 1) or (gameState.dayOfWeek == 1)
+        or not gameState.transfers._repairDoneThisWindow
+    if needRepair then
+        TransferManager.repairIncomingSaleBids(gameState)
+        TransferManager.repairStaleFreeAgentNegos(gameState, { silent = true })
+        TransferManager.repairStaleTransferSignBids(gameState, { silent = true })
+        gameState.transfers._repairDoneThisWindow = true
+    end
 
     -- bids 历史会跨窗口/赛季累积；每日生命周期只关心仍可能推进的报价。
     -- 后续多段处理复用同一 activeBids，避免每天反复扫 completed/rejected/cancelled 历史。
