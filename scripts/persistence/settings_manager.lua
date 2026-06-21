@@ -28,6 +28,7 @@ local DEFAULTS = {
     showTutorials = true,
     showNotifications = true,
     compactMode = false,    -- 紧凑UI模式
+    uiSafeAreaMode = "default", -- 顶底部安全边距：default/light/medium/large
 }
 
 -- 运行时设置缓存

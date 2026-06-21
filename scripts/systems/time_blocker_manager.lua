@@ -85,12 +85,21 @@ end
 -- 内部检查函数
 ------------------------------------------------------
 
+--- 统计首发槽位人数
+local function _countStartingXI(team)
+    local count = 0
+    for _, pid in pairs(team.startingXI or {}) do
+        if pid then count = count + 1 end
+    end
+    return count
+end
+
 --- 1. 首发阵容有伤员（比赛日前一天才阻断）
 function TimeBlockerManager._checkInjuredXI(gameState, team, blockers)
-    if not team.startingXI or #team.startingXI == 0 then return end
+    if _countStartingXI(team) == 0 then return end
 
     local injuredNames = {}
-    for _, pid in ipairs(team.startingXI or {}) do
+    for _, pid in pairs(team.startingXI or {}) do
         local p = gameState.players[pid]
         if p and p.injured then
             table.insert(injuredNames, p.displayName)
@@ -113,7 +122,7 @@ end
 
 --- 2. 首发不足 11 人且明天有比赛
 function TimeBlockerManager._checkIncompleteXI(gameState, team, blockers)
-    local startCount = team.startingXI and #team.startingXI or 0
+    local startCount = _countStartingXI(team)
     if startCount >= 11 then return end
 
     local available = 0
@@ -185,10 +194,10 @@ end
 
 --- 5. 关键球员合同风险：首发中 OVR 前 3 的球员合同 3 个月内到期
 function TimeBlockerManager._checkKeyContractRisk(gameState, team, blockers)
-    if not team.startingXI or #team.startingXI == 0 then return end
+    if _countStartingXI(team) == 0 then return end
 
     local starters = {}
-    for _, pid in ipairs(team.startingXI or {}) do
+    for _, pid in pairs(team.startingXI or {}) do
         local p = gameState.players[pid]
         if p then table.insert(starters, p) end
     end

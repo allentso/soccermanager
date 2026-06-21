@@ -257,15 +257,13 @@ function ContractManager._releasePlayer(gameState, team, player)
     end
     team.playerIds = newPlayerIds
 
-    -- 从首发中移除
+    -- 从首发中移除：startingXI 是槽位表，清空对应槽位，不压缩索引
     if team.startingXI then
-        local newXI = {}
-        for _, pid in ipairs(team.startingXI or {}) do
-            if pid ~= player.id then
-                table.insert(newXI, pid)
+        for slot, pid in pairs(team.startingXI or {}) do
+            if pid == player.id then
+                team.startingXI[slot] = nil
             end
         end
-        team.startingXI = newXI
     end
 
     -- 标记球员无队

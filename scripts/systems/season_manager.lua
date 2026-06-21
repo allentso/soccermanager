@@ -687,7 +687,21 @@ local SECOND_DIVISION_NAMES = {
     SerieA = "意乙",
     Bundesliga = "德乙",
     Ligue1 = "法乙",
+    CSL = "中甲",
 }
+
+local LEAGUE_COUNTRIES = {
+    EPL = "ENG",
+    LaLiga = "ES",
+    SerieA = "IT",
+    Bundesliga = "DE",
+    Ligue1 = "FR",
+    CSL = "CHN",
+}
+
+local function _getLeagueCountry(leagueKey, league)
+    return LEAGUE_COUNTRIES[leagueKey] or (league and league.country) or "ENG"
+end
 
 --- 处理所有联赛的升降级
 function SeasonManager._processPromotionRelegation(gameState)
@@ -706,6 +720,8 @@ function SeasonManager._processPromotionRelegation(gameState)
         -- 确保该联赛的二级联赛储备池存在
         if not gameState.secondDivision[leagueKey] then
             SeasonManager._initSecondDivision(gameState, leagueKey, lg)
+        else
+            SeasonManager._repairSecondDivisionTeamCountries(gameState, leagueKey, lg)
         end
 
         local secondDiv = gameState.secondDivision[leagueKey]
@@ -733,7 +749,7 @@ function SeasonManager._processPromotionRelegation(gameState)
 
         -- 确保有足够的升级球队（如果不够则生成）
         while #promotedTeams < RELEGATION_SPOTS do
-            local newTeam = SeasonManager._generatePromotionTeam(gameState, leagueKey, lg.country)
+            local newTeam = SeasonManager._generatePromotionTeam(gameState, leagueKey, _getLeagueCountry(leagueKey, lg))
             table.insert(promotedTeams, newTeam.id)
             table.insert(secondDiv.teamIds, newTeam.id)
         end
@@ -841,6 +857,29 @@ function SeasonManager._processPromotionRelegation(gameState)
     end
 end
 
+--- 修复旧存档里因缺少 CHN 素材而生成成其他国家风格的中超升降级球队
+function SeasonManager._repairSecondDivisionTeamCountries(gameState, leagueKey, league)
+    local expectedCountry = _getLeagueCountry(leagueKey, league)
+    if expectedCountry ~= "CHN" then return end
+
+    for _, teamId in ipairs(league.teamIds or {}) do
+        local team = gameState.teams and gameState.teams[teamId]
+        if team and not team.jsonTeamId and (team.country ~= expectedCountry or team._generatedCountry ~= expectedCountry) then
+            SeasonManager._localizeGeneratedPromotionTeam(gameState, team, expectedCountry)
+        end
+    end
+
+    local secondDiv = gameState.secondDivision and gameState.secondDivision[leagueKey]
+    if not secondDiv then return end
+
+    for _, teamId in ipairs(secondDiv.teamIds or {}) do
+        local team = gameState.teams and gameState.teams[teamId]
+        if team and not team.jsonTeamId and (team.country ~= expectedCountry or team._generatedCountry ~= expectedCountry) then
+            SeasonManager._localizeGeneratedPromotionTeam(gameState, team, expectedCountry)
+        end
+    end
+end
+
 --- 初始化某联赛的二级联赛储备池（首次触发时程序化生成球队）
 function SeasonManager._initSecondDivision(gameState, leagueKey, league)
     gameState.secondDivision[leagueKey] = {
@@ -848,11 +887,12 @@ function SeasonManager._initSecondDivision(gameState, leagueKey, league)
         standings = {},
     }
     local secondDiv = gameState.secondDivision[leagueKey]
+    local country = _getLeagueCountry(leagueKey, league)
 
     -- 生成 6 支二级联赛球队作为初始储备
     local count = 6
     for _ = 1, count do
-        local team = SeasonManager._generatePromotionTeam(gameState, leagueKey, league.country)
+        local team = SeasonManager._generatePromotionTeam(gameState, leagueKey, country)
         table.insert(secondDiv.teamIds, team.id)
     end
 end
@@ -951,6 +991,7 @@ end
 
 --- 生成一支升级球队（程序化创建）
 function SeasonManager._generatePromotionTeam(gameState, leagueKey, country)
+    country = country or _getLeagueCountry(leagueKey, nil)
     -- 球队名称素材（按国家）
     local namePool = SeasonManager._getTeamNamePool(country)
     local cityPool = SeasonManager._getCityPool(country)
@@ -974,6 +1015,7 @@ function SeasonManager._generatePromotionTeam(gameState, leagueKey, country)
         shortName = name,
         city = city,
         country = country,
+        _generatedCountry = country,
         colors = {
             primary = string.format("#%02x%02x%02x", RandomInt(0, 200), RandomInt(0, 200), RandomInt(0, 200)),
             secondary = "#ffffff",
@@ -990,6 +1032,48 @@ function SeasonManager._generatePromotionTeam(gameState, leagueKey, country)
     AiSquadPolicy.ensureFinancialBaseline(team)
 
     return team
+end
+
+--- 旧存档升降级候选队国家错误时，只替换程序化展示素材，保留队伍 id/财务/战绩
+function SeasonManager._localizeGeneratedPromotionTeam(gameState, team, country)
+    local namePool = SeasonManager._getTeamNamePool(country)
+    local cityPool = SeasonManager._getCityPool(country)
+    local city = cityPool[RandomInt(1, #cityPool)]
+    local name = city .. namePool[RandomInt(1, #namePool)]
+
+    for _ = 1, 20 do
+        local exists = false
+        for _, other in pairs(gameState.teams or {}) do
+            if other ~= team and other.name == name then
+                exists = true
+                break
+            end
+        end
+        if not exists then break end
+        city = cityPool[RandomInt(1, #cityPool)]
+        name = city .. namePool[RandomInt(1, #namePool)]
+    end
+
+    team.name = name
+    team.shortName = name
+    team.city = city
+    team.country = country
+    team._generatedCountry = country
+    team.stadiumName = city .. "球场"
+
+    local lastNames = SeasonManager._getLastNamePool(country)
+    local firstNames = SeasonManager._getFirstNamePool(country)
+    local usedNames = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local player = gameState.players and gameState.players[pid]
+        if player then
+            local firstName, lastName, displayName = _pickUniqueRegenName(usedNames, firstNames, lastNames)
+            player.firstName = firstName
+            player.lastName = lastName
+            player.displayName = displayName
+            player.nationality = country
+        end
+    end
 end
 
 --- 为新球队生成阵容
@@ -1052,6 +1136,7 @@ function SeasonManager._getTeamNamePool(country)
         IT  = {"FC", "联合", "竞技", "体育", "1905"},
         DE  = {"FC", "体育", "联合", "09", "04"},
         FR  = {"FC", "竞技", "体育", "奥林匹克", "联合"},
+        CHN = {"队", "FC", "竞技", "联合", "城", "龙狮", "雄狮", "蓝鲸"},
     }
     return pools[country] or pools.ENG
 end
@@ -1068,6 +1153,8 @@ function SeasonManager._getCityPool(country)
                "杜塞尔多夫", "马格德堡", "布伦瑞克", "罗斯托克"},
         FR  = {"梅斯", "卡昂", "洛里昂", "欧塞尔", "特鲁瓦", "阿雅克肖",
                "昂热", "南锡", "格勒诺布尔", "巴黎FC", "瓦朗谢纳"},
+        CHN = {"南京", "青岛", "苏州", "无锡", "南通", "大连", "沈阳", "长春", "石家庄", "济南",
+               "佛山", "东莞", "厦门", "昆明", "西安", "武汉", "长沙", "南昌", "成都", "重庆"},
     }
     return pools[country] or pools.ENG
 end
@@ -1085,6 +1172,8 @@ function SeasonManager._getLastNamePool(country)
                "Wagner", "Becker", "Schulz", "Hoffmann", "Koch", "Richter", "Klein", "Wolf"},
         FR  = {"Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard",
                "Petit", "Durand", "Leroy", "Moreau", "Simon", "Laurent", "Lefevre", "Mercier"},
+        CHN = {"王", "李", "张", "刘", "陈", "杨", "赵", "黄", "周", "吴", "徐", "孙",
+               "马", "朱", "胡", "郭", "何", "高", "林", "罗", "郑", "梁", "谢", "宋"},
     }
     return pools[country] or pools.ENG
 end
@@ -1106,6 +1195,8 @@ function SeasonManager._getFirstNamePool(country)
         FR  = {"Lucas", "Louis", "Gabriel", "Raphaël", "Arthur", "Hugo",
                "Jules", "Adam", "Léo", "Nathan", "Ethan", "Paul",
                "Antoine", "Maxime", "Clément", "Théo", "Enzo", "Tom"},
+        CHN = {"伟", "磊", "强", "洋", "杰", "涛", "超", "鹏", "鑫", "浩", "博", "宇",
+               "俊", "健", "凯", "晨", "昊", "旭", "坤", "航", "毅", "宁", "泽", "睿"},
     }
     return pools[country] or pools.ENG
 end

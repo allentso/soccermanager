@@ -86,6 +86,21 @@ local function idListsEqual(a, b)
     return true
 end
 
+local function slotOffsetsEqual(a, b)
+    a = a or {}
+    b = b or {}
+    for k, v in pairs(a) do
+        local bv = b[k]
+        if not bv then return false end
+        if (v[1] or v.dx or 0) ~= (bv[1] or bv.dx or 0) then return false end
+        if (v[2] or v.dy or 0) ~= (bv[2] or bv.dy or 0) then return false end
+    end
+    for k, v in pairs(b) do
+        if a[k] == nil and v ~= nil then return false end
+    end
+    return true
+end
+
 --- 捕获当前阵容状态快照（用于 A/B 方案）
 function Team.captureLineupSnapshot(team)
     return {
@@ -111,7 +126,7 @@ function Team.lineupSnapshotsEqual(a, b)
     if not tablesEqual(a.startingXI, b.startingXI) then return false end
     if not idListsEqual(a.benchIds, b.benchIds) then return false end
     if not tablesEqual(a.slotRoles or {}, b.slotRoles or {}) then return false end
-    if not tablesEqual(a.slotOffsets or {}, b.slotOffsets or {}) then return false end
+    if not slotOffsetsEqual(a.slotOffsets or {}, b.slotOffsets or {}) then return false end
     if not tablesEqual(a.customSlots or {}, b.customSlots or {}) then return false end
     if not tablesEqual(a.playerDuties or {}, b.playerDuties or {}) then return false end
     if a.captain ~= b.captain then return false end
@@ -176,6 +191,7 @@ function Team.new(data)
     self.country = data.country or "ENG"
     self.colors = data.colors or {primary = "#ffffff", secondary = "#000000"}
     self.jsonTeamId = data.jsonTeamId or nil
+    self._generatedCountry = data._generatedCountry or nil
     self.iconPath = data.iconPath or nil
     self.stadiumName = data.stadiumName or "Stadium"
     self.stadiumCapacity = data.stadiumCapacity or 30000
@@ -361,11 +377,17 @@ function Team:removePlayer(playerId)
     for i, pid in ipairs(self.playerIds) do
         if pid == playerId then
             table.remove(self.playerIds, i)
-            -- 从首发中移除
-            for j, sid in ipairs(self.startingXI) do
+            -- startingXI 是阵型槽位表，移除球员时清空槽位，不压缩索引
+            for slot, sid in pairs(self.startingXI or {}) do
                 if sid == playerId then
-                    table.remove(self.startingXI, j)
-                    break
+                    self.startingXI[slot] = nil
+                end
+            end
+            if self.benchIds then
+                for j = #self.benchIds, 1, -1 do
+                    if self.benchIds[j] == playerId then
+                        table.remove(self.benchIds, j)
+                    end
                 end
             end
             return
@@ -399,6 +421,7 @@ function Team:serialize()
         country = self.country,
         colors = self.colors,
         jsonTeamId = self.jsonTeamId,
+        _generatedCountry = self._generatedCountry,
         iconPath = self.iconPath,
         stadiumName = self.stadiumName,
         stadiumCapacity = self.stadiumCapacity,

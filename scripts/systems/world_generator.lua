@@ -286,8 +286,7 @@ function WorldGenerator.autoSelectStartingXI(gameState, teamId)
     local players = gameState:getTeamPlayers(teamId)
     if #players < 11 then return end
 
-    local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local slots = AIManager._getFormationSlots(team)
 
     -- 贪心分配：对每个槽位选最佳匹配球员
     local selected = {}
@@ -318,18 +317,16 @@ function WorldGenerator.autoSelectStartingXI(gameState, teamId)
     team.startingXI = selected
 
     -- 设置队长为能力最高的球员
-    if #team.startingXI > 0 then
-        local best = nil
-        for _, pid in ipairs(team.startingXI or {}) do
-            local p = gameState.players[pid]
-            if p and (not best or p.overall > best.overall) then best = p end
-        end
-        if best then team.captain = best.id end
+    local best = nil
+    for _, pid in pairs(team.startingXI or {}) do
+        local p = gameState.players[pid]
+        if p and (not best or p.overall > best.overall) then best = p end
     end
+    if best then team.captain = best.id end
 
     -- 分配阵容角色 (key/rotation/squad/youth)
     local starterSet = {}
-    for _, pid in ipairs(team.startingXI or {}) do starterSet[pid] = true end
+    for _, pid in pairs(team.startingXI or {}) do starterSet[pid] = true end
 
     local allPlayers = gameState:getTeamPlayers(teamId)
     table.sort(allPlayers, function(a, b) return a.overall > b.overall end)

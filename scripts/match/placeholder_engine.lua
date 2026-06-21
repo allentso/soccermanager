@@ -220,7 +220,7 @@ end
 function PlaceholderEngine._getMatchPlayers(gameState, team)
     local players = {}
     -- 优先使用首发阵容
-    if team.startingXI and #team.startingXI > 0 then
+    if team.startingXI then
         for _, pid in pairs(team.startingXI) do
             local p = gameState.players[pid]
             if p and not p.injured then

@@ -133,12 +133,13 @@ end
 
 function TacticsResolver.getMatchPlayers(gameState, team)
     local players = {}
-    if team.startingXI and #team.startingXI > 0 then
-        for _, playerId in ipairs(team.startingXI or {}) do
-            local player = gameState.players[playerId]
-            if player and not player.injured and not player.retired then
-                table.insert(players, player)
-            end
+    local selectedSet = {}
+    for i = 1, 11 do
+        local playerId = team.startingXI and team.startingXI[i]
+        local player = playerId and gameState.players[playerId]
+        if player and not player.injured and not player.retired then
+            table.insert(players, player)
+            selectedSet[player.id] = true
         end
     end
 
@@ -146,15 +147,9 @@ function TacticsResolver.getMatchPlayers(gameState, team)
         for _, playerId in ipairs(team.playerIds or {}) do
             if #players >= 11 then break end
             local player = gameState.players[playerId]
-            if player and not player.injured and not player.retired then
-                local alreadySelected = false
-                for _, selected in ipairs(players) do
-                    if selected.id == player.id then
-                        alreadySelected = true
-                        break
-                    end
-                end
-                if not alreadySelected then table.insert(players, player) end
+            if player and not player.injured and not player.retired and not selectedSet[player.id] then
+                table.insert(players, player)
+                selectedSet[player.id] = true
             end
         end
     end
@@ -228,8 +223,11 @@ function TacticsResolver.buildTeamContext(gameState, team)
 
     -- 建立 playerId -> slotIndex 映射
     local playerSlotIndex = {}
-    for i, pid in ipairs(startingXI) do
-        playerSlotIndex[pid] = i
+    for i = 1, 11 do
+        local pid = startingXI[i]
+        if pid then
+            playerSlotIndex[pid] = i
+        end
     end
 
     for _, player in ipairs(players) do
@@ -400,8 +398,9 @@ function TacticsResolver.buildTeamContext(gameState, team)
 
     -- P1-2: 职责极端失衡惩罚（仅极端场景，不惩罚正常倾向性）
     local dutyDist = { attack = 0, support = 0, defend = 0 }
-    for _, pid in ipairs(startingXI) do
-        if playerSlotIndex[pid] ~= 1 then  -- 排除 GK（slotIdx=1）
+    for i = 1, 11 do
+        local pid = startingXI[i]
+        if pid and i ~= 1 then  -- 排除 GK（slotIdx=1）
             local d = duties[pid] or "support"
             dutyDist[d] = (dutyDist[d] or 0) + 1
         end
@@ -419,9 +418,10 @@ function TacticsResolver.buildTeamContext(gameState, team)
     local fitRule = ATTACK_MODE_ROLE_FIT[mode]
     if fitRule then
         local fitCount = 0
-        for i, pid in ipairs(startingXI) do
+        for i = 1, 11 do
+            local pid = startingXI[i]
             local roleKey = slotRoles[i] or "default"
-            if fitRule.roles[roleKey] then
+            if pid and fitRule.roles[roleKey] then
                 fitCount = fitCount + 1
             end
         end

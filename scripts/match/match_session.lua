@@ -303,7 +303,7 @@ function MatchSession:_buildBench(gameState, homeTeam, awayTeam)
 
     local startingSet = {}
     if team.startingXI then
-        for _, pid in ipairs(team.startingXI or {}) do
+        for _, pid in pairs(team.startingXI or {}) do
             startingSet[pid] = true
         end
     end

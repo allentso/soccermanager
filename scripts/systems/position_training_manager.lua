@@ -30,8 +30,8 @@ end
 function PositionTrainingManager.getSlotMapForTeam(team)
     local bySlot = {}
     local startingXI = team.startingXI or {}
-    for i, pid in ipairs(startingXI) do
-        bySlot[i] = pid
+    for i = 1, 11 do
+        bySlot[i] = startingXI[i]
     end
     return PositionTrainingManager.buildPlayerSlotPosMap(team, bySlot)
 end

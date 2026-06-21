@@ -81,11 +81,11 @@ function Squad.create(params)
 
     -- 构建"球员ID → 战术位置"映射（首发球员按阵型中的战术位置分类）
     local playerTacticalPos = {}
-    local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local slots = AIManager._getFormationSlots(team)
     local startingXI = team.startingXI or {}
-    for i, pid in ipairs(startingXI) do
-        if slots[i] then
+    for i = 1, 11 do
+        local pid = startingXI[i]
+        if pid and slots[i] then
             playerTacticalPos[pid] = slots[i]
         end
     end
@@ -126,12 +126,15 @@ function Squad.create(params)
 
     -- 标记首发
     local startingSet = {}
-    for _, pid in ipairs(team.startingXI or {}) do
+    for _, pid in pairs(team.startingXI or {}) do
         startingSet[pid] = true
     end
 
     -- 统计
-    local starterCount = #team.startingXI
+    local starterCount = 0
+    for i = 1, 11 do
+        if team.startingXI and team.startingXI[i] then starterCount = starterCount + 1 end
+    end
     local injuredCount = 0
     local lowFitnessCount = 0
     for _, p in ipairs(allPlayers) do
@@ -581,7 +584,8 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
             action = function()
                 -- 找到该球员在首发中的槽位索引
                 local slotIdx = nil
-                for i, pid in ipairs(team.startingXI or {}) do
+                for i = 1, 11 do
+                    local pid = team.startingXI and team.startingXI[i]
                     if pid == player.id then
                         slotIdx = i
                         break
@@ -589,12 +593,11 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                 end
                 if slotIdx then
                     -- 找同槽位最佳替补自动填充
-                    local formation = team.formation or "4-4-2"
-                    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+                    local slots = AIManager._getFormationSlots(team)
                     local slotPos = slots[slotIdx] or player.position
 
                     local starterSet = {}
-                    for _, pid in ipairs(team.startingXI or {}) do starterSet[pid] = true end
+                    for _, pid in pairs(team.startingXI or {}) do starterSet[pid] = true end
 
                     local bestSub = nil
                     local bestScore = -1
@@ -613,9 +616,10 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                         -- 原位替换
                         team.startingXI[slotIdx] = bestSub.id
                     else
-                        -- 无可用替补，移除该槽位并重排
-                        table.remove(team.startingXI, slotIdx)
+                        -- 无可用替补，清空该槽位但不压缩阵型槽位
+                        team.startingXI[slotIdx] = nil
                     end
+                    Team.saveActiveLineupPreset(team)
                 end
                 Router.replaceWith("squad")
             end,
@@ -623,30 +627,38 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
     else
         -- 非首发球员 → 替换首发（按位置推荐最适合替换的人）
         table.insert(actions, {
-            label = #team.startingXI < 11 and "设为首发" or "替换首发",
+            label = (function()
+                local count = 0
+                for i = 1, 11 do
+                    if team.startingXI and team.startingXI[i] then count = count + 1 end
+                end
+                return count < 11 and "设为首发" or "替换首发"
+            end)(),
             color = Theme.COLORS.SECONDARY,
             action = function()
-                if #team.startingXI < 11 then
-                    -- 首发未满：找最匹配的空缺槽位插入
-                    local formation = team.formation or "4-4-2"
-                    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
-                    -- 找出已占用的槽位
-                    local occupiedSlots = #team.startingXI
-                    -- 在剩余空槽中找最匹配当前球员位置的
-                    local bestSlotIdx = occupiedSlots + 1 -- 默认追加
+                local starterCount = 0
+                for i = 1, 11 do
+                    if team.startingXI and team.startingXI[i] then starterCount = starterCount + 1 end
+                end
+                if starterCount < 11 then
+                    -- 首发未满：找最匹配的空缺槽位赋值，不压缩/挤动现有槽位
+                    local slots = AIManager._getFormationSlots(team)
+                    local bestSlotIdx = nil
                     local bestScore = -1
-                    for i = 1, #slots do
-                        -- 检查该槽位是否已有人
-                        if i > occupiedSlots then
-                            local score = AIManager._playerPositionScore(player, slots[i])
+                    for i = 1, 11 do
+                        if not (team.startingXI and team.startingXI[i]) then
+                            local score = AIManager._playerPositionScore(player, slots[i] or player.position)
                             if score > bestScore then
                                 bestScore = score
                                 bestSlotIdx = i
                             end
                         end
                     end
-                    -- 插入到最佳槽位
-                    table.insert(team.startingXI, bestSlotIdx, player.id)
+                    if bestSlotIdx then
+                        team.startingXI = team.startingXI or {}
+                        team.startingXI[bestSlotIdx] = player.id
+                        Team.saveActiveLineupPreset(team)
+                    end
                     Router.replaceWith("squad")
                 else
                     -- 首发已满：显示替换选择界面
@@ -900,14 +912,14 @@ end
 
 -- 替换首发：选择要被替换的首发球员（按位置适配度排序，推荐最适合被替换的）
 function Squad._showSwapStarter(player, team, gameState)
-    local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local slots = AIManager._getFormationSlots(team)
     local starterItems = {}
 
     -- 按新球员对各槽位的适配度排序（适配度高的排前面=更推荐替换该位置）
     local candidates = {}
-    for i, pid in ipairs(team.startingXI or {}) do
-        local sp = gameState.players[pid]
+    for i = 1, 11 do
+        local pid = team.startingXI and team.startingXI[i]
+        local sp = pid and gameState.players[pid]
         if sp then
             local slotPos = slots[i] or sp.position
             local newScore = AIManager._playerPositionScore(player, slotPos)
@@ -933,6 +945,7 @@ function Squad._showSwapStarter(player, team, gameState)
             action = function()
                 -- 原位替换：直接赋值到该槽位索引
                 team.startingXI[c.index] = player.id
+                Team.saveActiveLineupPreset(team)
                 Router.replaceWith("squad")
             end,
         })
