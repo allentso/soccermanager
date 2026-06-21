@@ -6,7 +6,7 @@ local FormationShape = require("scripts/match/formation_shape")
 local PositionFit = {}
 
 PositionFit.PRIMARY_MUL = 1.00
-PositionFit.NATURAL_MUL = 0.90
+PositionFit.NATURAL_MUL = 0.95
 PositionFit.LEARNING_MIN = 0.70
 PositionFit.LEARNING_MAX = 0.90
 PositionFit.MISMATCH_FLOOR = 0.30

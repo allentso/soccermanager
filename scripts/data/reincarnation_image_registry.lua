@@ -23,6 +23,12 @@ local _images = {
     ["Gareth Bale"] = "image/bale_reborn_card_20260615065750.png",
     ["Eden Hazard"] = "image/hazard_reborn_card_20260615071726.png",
     ["Paul Pogba"] = "image/pogba_reborn_card_20260615065733.png",
+    ["Sergio Busquets"] = "image/busquets_reborn_card_v2_20260621071052.png",
+    ["Gerard Piqué"] = "image/pique_reborn_card_v2_20260621070917.png",
+    ["Zlatan Ibrahimović"] = "image/ibrahimovic_reborn_card_v2_20260621070904.png",
+    ["Pepe"] = "image/pepe_reborn_card_v2_20260621070920.png",
+    ["Heung-Min Son"] = "image/son_reborn_card_v3_20260621072950.png",
+    ["Zheng Zhi"] = "image/zhengzhi_reborn_card_v3_20260621073137.png",
 }
 
 --- 中文名 -> matchName 反查表
@@ -61,6 +67,16 @@ local _nameToMatch = {
     ["埃登·阿扎尔"] = "Eden Hazard",
     ["博格巴"] = "Paul Pogba",
     ["保罗·博格巴"] = "Paul Pogba",
+    ["布斯克茨"] = "Sergio Busquets",
+    ["塞尔吉奥·布斯克茨"] = "Sergio Busquets",
+    ["皮克"] = "Gerard Piqué",
+    ["杰拉德·皮克"] = "Gerard Piqué",
+    ["伊布"] = "Zlatan Ibrahimović",
+    ["兹拉坦·伊布拉希莫维奇"] = "Zlatan Ibrahimović",
+    ["佩佩"] = "Pepe",
+    ["孙兴慜"] = "Heung-Min Son",
+    ["孙兴民"] = "Heung-Min Son",
+    ["郑智"] = "Zheng Zhi",
 }
 
 --- 根据转生名单 matchName 获取卡牌立绘路径

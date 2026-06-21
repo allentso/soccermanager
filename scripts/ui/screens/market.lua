@@ -146,11 +146,12 @@ function Market.create(params)
     local posFilter = (params and params.posFilter) or "all"
     local searchQuery = (params and params.searchQuery) or ""
     local ovrRange = (params and params.ovrRange) or "all"
+    local ageRange = (params and params.ageRange) or "all"
 
     -- 根据Tab选择内容
     local contentChildren = {}
     if currentTab == "browse" then
-        contentChildren = Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
+        contentChildren = Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange, ageRange)
     elseif currentTab == "free" then
         contentChildren = Market._buildFreeAgentsContent(gameState, posFilter)
     elseif currentTab == "loans" then
@@ -189,7 +190,7 @@ function Market.create(params)
             fontWeight = isActive and "bold" or "normal",
             marginRight = 6,
             onClick = function()
-                Router.replaceWith("market", { tab = tab.key, posFilter = posFilter })
+                Router.replaceWith("market", { tab = tab.key, posFilter = posFilter, searchQuery = searchQuery, ovrRange = ovrRange, ageRange = ageRange })
             end,
         })
     end
@@ -331,10 +332,20 @@ local OVR_RANGES = {
     { key = "<60",  label = "<60",  min = 0,  max = 59 },
 }
 
+-- 年龄范围筛选选项
+local AGE_RANGES = {
+    { key = "all", label = "全部", min = 0, max = 99 },
+    { key = "u21", label = "U21", min = 0, max = 21 },
+    { key = "22-25", label = "22-25", min = 22, max = 25 },
+    { key = "26-29", label = "26-29", min = 26, max = 29 },
+    { key = "30+", label = "30+", min = 30, max = 99 },
+}
+
 -- 浏览球员
-function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
+function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange, ageRange)
     searchQuery = searchQuery or ""
     ovrRange = ovrRange or "all"
+    ageRange = ageRange or "all"
     local children = {}
 
     -- 位置筛选条
@@ -353,7 +364,7 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
             fontWeight = isActive and "bold" or "normal",
             marginRight = 4,
             onClick = function()
-                Router.replaceWith("market", { tab = "browse", posFilter = f.key, searchQuery = searchQuery, ovrRange = ovrRange })
+                Router.replaceWith("market", { tab = "browse", posFilter = f.key, searchQuery = searchQuery, ovrRange = ovrRange, ageRange = ageRange })
             end,
         })
     end
@@ -379,7 +390,7 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                 fontSize = 12,
                 borderRadius = 8,
                 onSubmit = function(self, text)
-                    Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = text, ovrRange = ovrRange })
+                    Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = text, ovrRange = ovrRange, ageRange = ageRange })
                 end,
             },
         },
@@ -400,7 +411,7 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
             color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
             marginRight = 4,
             onClick = function()
-                Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = r.key })
+                Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = r.key, ageRange = ageRange })
             end,
         })
     end
@@ -416,10 +427,42 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
         children = ovrBtns,
     })
 
+    -- 年龄范围筛选
+    local ageBtns = {}
+    for _, r in ipairs(AGE_RANGES) do
+        local isActive = r.key == ageRange
+        table.insert(ageBtns, UI.Button {
+            text = r.label,
+            height = 26,
+            paddingLeft = 7,
+            paddingRight = 7,
+            backgroundColor = isActive and Theme.COLORS.GOLD_DIM or {38, 46, 71, 255},
+            borderRadius = 13,
+            fontSize = 10,
+            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+            marginRight = 4,
+            onClick = function()
+                Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = ovrRange, ageRange = r.key })
+            end,
+        })
+    end
+
+    table.insert(children, UI.Panel {
+        width = "100%", height = 34, flexDirection = "row", alignItems = "center",
+        paddingLeft = 12, paddingRight = 12,
+        children = ageBtns,
+    })
+
     -- 查找 OVR 范围
     local ovrMin, ovrMax = 0, 99
     for _, r in ipairs(OVR_RANGES) do
         if r.key == ovrRange then ovrMin, ovrMax = r.min, r.max break end
+    end
+
+    -- 查找年龄范围
+    local ageMin, ageMax = 0, 99
+    for _, r in ipairs(AGE_RANGES) do
+        if r.key == ageRange then ageMin, ageMax = r.min, r.max break end
     end
 
     -- 收集可转会球员（排除自由球员，自由球员走专门的"自由球员"标签）
@@ -439,8 +482,10 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                 posMatch = getPositionGroup(p.position) == posFilter
             end
             if posMatch then
-                -- OVR 范围过滤
-                if p.overall >= ovrMin and p.overall <= ovrMax then
+                -- OVR 和年龄范围过滤
+                local playerAge = p:getAge(gameState.date.year)
+                if p.overall >= ovrMin and p.overall <= ovrMax
+                    and playerAge >= ageMin and playerAge <= ageMax then
                     -- 搜索过滤
                     if lowerQuery == "" or
                        p.displayName:lower():find(lowerQuery, 1, true) or
@@ -573,9 +618,9 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                                             return
                                         end
                                         UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
-                                        Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = ovrRange })
+                                        Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = ovrRange, ageRange = ageRange })
                                     else
-                                        Market._showBidSheet(gameState, p, posFilter, searchQuery, ovrRange)
+                                        Market._showBidSheet(gameState, p, posFilter, searchQuery, ovrRange, ageRange)
                                     end
                                 end
                             end,
@@ -619,7 +664,7 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
 end
 
 -- 报价谈判弹窗
-function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRange)
+function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, ageRange)
     if TransferLimitDialog.guardPlayer(gameState, player.id) then
         return
     end

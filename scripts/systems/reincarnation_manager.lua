@@ -17,6 +17,7 @@ local MAX_YOUTH_SQUAD = YouthManager.MAX_YOUTH_SQUAD
 ---@field matchName string 用于匹配退役球员的主键名
 ---@field matchAltNames string[] 备选名字（兼容不同数据源的拼写）
 ---@field requireLegend boolean|nil 为 true 时仅匹配 isLegend 球员（防同名联赛球员误占名额）
+---@field allowFallbackFirstSeason boolean|nil 为 true 时允许无源球员也在首季末用 fallback 转生
 ---@field potential number 转生后潜力值
 ---@field attrBonus table<string, number> 位置专精额外加成
 
@@ -133,6 +134,55 @@ ReincarnationManager.REINCARNATION_LIST = {
         attrBonus = { passing = 3, strength = 3, vision = 2, shooting = 2 },
         traits = { "playmaker", "powerhouse" },
     },
+
+    -- ============ 新增转生源 (潜力 86-90) ============
+    {
+        matchName = "Sergio Busquets",
+        matchAltNames = { "S. Busquets", "Sergio Busquets Burgos", "Busquets", "布斯克茨", "塞尔吉奥·布斯克茨" },
+        requireLegend = true,
+        potential = 89,
+        attrBonus = { passing = 3, vision = 3, decisions = 2, composure = 2, tackling = 1, defending = 1 },
+        traits = { "playmaker", "ball_winner", "captain" },
+    },
+    {
+        matchName = "Gerard Piqué",
+        matchAltNames = { "Gerard Pique", "G. Piqué", "G. Pique", "Piqué", "Pique", "皮克", "杰拉德·皮克" },
+        potential = 88,
+        allowFallbackFirstSeason = true,
+        attrBonus = { defending = 3, aerial = 3, passing = 2, composure = 2 },
+        traits = { "brick_wall", "aerial_threat" },
+    },
+    {
+        matchName = "Zlatan Ibrahimović",
+        matchAltNames = { "Zlatan Ibrahimovic", "Z. Ibrahimović", "Z. Ibrahimovic", "Ibrahimović", "Ibrahimovic", "Zlatan", "伊布", "兹拉坦·伊布拉希莫维奇" },
+        potential = 90,
+        allowFallbackFirstSeason = true,
+        attrBonus = { shooting = 3, strength = 3, aerial = 2, composure = 2 },
+        traits = { "clinical", "aerial_threat", "big_game" },
+    },
+    {
+        matchName = "Pepe",
+        matchAltNames = { "K. Pepe", "Kepler Pepe", "Kepler Laveran de Lima Ferreira", "佩佩" },
+        potential = 87,
+        allowFallbackFirstSeason = true,
+        attrBonus = { defending = 3, tackling = 3, aggression = 2, aerial = 2 },
+        traits = { "brick_wall", "ball_winner" },
+    },
+    {
+        matchName = "Heung-Min Son",
+        matchAltNames = { "H. Son", "Son", "Son Heung-min", "Heung Min Son", "孙兴慜", "孙兴民", "孙兴min" },
+        potential = 90,
+        attrBonus = { speed = 3, shooting = 3, positioning = 2, composure = 2 },
+        traits = { "pace_merchant", "clinical", "big_game" },
+    },
+    {
+        matchName = "Zheng Zhi",
+        matchAltNames = { "Z. Zheng", "Zheng", "郑智" },
+        potential = 86,
+        allowFallbackFirstSeason = true,
+        attrBonus = { passing = 3, decisions = 3, leadership = 2, teamwork = 2 },
+        traits = { "playmaker", "captain" },
+    },
 }
 
 -- 老档中退役源球员可能已被 Housekeeping 物理删除；此时无法再读取“本人”对象。
@@ -197,6 +247,86 @@ local FALLBACK_SOURCE_BY_MATCH_NAME = {
     ["Paul Pogba"] = {
         displayName = "保罗·博格巴", shortName = "博格巴", nationality = "FR", position = "CM",
         naturalPositions = {"CM", "CDM"},
+    },
+    ["Sergio Busquets"] = {
+        displayName = "塞尔吉奥·布斯克茨", shortName = "布斯克茨", nationality = "ES", position = "CDM",
+        naturalPositions = {"CDM", "CM"},
+    },
+    ["Gerard Piqué"] = {
+        displayName = "杰拉德·皮克", shortName = "皮克", nationality = "ES", position = "CB",
+        naturalPositions = {"CB"},
+    },
+    ["Zlatan Ibrahimović"] = {
+        displayName = "兹拉坦·伊布拉希莫维奇", shortName = "伊布", nationality = "SE", position = "ST",
+        naturalPositions = {"ST", "CF"},
+    },
+    ["Pepe"] = {
+        displayName = "佩佩", shortName = "佩佩", nationality = "PT", position = "CB",
+        naturalPositions = {"CB"},
+    },
+    ["Heung-Min Son"] = {
+        displayName = "孙兴慜", shortName = "孙兴慜", nationality = "KR", position = "LW",
+        naturalPositions = {"LW", "ST", "RW"},
+    },
+    ["Zheng Zhi"] = {
+        displayName = "郑智", shortName = "郑智", nationality = "CHN", position = "CM",
+        naturalPositions = {"CM", "CDM"},
+    },
+}
+
+-- 旧存档补源：这些球员新增前不在自由球员池中，需要在读档 housekeeping 时补入。
+local FREE_AGENT_SOURCE_BY_MATCH_NAME = {
+    ["Gerard Piqué"] = {
+        displayName = "杰拉德·皮克", shortName = "皮克", nationality = "ES", position = "CB",
+        naturalPositions = {"CB"}, birthYear = 1987, overall = 79, potential = 79,
+        wage = 80000, value = 4500000,
+        attributes = {
+            speed = 10, stamina = 12, strength = 16, agility = 11, passing = 16,
+            shooting = 11, tackling = 16, dribbling = 13, defending = 17,
+            positioning = 17, vision = 15, decisions = 17, composure = 18,
+            aggression = 14, teamwork = 15, leadership = 16, handling = 4,
+            reflexes = 4, aerial = 17,
+        },
+        traits = {"Stopper", "AerialThreat", "Playmaker"},
+    },
+    ["Zlatan Ibrahimović"] = {
+        displayName = "兹拉坦·伊布拉希莫维奇", shortName = "伊布", nationality = "SE", position = "ST",
+        naturalPositions = {"ST", "CF"}, birthYear = 1981, overall = 80, potential = 80,
+        wage = 90000, value = 3500000,
+        attributes = {
+            speed = 10, stamina = 12, strength = 18, agility = 14, passing = 16,
+            shooting = 18, tackling = 7, dribbling = 16, defending = 6,
+            positioning = 18, vision = 16, decisions = 17, composure = 18,
+            aggression = 16, teamwork = 14, leadership = 17, handling = 4,
+            reflexes = 4, aerial = 18,
+        },
+        traits = {"Finisher", "AerialThreat", "Flair", "BigGame"},
+    },
+    ["Pepe"] = {
+        displayName = "佩佩", shortName = "佩佩", nationality = "PT", position = "CB",
+        naturalPositions = {"CB"}, birthYear = 1983, overall = 78, potential = 78,
+        wage = 70000, value = 3000000,
+        attributes = {
+            speed = 12, stamina = 14, strength = 17, agility = 12, passing = 13,
+            shooting = 8, tackling = 17, dribbling = 11, defending = 17,
+            positioning = 17, vision = 12, decisions = 16, composure = 16,
+            aggression = 18, teamwork = 15, leadership = 16, handling = 4,
+            reflexes = 4, aerial = 17,
+        },
+        traits = {"Stopper", "BallWinner", "AerialThreat"},
+    },
+    ["Zheng Zhi"] = {
+        displayName = "郑智", shortName = "郑智", nationality = "CHN", position = "CM",
+        naturalPositions = {"CM", "CDM"}, birthYear = 1980, overall = 74, potential = 74,
+        wage = 30000, value = 1200000,
+        attributes = {
+            speed = 10, stamina = 15, strength = 14, agility = 13, passing = 16,
+            shooting = 14, tackling = 15, dribbling = 14, defending = 15,
+            positioning = 16, vision = 16, decisions = 16, composure = 16,
+            aggression = 15, teamwork = 17, leadership = 18, handling = 4,
+            reflexes = 4, aerial = 13,
+        },
+        traits = {"Playmaker", "Leader", "Teamwork"},
     },
 }
 
@@ -461,14 +591,52 @@ function ReincarnationManager.findPlayerForEntry(gameState, entry)
     return nil, false
 end
 
---- 新档初始化：记录开局赛季，首季末让名单内所有存在的传奇转生
+--- 源球员是否在有效球队中服役
+---@param gameState table
+---@param player table|nil
+---@return boolean
+function ReincarnationManager.isActiveRosterSource(gameState, player)
+    if not player or player.retired then return false end
+    if not player.teamId then return false end
+    local team = gameState.teams and gameState.teams[player.teamId]
+    if not team then return false end
+    for _, pid in ipairs(team.playerIds or {}) do
+        if pid == player.id then return true end
+    end
+    return false
+end
+
+--- 首季末统一转生条件：自由球员 / 无有效球队 / fallback 源；在役名单球员留待自然退役
+---@param gameState table
+---@param entry ReincarnationEntry
+---@return table|nil sourcePlayer
+function ReincarnationManager.getFirstSeasonRebirthSource(gameState, entry)
+    local player = select(1, ReincarnationManager.findPlayerForEntry(gameState, entry))
+    if player then
+        if ReincarnationManager.isActiveRosterSource(gameState, player) then
+            return nil
+        end
+        ReincarnationManager.markKnownSource(gameState, entry.matchName)
+        return player
+    end
+
+    if entry.allowFallbackFirstSeason and FALLBACK_SOURCE_BY_MATCH_NAME[entry.matchName] then
+        return ReincarnationManager.createFallbackSource(entry)
+    end
+    if ReincarnationManager.shouldUseFallbackSource(gameState, entry) then
+        return ReincarnationManager.createFallbackSource(entry)
+    end
+    return nil
+end
+
+--- 新档初始化：记录开局赛季，首季末让自由/无队源球员转生
 ---@param gameState table
 function ReincarnationManager.initNewGame(gameState)
     gameState._gameStartSeason = gameState.season
     gameState._reincarnationFirstSeasonEnd = true
 end
 
---- 新档首季末：强制退役名单内所有未转生的源球员，供本赛季转生循环匹配
+--- 新档首季末：自由/无有效球队/fallback 源统一转生；在役球员正常等自然退役
 ---@param gameState table
 function ReincarnationManager._maybeForceFirstSeasonRetire(gameState)
     if not gameState._reincarnationFirstSeasonEnd then return end
@@ -479,9 +647,9 @@ function ReincarnationManager._maybeForceFirstSeasonRetire(gameState)
     gameState._reincarnationFirstSeasonEnd = nil
     for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
         if not ReincarnationManager.hasReincarnationForEntry(gameState, entry) then
-            local player = select(1, ReincarnationManager.findPlayerForEntry(gameState, entry))
-            if player then
-                ReincarnationManager.forceRetireLegend(gameState, player)
+            local source = ReincarnationManager.getFirstSeasonRebirthSource(gameState, entry)
+            if source then
+                ReincarnationManager.spawnRebirth(gameState, entry, source)
             end
         end
     end
@@ -549,22 +717,67 @@ function ReincarnationManager.shouldUseFallbackSource(gameState, entry)
     return gameState._reincarnationKnownSources[entry.matchName] == true
 end
 
+--- 为旧存档补齐新增的自由传奇源球员（只补源，不直接转生）
+---@param gameState table
+function ReincarnationManager.ensureMissingFreeAgentSources(gameState)
+    local added = 0
+    for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
+        local data = FREE_AGENT_SOURCE_BY_MATCH_NAME[entry.matchName]
+        if not data then goto continue_entry end
+        if ReincarnationManager.hasReincarnationForEntry(gameState, entry) then goto continue_entry end
+        local existing = select(1, ReincarnationManager.findPlayerForEntry(gameState, entry))
+        if existing then goto continue_entry end
+
+        local player = gameState:addPlayer({
+            firstName = data.displayName,
+            lastName = data.shortName,
+            displayName = data.displayName,
+            shortName = data.shortName,
+            match_name = entry.matchName,
+            legendName = entry.matchName,
+            birthYear = data.birthYear,
+            nationality = data.nationality,
+            position = data.position,
+            naturalPositions = data.naturalPositions,
+            preferredFoot = "right",
+            weakFoot = 3,
+            attributes = data.attributes,
+            fitness = 75,
+            morale = 75,
+            condition = 92,
+            overall = data.overall,
+            potential = data.potential,
+            contractEnd = nil,
+            wage = data.wage,
+            value = data.value,
+            teamId = nil,
+            squadRole = "first_team",
+            traits = data.traits or {},
+            isLegend = true,
+        })
+        if player.calculateOverall then player:calculateOverall() end
+        if player.calculateReputation then player:calculateReputation(math.min(900, (data.overall or 70) * 10)) end
+        if player.calculateValue then player:calculateValue(gameState.date and gameState.date.year or gameState.season or 2024) end
+        ReincarnationManager.markKnownSource(gameState, entry.matchName)
+        added = added + 1
+        ::continue_entry::
+    end
+    return added
+end
+
 --- 老档读档迁移：名单内未转生且已退役的源球员，立即补转生；未退役的留待自然退役
 ---@param gameState table
 function ReincarnationManager.bootstrapLegacySave(gameState)
     ReincarnationManager.scanAndMarkKnownSources(gameState)
+    ReincarnationManager.ensureMissingFreeAgentSources(gameState)
 
+    -- 老档兼容：已退役的立即补转生；在役/自由球员留待赛季末规则处理
     for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
         if not ReincarnationManager.hasReincarnationForEntry(gameState, entry) then
             local player, isRetired = ReincarnationManager.findPlayerForEntry(gameState, entry)
             if player and isRetired then
                 ReincarnationManager.markKnownSource(gameState, entry.matchName)
                 ReincarnationManager.spawnRebirth(gameState, entry, player)
-            elseif not player and ReincarnationManager.shouldUseFallbackSource(gameState, entry) then
-                local fallback = ReincarnationManager.createFallbackSource(entry)
-                if fallback then
-                    ReincarnationManager.spawnRebirth(gameState, entry, fallback)
-                end
             end
         end
     end

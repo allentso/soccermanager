@@ -485,14 +485,14 @@ function Settings._showCheatMenu()
                 end,
             },
             UI.Button {
-                text = "⏩ 跳到中超最后一场",
+                text = "⏩ 跳到联赛最后一场",
                 width = "100%", height = 44,
                 backgroundColor = "#1A5276",
                 color = "#FFFFFF",
                 fontSize = 14, borderRadius = 8, marginBottom = 10,
                 onClick = function()
                     BottomSheet.close()
-                    Settings._cheatSkipToCSLFinalMatch()
+                    Settings._cheatSkipToLeagueFinalMatch()
                 end,
             },
             UI.Button {
@@ -660,24 +660,44 @@ function Settings._cheatAddFunds()
 end
 
 ------------------------------------------------------
--- 作弊：跳到中超最后一场比赛
+-- 作弊：跳到玩家当前联赛最后一场比赛
 ------------------------------------------------------
-function Settings._cheatSkipToCSLFinalMatch()
+function Settings._cheatSkipToLeagueFinalMatch()
     local gameState = _G.gameState
     if not gameState then return end
 
     local TurnProcessor = require("scripts/core/turn_processor")
-    local csl = gameState.leagues and gameState.leagues.CSL
     local playerTeamId = gameState.playerTeamId
-    if not csl or not playerTeamId then
-        UI.Toast.Show({ message = "未加载中超或没有玩家球队", variant = "warning" })
+    if not playerTeamId then
+        UI.Toast.Show({ message = "没有玩家球队", variant = "warning" })
+        Router.replaceWith("settings")
+        return
+    end
+
+    local playerLeague = gameState.league
+    if (not playerLeague or not playerLeague.fixtures) and gameState.playerLeagueId then
+        playerLeague = gameState.leagues and gameState.leagues[gameState.playerLeagueId]
+    end
+    if not playerLeague or not playerLeague.fixtures then
+        for _, lg in pairs(gameState.leagues or {}) do
+            for _, tid in ipairs(lg.teamIds or {}) do
+                if tid == playerTeamId then
+                    playerLeague = lg
+                    break
+                end
+            end
+            if playerLeague then break end
+        end
+    end
+    if not playerLeague or not playerLeague.fixtures then
+        UI.Toast.Show({ message = "未找到玩家当前联赛", variant = "warning" })
         Router.replaceWith("settings")
         return
     end
 
     local targetFixture = nil
     local targetSerial = -1
-    for _, f in ipairs(csl.fixtures or {}) do
+    for _, f in ipairs(playerLeague.fixtures or {}) do
         if f.status == "scheduled" and f.date
             and (f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId) then
             local serial = _dateSerial(f.date)
@@ -689,7 +709,7 @@ function Settings._cheatSkipToCSLFinalMatch()
     end
 
     if not targetFixture then
-        UI.Toast.Show({ message = "没有未进行的中超比赛", variant = "info" })
+        UI.Toast.Show({ message = "没有未进行的联赛比赛", variant = "info" })
         Router.replaceWith("dashboard")
         return
     end
@@ -708,7 +728,7 @@ function Settings._cheatSkipToCSLFinalMatch()
     DayAdvanceOverlay.run({
         gameState = gameState,
         totalSteps = daysToTarget,
-        title = "快进到中超最后一场",
+        title = "快进到联赛最后一场",
         message = "正在按天模拟剩余赛程、训练和转会。若途中遇到玩家比赛会先停下处理。",
         stepFn = function(stepIndex)
             gameState._cheatAutoPlay = (stepIndex < daysToTarget) and true or nil
@@ -716,7 +736,7 @@ function Settings._cheatSkipToCSLFinalMatch()
             local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
             if not ok then
                 gameState._cheatAutoPlay = nil
-                if log then log:Write(LOG_ERROR, "_cheatSkipToCSLFinalMatch: advanceDay 异常: " .. tostring(fixtures)) end
+                if log then log:Write(LOG_ERROR, "_cheatSkipToLeagueFinalMatch: advanceDay 异常: " .. tostring(fixtures)) end
                 return "error"
             end
             if gameState.season ~= prevSeason then
