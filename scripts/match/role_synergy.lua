@@ -140,8 +140,11 @@ function RoleSynergy.evaluate(players, slots, slotRoles, startingXI)
     -- 建立 playerId → slotIdx
     local playerSlotIndex = {}
     if startingXI then
-        for i, pid in ipairs(startingXI) do
-            playerSlotIndex[pid] = i
+        for i = 1, 11 do
+            local pid = startingXI[i]
+            if pid then
+                playerSlotIndex[pid] = i
+            end
         end
     else
         for i, player in ipairs(players) do

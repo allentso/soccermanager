@@ -48,5 +48,7 @@
   "metadata": {
     "updated_at": "2026-06-20T11:14:53.235Z",
     "promo_dependent_hash": "9dd6be03e028549c079060f959b32d6d"
-  }
+  },
+  "entry@client": "main.lua",
+  "entry@server": "main.lua"
 }

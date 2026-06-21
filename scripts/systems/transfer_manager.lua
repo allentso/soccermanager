@@ -1866,7 +1866,7 @@ function TransferManager._getSeasonProgress(gameState)
 end
 
 function TransferManager._isPlayerInStartingXI(team, playerId)
-    for _, pid in ipairs(team.startingXI or {}) do
+    for _, pid in pairs(team.startingXI or {}) do
         if pid == playerId then return true end
     end
     return false

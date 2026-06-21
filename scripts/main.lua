@@ -12,6 +12,7 @@ local SeasonManager = require("scripts/systems/season_manager")
 local YouthManager = require("scripts/systems/youth_manager")
 local TutorialGuide = require("scripts/ui/components/tutorial_guide")
 local SettingsManager = require("scripts/persistence/settings_manager")
+local LayoutAdapter = require("scripts/ui/layout_adapter")
 
 -- 页面模块
 local MainMenu = require("scripts/ui/screens/main_menu")
@@ -146,7 +147,7 @@ function BindEvents()
         if factory then
             local page = factory(params)
             if page then
-                UI.SetRoot(page, true)
+                UI.SetRoot(LayoutAdapter.wrapPage(page), true)
             end
             -- 首次进入 dashboard 时自动触发新手指引
             if screenId == "dashboard" and not TutorialGuide.isCompleted() then

@@ -647,11 +647,6 @@ end
 --- 从首发/替补名单移除球员
 local function _removeFromLineup(team, playerId)
     if team.startingXI then
-        for i = #team.startingXI, 1, -1 do
-            if team.startingXI[i] == playerId then
-                table.remove(team.startingXI, i)
-            end
-        end
         for slot, pid in pairs(team.startingXI) do
             if pid == playerId then team.startingXI[slot] = nil end
         end

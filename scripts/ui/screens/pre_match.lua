@@ -76,10 +76,15 @@ local function _buildFitnessPctLabel(fitness)
     }
 end
 
+--- 保存俱乐部当前阵容方案（国家队比赛不使用 A/B 方案）
+local function _saveClubLineupPreset(team, fixture)
+    if fixture and (fixture._isWC or fixture._isEuro) then return end
+    Team.saveActiveLineupPreset(team)
+end
+
 --- 一键配置全阵容（首发+替补），综合位置适配和体力
 local function _autoFullSquad(gameState, team)
-    local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local slots = AIManager._getFormationSlots(team)
 
     -- 收集全队可用球员
     local allAvailable = {}
@@ -396,8 +401,9 @@ function PreMatch.create(params)
     local startingXI = {}
     local bench = {}
     local startingPidSet = {}  -- 用于替补过滤
-    if team.startingXI and #team.startingXI > 0 then
-        for i, pid in ipairs(team.startingXI) do
+    for i = 1, 11 do
+        local pid = team.startingXI and team.startingXI[i]
+        if pid then
             local p = gameState.players[pid]
             if p and not p.injured then
                 startingXI[i] = p
@@ -419,11 +425,12 @@ function PreMatch.create(params)
 
     -- 填充空位
     local subIdx = 1
-    for i = 1, #(team.startingXI or {}) do
+    for i = 1, 11 do
         if not startingXI[i] and subIdx <= #availableSubs then
             startingXI[i] = availableSubs[subIdx]
             startingPidSet[availableSubs[subIdx].id] = true
             -- 同步更新 team.startingXI
+            team.startingXI = team.startingXI or {}
             team.startingXI[i] = availableSubs[subIdx].id
             subIdx = subIdx + 1
         end
@@ -447,8 +454,13 @@ function PreMatch.create(params)
 
     -- 首发列表
     local startingRows = {}
-    for i, p in ipairs(startingXI) do
-        table.insert(startingRows, PreMatch._playerRow(i, p, true, team, gameState, fixture))
+    local starterCount = 0
+    for i = 1, 11 do
+        local p = startingXI[i]
+        if p then
+            starterCount = starterCount + 1
+            table.insert(startingRows, PreMatch._playerRow(i, p, true, team, gameState, fixture))
+        end
     end
 
     -- 替补列表（最多7人）
@@ -571,7 +583,7 @@ function PreMatch.create(params)
                                 width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "space-between",
                                 children = (function()
                                     local headerChildren = {
-                                        Theme.Subtitle { text = string.format("首发阵容 (%d/11)", #startingXI) },
+                                        Theme.Subtitle { text = string.format("首发阵容 (%d/11)", starterCount) },
                                         UI.Panel { flexGrow = 1 },
                                     }
                                     -- 方案 A/B 按钮（仅俱乐部模式，靠右紧贴一键配置）
@@ -614,6 +626,7 @@ function PreMatch.create(params)
                                         color = Theme.COLORS.ACCENT,
                                         onClick = function()
                                             _autoFullSquad(gameState, team)
+                                            _saveClubLineupPreset(team, fixture)
                                             _saveIntlLineup(gameState, team, fixture)
                                             Router.replaceWith("pre_match", { fixture = fixture })
                                         end,
@@ -1031,8 +1044,9 @@ function PreMatch._showSlotSwapSheet(gameState, team, slotIdx, slots, fixture)
     local swapCandidates = {}
 
     local startingSet = {}
-    for _, pid in ipairs(startingXI) do
-        startingSet[pid] = true
+    for i = 1, 11 do
+        local pid = startingXI[i]
+        if pid then startingSet[pid] = true end
     end
 
     -- 板凳球员（不在首发中，未伤停）
@@ -1045,8 +1059,9 @@ function PreMatch._showSlotSwapSheet(gameState, team, slotIdx, slots, fixture)
     end
 
     -- 其他首发（位置互换）
-    for i, pid in ipairs(startingXI) do
-        if i ~= slotIdx then
+    for i = 1, 11 do
+        local pid = startingXI[i]
+        if i ~= slotIdx and pid then
             local p = gameState.players[pid]
             if p then
                 local score = AIManager._playerPositionScore(p, slotPos)
@@ -1098,6 +1113,7 @@ function PreMatch._showSlotSwapSheet(gameState, team, slotIdx, slots, fixture)
                 color = scoreColor,
                 onClick = function()
                     team.startingXI[slotIdx] = p.id
+                    _saveClubLineupPreset(team, fixture)
                     BottomSheet.close()
                     Router.replaceWith("pre_match", { fixture = fixture })
                 end,
@@ -1129,6 +1145,7 @@ function PreMatch._showSlotSwapSheet(gameState, team, slotIdx, slots, fixture)
                     local tmp = team.startingXI[slotIdx]
                     team.startingXI[slotIdx] = team.startingXI[c.index]
                     team.startingXI[c.index] = tmp
+                    _saveClubLineupPreset(team, fixture)
                     BottomSheet.close()
                     Router.replaceWith("pre_match", { fixture = fixture })
                 end,
@@ -1216,6 +1233,8 @@ function PreMatch._formationQuickSwitch(team, fixture)
                     team.formationVariant = Constants.getDefaultVariant(fmt)
                     team.customSlots = nil
                     team.slotOffsets = nil
+                    AIManager.rearrangeForFormation(_G.gameState, team)
+                    _saveClubLineupPreset(team, fixture)
                     Router.replaceWith("pre_match", { fixture = fixture })
                 end
             end,

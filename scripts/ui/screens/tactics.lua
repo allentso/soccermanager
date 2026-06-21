@@ -10,8 +10,23 @@ local FormationShape = require("scripts/match/formation_shape")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local WorldCup = require("scripts/systems/world_cup")
+local Team = require("scripts/domain/team")
 
 local Tactics = {}
+
+local function _isNationalTeamMode(gameState)
+    return gameState.currentRole == "national_team"
+        and gameState.nationalTeamCoach ~= nil
+        and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
+end
+
+local function _saveTeamSettings(gameState, team)
+    if _isNationalTeamMode(gameState) and gameState.nationalTeamCoach then
+        WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
+    else
+        Team.saveActiveLineupPreset(team)
+    end
+end
 
 ---@type string
 local _activeTab = "formation" -- formation | bench
@@ -71,9 +86,7 @@ function Tactics.create(params)
     end
 
     -- 判断当前身份：国家队模式 vs 俱乐部模式
-    local isNTMode = gameState.currentRole == "national_team"
-        and gameState.nationalTeamCoach ~= nil
-        and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
+    local isNTMode = _isNationalTeamMode(gameState)
 
     local team
     if isNTMode then
@@ -211,11 +224,9 @@ local function _buildFormationChildren(gameState, team, isNTMode)
     FormationShape.normalizeFormationVariant(team)
     local currentLayout = team.formationVariant
 
-    -- 国家队模式下保存战术设置的辅助函数
+    -- 保存当前战术设置：国家队写入国家队配置，俱乐部写入当前 A/B 方案
     local function saveNTSettings()
-        if isNTMode and gameState.nationalTeamCoach then
-            WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
-        end
+        _saveTeamSettings(gameState, team)
     end
 
     -- 前置声明刷新函数：清空 ScrollView 并重建内容
@@ -869,9 +880,12 @@ function Tactics._buildStartingXICard(gameState, team)
     local slots = FormationShape.getFormationSlots(team)
 
     local startingChildren = {}
-    for i, pid in ipairs(startingXI) do
-        local p = gameState.players[pid]
+    local starterCount = 0
+    for i = 1, 11 do
+        local pid = startingXI[i]
+        local p = pid and gameState.players[pid]
         if p then
+            starterCount = starterCount + 1
             local slotPos = slots[i] or p.position
             local slotIdx = i
 
@@ -893,7 +907,7 @@ function Tactics._buildStartingXICard(gameState, team)
                 alignItems = "center",
                 paddingLeft = 8, paddingRight = 8,
                 paddingTop = 8, paddingBottom = 8,
-                borderBottomWidth = (i < #startingXI) and 1 or 0,
+                borderBottomWidth = (i < 11) and 1 or 0,
                 borderColor = Theme.COLORS.BORDER,
                 onClick = function()
                     Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
@@ -949,7 +963,7 @@ function Tactics._buildStartingXICard(gameState, team)
 
     return Theme.Card {
         children = {
-            Theme.Subtitle { text = "首发11人 (" .. #startingXI .. "/11)" },
+            Theme.Subtitle { text = "首发11人 (" .. starterCount .. "/11)" },
             UI.Label {
                 text = "点击球员或球场位置可更换首发",
                 fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2, marginBottom = 4,
@@ -973,15 +987,8 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     local slotPos = slots[slotIdx] or "MID"
     local shapeAnalysis = FormationShape.analyze(team)
 
-    -- 国家队模式判断
-    local isNTMode = gameState.currentRole == "national_team"
-        and gameState.nationalTeamCoach ~= nil
-        and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
-
     local function saveAfterChange()
-        if isNTMode and gameState.nationalTeamCoach then
-            WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
-        end
+        _saveTeamSettings(gameState, team)
     end
 
     -- 收集候选球员：所有队内非首发球员 + 其他首发（用于位置互换）
@@ -990,8 +997,9 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
 
     -- 将首发 ID 存入 set 方便查找
     local startingSet = {}
-    for _, pid in ipairs(startingXI) do
-        startingSet[pid] = true
+    for i = 1, 11 do
+        local pid = startingXI[i]
+        if pid then startingSet[pid] = true end
     end
 
     -- 板凳球员（不在首发中）
@@ -1004,8 +1012,9 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     end
 
     -- 其他首发（位置互换）
-    for i, pid in ipairs(startingXI) do
-        if i ~= slotIdx then
+    for i = 1, 11 do
+        local pid = startingXI[i]
+        if i ~= slotIdx and pid then
             local p = gameState.players[pid]
             if p then
                 local score = AIManager._playerPositionScore(p, slotPos)
@@ -1345,7 +1354,7 @@ end
 --- 自动选择最佳7名替补（综合能力值+体力，确保位置覆盖）
 local function _autoBench(gameState, team)
     local startingSet = {}
-    for _, pid in ipairs(team.startingXI or {}) do
+    for _, pid in pairs(team.startingXI or {}) do
         startingSet[pid] = true
     end
 
@@ -1471,7 +1480,7 @@ end
 --- 获取当前替补席球员列表（手动 or 自动）
 local function _getEffectiveBench(gameState, team)
     local startingSet = {}
-    for _, pid in ipairs(team.startingXI or {}) do
+    for _, pid in pairs(team.startingXI or {}) do
         startingSet[pid] = true
     end
 
@@ -1503,7 +1512,7 @@ function Tactics._buildBenchContent(gameState, team)
 
     -- 候选球员：非首发、非替补的健康球员
     local startingSet = {}
-    for _, pid in ipairs(team.startingXI or {}) do startingSet[pid] = true end
+    for _, pid in pairs(team.startingXI or {}) do startingSet[pid] = true end
 
     local candidates = {}
     for _, pid in ipairs(team.playerIds or {}) do
@@ -1569,6 +1578,7 @@ function Tactics._buildBenchContent(gameState, team)
                             if bid ~= p.id then table.insert(newIds, bid) end
                         end
                         team.benchIds = newIds
+                        _saveTeamSettings(gameState, team)
                         Router.replaceWith("tactics", { tab = "bench" })
                     end,
                 },
@@ -1626,6 +1636,7 @@ function Tactics._buildBenchContent(gameState, team)
                             end
                         end
                         table.insert(team.benchIds, p.id)
+                        _saveTeamSettings(gameState, team)
                         Router.replaceWith("tactics", { tab = "bench" })
                     end,
                 },
@@ -1680,12 +1691,7 @@ function Tactics._buildBenchContent(gameState, team)
                             marginRight = 8,
                             onClick = function()
                                 _autoFullSquad(gameState, team)
-                                local isNTMode = gameState.currentRole == "national_team"
-                                    and gameState.nationalTeamCoach ~= nil
-                                    and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
-                                if isNTMode and gameState.nationalTeamCoach then
-                                    WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
-                                end
+                                _saveTeamSettings(gameState, team)
                                 Router.replaceWith("tactics", { tab = "bench" })
                             end,
                         },
@@ -1700,6 +1706,7 @@ function Tactics._buildBenchContent(gameState, team)
                             color = Theme.COLORS.TEXT_SECONDARY,
                             onClick = function()
                                 team.benchIds = {}
+                                _saveTeamSettings(gameState, team)
                                 Router.replaceWith("tactics", { tab = "bench" })
                             end,
                         } or UI.Panel { width = 0 },

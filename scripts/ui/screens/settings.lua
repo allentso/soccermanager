@@ -12,6 +12,7 @@ local League = require("scripts/domain/league")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
 local Player = require("scripts/domain/player")
 local YouthManager = require("scripts/systems/youth_manager")
+local LayoutAdapter = require("scripts/ui/layout_adapter")
 
 local Settings = {}
 
@@ -32,6 +33,7 @@ local _defaults = {
 
     confirmActions = true,  -- 重要操作前确认
     showTutorials = true,
+    uiSafeAreaMode = "default", -- 顶底部安全边距
 }
 
 -- 持久化设置（初始化为默认值）
@@ -42,7 +44,11 @@ for k, v in pairs(_defaults) do _settings[k] = v end
 -- 主入口
 ------------------------------------------------------
 function Settings.create(params)
-    -- 从 gameState 读取设置
+    -- 从全局设置缓存读取，再用当前存档设置覆盖
+    local globalSettings = SettingsManager.getAll()
+    for k, v in pairs(globalSettings) do
+        _settings[k] = v
+    end
     if _G.gameState and _G.gameState.settings then
         for k, v in pairs(_G.gameState.settings) do
             _settings[k] = v
@@ -167,6 +173,30 @@ function Settings.create(params)
                                     },
                                 },
                             },
+                        }
+                    },
+
+                    -- 显示设置
+                    Theme.Card {
+                        children = {
+                            Settings._sectionTitle("显示设置"),
+                            UI.Label {
+                                text = "如果手机顶部状态栏或底部手势条遮挡界面，可把整体 UI 向中间收缩。",
+                                fontSize = 11,
+                                color = Theme.COLORS.TEXT_MUTED,
+                                marginBottom = 8,
+                            },
+                            Settings._selectRow("顶底安全边距", {
+                                { key = "default", label = "默认" },
+                                { key = "light", label = "轻微" },
+                                { key = "medium", label = "加强" },
+                                { key = "large", label = "最大" },
+                            }, LayoutAdapter.getSafeAreaMode(), function(v)
+                                _settings.uiSafeAreaMode = v
+                                SettingsManager.set("uiSafeAreaMode", v)
+                                Settings._saveSettings()
+                                Router.replaceWith("settings")
+                            end),
                         }
                     },
 

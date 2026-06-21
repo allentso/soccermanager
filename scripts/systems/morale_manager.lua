@@ -71,7 +71,7 @@ function MoraleManager._buildMoraleActions(gameState, player, team)
 
     -- 核心球员不上场 → 提供加薪安抚或查看球员
     local isStarter = false
-    for _, sid in ipairs(team.startingXI or {}) do
+    for _, sid in pairs(team.startingXI or {}) do
         if sid == player.id then isStarter = true; break end
     end
 
@@ -156,7 +156,7 @@ function MoraleManager.postMatchUpdate(gameState, teamId, result, playerRatings)
 
             -- 首发球员额外加成
             local isStarter = false
-            for _, sid in ipairs(team.startingXI or {}) do
+            for _, sid in pairs(team.startingXI or {}) do
                 if sid == pid then isStarter = true; break end
             end
 
@@ -337,7 +337,7 @@ function MoraleManager._calculateWeeklyDelta(gameState, player, team)
     -- 1. 出场时间因素（仅在有俱乐部比赛的周生效；休赛期不累计不满）
     if hadClubMatch then
         local isStarter = false
-        for _, sid in ipairs(team.startingXI or {}) do
+        for _, sid in pairs(team.startingXI or {}) do
             if sid == player.id then isStarter = true; break end
         end
 
@@ -412,7 +412,7 @@ end
 function MoraleManager._getLowMoraleReason(gameState, player, team)
     -- 判断主要原因
     local isStarter = false
-    for _, sid in ipairs(team.startingXI or {}) do
+    for _, sid in pairs(team.startingXI or {}) do
         if sid == player.id then isStarter = true; break end
     end
 
