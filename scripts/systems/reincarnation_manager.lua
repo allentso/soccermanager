@@ -771,13 +771,18 @@ function ReincarnationManager.bootstrapLegacySave(gameState)
     ReincarnationManager.scanAndMarkKnownSources(gameState)
     ReincarnationManager.ensureMissingFreeAgentSources(gameState)
 
-    -- 老档兼容：已退役的立即补转生；在役/自由球员留待赛季末规则处理
+    -- 老档兼容：已退役的立即补转生；已知源已删除时用 fallback；在役/自由球员留待赛季末
     for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
         if not ReincarnationManager.hasReincarnationForEntry(gameState, entry) then
             local player, isRetired = ReincarnationManager.findPlayerForEntry(gameState, entry)
             if player and isRetired then
                 ReincarnationManager.markKnownSource(gameState, entry.matchName)
                 ReincarnationManager.spawnRebirth(gameState, entry, player)
+            elseif not player and ReincarnationManager.shouldUseFallbackSource(gameState, entry) then
+                local source = ReincarnationManager.createFallbackSource(entry)
+                if source then
+                    ReincarnationManager.spawnRebirth(gameState, entry, source)
+                end
             end
         end
     end
