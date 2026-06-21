@@ -13,6 +13,7 @@ local DifficultySettings = require("scripts/systems/difficulty_settings")
 local Player = require("scripts/domain/player")
 local YouthManager = require("scripts/systems/youth_manager")
 local LayoutAdapter = require("scripts/ui/layout_adapter")
+local DayAdvanceOverlay = require("scripts/ui/components/day_advance_overlay")
 
 local Settings = {}
 
@@ -39,6 +40,18 @@ local _defaults = {
 -- 持久化设置（初始化为默认值）
 local _settings = {}
 for k, v in pairs(_defaults) do _settings[k] = v end
+
+local function _dateSerial(date)
+    if not date then return 0 end
+    local year = tonumber(date.year) or 0
+    local month = tonumber(date.month) or 1
+    local day = tonumber(date.day) or 1
+    local days = year * 366 + day
+    for m = 1, month - 1 do
+        days = days + League._daysInMonth(m, year)
+    end
+    return days
+end
 
 ------------------------------------------------------
 -- 主入口
@@ -472,6 +485,17 @@ function Settings._showCheatMenu()
                 end,
             },
             UI.Button {
+                text = "⏩ 跳到中超最后一场",
+                width = "100%", height = 44,
+                backgroundColor = "#1A5276",
+                color = "#FFFFFF",
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatSkipToCSLFinalMatch()
+                end,
+            },
+            UI.Button {
                 text = "📊 预算分配测试（结算+报告）",
                 width = "100%", height = 44,
                 backgroundColor = "#1A5276",
@@ -506,17 +530,6 @@ function Settings._showCheatMenu()
                 end,
             },
 
-            UI.Button {
-                text = "🏆 查看荣誉室",
-                width = "100%", height = 44,
-                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                fontSize = 14, borderRadius = 8, marginBottom = 10,
-                onClick = function()
-                    BottomSheet.close()
-                    Router.navigate("trophy_cabinet")
-                end,
-            },
             -- 传奇抽卡相关
             UI.Button {
                 text = "🎰 解锁传奇池",
@@ -542,18 +555,6 @@ function Settings._showCheatMenu()
             },
 
 
-            -- 修复工具
-            UI.Button {
-                text = "🔧 修复赛程（自动模拟逾期比赛）",
-                width = "100%", height = 44,
-                backgroundColor = "#1E8449",
-                color = "#FFFFFF",
-                fontSize = 14, borderRadius = 8, marginBottom = 10,
-                onClick = function()
-                    BottomSheet.close()
-                    Settings._repairOverdueFixtures()
-                end,
-            },
             -- 模拟解雇
             UI.Button {
                 text = "🚪 模拟被解雇",
@@ -564,18 +565,6 @@ function Settings._showCheatMenu()
                 onClick = function()
                     BottomSheet.close()
                     Settings._cheatSimulateSacked()
-                end,
-            },
-            -- UCL迁移测试
-            UI.Button {
-                text = "🐛 模拟UCL覆盖存档（测试迁移）",
-                width = "100%", height = 44,
-                backgroundColor = "#922B21",
-                color = "#FFFFFF",
-                fontSize = 14, borderRadius = 8,
-                onClick = function()
-                    BottomSheet.close()
-                    Settings._cheatSimulateUCLOverwrite()
                 end,
             },
             -- 坏存档模拟（测试 sanitize + healInPlace）
@@ -668,6 +657,101 @@ function Settings._cheatAddFunds()
         priority = "normal",
     })
     Router.replaceWith("dashboard")
+end
+
+------------------------------------------------------
+-- 作弊：跳到中超最后一场比赛
+------------------------------------------------------
+function Settings._cheatSkipToCSLFinalMatch()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local TurnProcessor = require("scripts/core/turn_processor")
+    local csl = gameState.leagues and gameState.leagues.CSL
+    local playerTeamId = gameState.playerTeamId
+    if not csl or not playerTeamId then
+        UI.Toast.Show({ message = "未加载中超或没有玩家球队", variant = "warning" })
+        Router.replaceWith("settings")
+        return
+    end
+
+    local targetFixture = nil
+    local targetSerial = -1
+    for _, f in ipairs(csl.fixtures or {}) do
+        if f.status == "scheduled" and f.date
+            and (f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId) then
+            local serial = _dateSerial(f.date)
+            if serial > targetSerial then
+                targetSerial = serial
+                targetFixture = f
+            end
+        end
+    end
+
+    if not targetFixture then
+        UI.Toast.Show({ message = "没有未进行的中超比赛", variant = "info" })
+        Router.replaceWith("dashboard")
+        return
+    end
+
+    local todaySerial = _dateSerial(gameState.date)
+    local daysToTarget = math.max(0, targetSerial - todaySerial)
+    if daysToTarget == 0 then
+        targetFixture._pendingPlayerMatch = true
+        gameState.pendingPlayerFixture = targetFixture
+        SaveManager.save(gameState, "auto")
+        Router.navigate("pre_match", { fixture = targetFixture })
+        return
+    end
+
+    if DayAdvanceOverlay.isRunning() then return end
+    DayAdvanceOverlay.run({
+        gameState = gameState,
+        totalSteps = daysToTarget,
+        title = "快进到中超最后一场",
+        message = "正在按天模拟剩余赛程、训练和转会。若途中遇到玩家比赛会先停下处理。",
+        stepFn = function(stepIndex)
+            gameState._cheatAutoPlay = (stepIndex < daysToTarget) and true or nil
+            local prevSeason = gameState.season
+            local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
+            if not ok then
+                gameState._cheatAutoPlay = nil
+                if log then log:Write(LOG_ERROR, "_cheatSkipToCSLFinalMatch: advanceDay 异常: " .. tostring(fixtures)) end
+                return "error"
+            end
+            if gameState.season ~= prevSeason then
+                gameState._cheatAutoPlay = nil
+                return "done"
+            end
+            fixtures = fixtures or {}
+            for _, f in ipairs(fixtures) do
+                if f == targetFixture then
+                    gameState._cheatAutoPlay = nil
+                    f._pendingPlayerMatch = true
+                    gameState.pendingPlayerFixture = f
+                    return "target_match", f
+                end
+                if stepIndex >= daysToTarget and (f._pendingPlayerMatch
+                    or f.homeTeamId == playerTeamId
+                    or f.awayTeamId == playerTeamId) then
+                    gameState._cheatAutoPlay = nil
+                    f._pendingPlayerMatch = true
+                    gameState.pendingPlayerFixture = f
+                    return "player_match", f
+                end
+            end
+            return "continue"
+        end,
+        onComplete = function(reason, fixture)
+            gameState._cheatAutoPlay = nil
+            SaveManager.save(gameState, "auto")
+            if (reason == "target_match" or reason == "player_match") and fixture then
+                Router.navigate("pre_match", { fixture = fixture })
+            else
+                Router.replaceWith("dashboard")
+            end
+        end,
+    })
 end
 
 ------------------------------------------------------

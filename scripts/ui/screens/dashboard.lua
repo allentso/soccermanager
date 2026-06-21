@@ -429,6 +429,36 @@ function Dashboard.create(params)
         })
     end
 
+    local function doSkipToSeasonEnd()
+        if DayAdvanceOverlay.isRunning() then return end
+
+        if not gameState.league then
+            doAdvanceDay()
+            return
+        end
+
+        local maxSkip = 240
+        DayAdvanceOverlay.run({
+            gameState = gameState,
+            totalSteps = maxSkip,
+            title = "快进到赛季结束",
+            message = "正在模拟剩余赛程、训练、转会和赛季结算，游戏没有卡死，请稍候…",
+            stepFn = function()
+                return runOneSkipDayStep()
+            end,
+            onComplete = function(reason, playerFixture)
+                if reason == "done" then
+                    SaveManager.save(gameState, "auto")
+                    showPopupMessages(function()
+                        Router.replaceWith("dashboard")
+                    end)
+                    return
+                end
+                finishSkipToMatchDay(reason, playerFixture)
+            end,
+        })
+    end
+
     -- 判断当前身份
     local isNTMode = gameState.currentRole == "national_team" and gameState.nationalTeamCoach ~= nil
     -- 如果国家队已不存在（世界杯结束），自动切回俱乐部
@@ -448,7 +478,7 @@ function Dashboard.create(params)
         }
     else
         scrollChildren = {
-            Dashboard._buildMatchHero(gameState, team),
+            Dashboard._buildMatchHero(gameState, team, doSkipToSeasonEnd),
             Dashboard._buildUrgentSection(gameState, team),
             Dashboard._buildClubSnapshot(gameState, team),
             Dashboard._buildActivityFeed(gameState),
@@ -916,7 +946,7 @@ end
 ------------------------------------------------------
 -- [Hero区] 下一场比赛大卡
 ------------------------------------------------------
-function Dashboard._buildMatchHero(gameState, team)
+function Dashboard._buildMatchHero(gameState, team, onSkipToSeasonEnd)
     if not team then
         -- 空闲状态：替代比赛卡片，提供个人资料和设置入口
         return UI.Panel {
@@ -998,6 +1028,27 @@ function Dashboard._buildMatchHero(gameState, team)
                     text = "暂无比赛安排",
                     fontSize = 14, color = Theme.COLORS.TEXT_MUTED, marginTop = 8,
                 },
+                UI.Label {
+                    text = "联赛赛程已进入收尾阶段，可直接模拟到赛季结算。",
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 6,
+                },
+                onSkipToSeasonEnd and UI.Button {
+                    text = "跳到赛季结束",
+                    height = 34,
+                    paddingLeft = 16,
+                    paddingRight = 16,
+                    backgroundColor = Theme.COLORS.MATCH_ORANGE,
+                    borderRadius = 8,
+                    fontSize = 13,
+                    color = Theme.COLORS.TEXT_PRIMARY,
+                    fontWeight = "bold",
+                    marginTop = 12,
+                    alignSelf = "flex-start",
+                    onClick = function()
+                        if DayAdvanceOverlay.isRunning() then return end
+                        onSkipToSeasonEnd()
+                    end,
+                } or nil,
             }
         }
     end
