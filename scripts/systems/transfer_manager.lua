@@ -1350,6 +1350,10 @@ function TransferManager._getAITransferBatchTeams(gameState, opts)
     local teams = TransferManager._getAITransferOrderedTeams(gameState)
 
     local total = #teams
+    if total == 0 then
+        gameState.transfers._aiTransferCursor = nil
+        return {}
+    end
     if total <= AI_TRANSFER_BATCH_SIZE and not opts.daily then
         gameState.transfers._aiTransferCursor = nil
         return teams
