@@ -196,6 +196,10 @@ function SeasonEnd.create(params)
         local awards = record.awards
         if awards and awards.leagues then
             local awardRows = {}
+            if awards.ballonDor and awards.ballonDor[1] then
+                local bd = awards.ballonDor[1]
+                table.insert(awardRows, SeasonEnd._awardRow("金球奖", bd.playerName, (bd.teamName or "?") .. " · " .. string.format("%.1f分", bd.score or 0), bd.playerId))
+            end
             for _, la in pairs(awards.leagues) do
                 if la.goldenBoot then
                     table.insert(awardRows, SeasonEnd._awardRow("金靴奖", la.goldenBoot.playerName, tostring(la.goldenBoot.goals or 0) .. " 球", la.goldenBoot.playerId))
@@ -214,7 +218,8 @@ function SeasonEnd.create(params)
                 end
             end
             if awards.bestManager then
-                table.insert(awardRows, SeasonEnd._awardRow("最佳经理", awards.bestManager.name or "?", "", nil))
+                local managerDetail = awards.bestManager.teamName and (awards.bestManager.teamName .. " · 第" .. tostring(awards.bestManager.actualPosition or "?") .. "名") or ""
+                table.insert(awardRows, SeasonEnd._awardRow("最佳经理", awards.bestManager.name or awards.bestManager.managerName or awards.bestManager.teamName or "?", managerDetail, nil))
             end
             if #awardRows > 0 then
                 table.insert(content, Theme.Card { children = {

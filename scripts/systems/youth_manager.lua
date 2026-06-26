@@ -268,9 +268,9 @@ end
 local LEGEND_UNLOCK_ADS = 10        -- 看10次广告解锁传奇池
 local LEGEND_PULL_PER_AD = 3        -- 解锁后每次广告获得3次抽取
 local LEGEND_TEN_PULL_ADS = 3       -- 3次广告 = +15抽
-local LEGEND_BASE_RATE = 0.05       -- 单抽传奇基础概率 5%
-local LEGEND_RATE_INCREMENT = 0.005 -- 每次未出传奇十连 +0.5%
-local LEGEND_RATE_CAP = 0.10        -- 概率上限10%
+local LEGEND_BASE_RATE = 0.047      -- 单抽传奇基础概率 4.7%（十连实际≈38%）
+local LEGEND_RATE_INCREMENT = 0.002 -- 每次未出传奇十连 +0.2%
+local LEGEND_RATE_CAP = 0.053       -- 概率上限5.3%（十连实际≈42%封顶）
 local LEGEND_PITY_COUNT = 10        -- 10次十连保底出传奇
 local LEGEND_FIRST_GUARANTEED = true -- 首次十连保底一个传奇
 local LEGEND_MAX_PER_PULL = 1       -- 每次十连最多出1个传奇

@@ -631,6 +631,8 @@ function Dashboard._showPotentialModifierDialog(gameState)
                                     end
                                     -- 实时存档，防止闪退丢失广告进度
                                     SaveManager.save(gameState, "auto")
+                                    -- 广告视频释放后强制 GC，防止整页重建时内存峰值过高
+                                    collectgarbage("collect")
                                     Router.replaceWith("dashboard")
                                 else
                                     UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })

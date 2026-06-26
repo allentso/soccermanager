@@ -475,6 +475,7 @@ function RecordsManager._checkLeagueChampionship(gameState, season)
 
         -- 更新经理记录
         gameState.records.managerRecords.leagueTitles = gameState.records.managerRecords.leagueTitles + 1
+        _incrementManagerTrophyStat(gameState)
 
         -- 触发夺冠事件（UI 层监听）
         EventBus.emit("championship_won", {
@@ -707,17 +708,19 @@ end
 function RecordsManager._reconcileTitleCounts(gameState)
     RecordsManager._ensureData(gameState)
     local mr = gameState.records.managerRecords
-    local league, ucl, cup, wc = 0, 0, 0, 0
+    local league, ucl, cup, wc, euro = 0, 0, 0, 0, 0
     for _, trophy in ipairs(gameState.records.trophies) do
         if trophy.competition == "league" then league = league + 1
         elseif trophy.competition == "ucl" then ucl = ucl + 1
         elseif trophy.competition == "cup" then cup = cup + 1
-        elseif trophy.competition == "worldcup" then wc = wc + 1 end
+        elseif trophy.competition == "worldcup" then wc = wc + 1
+        elseif trophy.competition == "euro" then euro = euro + 1 end
     end
     mr.leagueTitles = math.max(mr.leagueTitles or 0, league)
     mr.uclTitles = math.max(mr.uclTitles or 0, ucl)
     mr.cupTitles = math.max(mr.cupTitles or 0, cup)
     mr.worldCupTitles = math.max(mr.worldCupTitles or 0, wc)
+    mr.euroTitles = math.max(mr.euroTitles or 0, euro)
 end
 
 function RecordsManager.syncManagerProfile(gameState)
@@ -751,7 +754,7 @@ function RecordsManager.migrateFromHistory(gameState)
     local playerTeamId = gameState.playerTeamId
     local r = gameState.records
 
-    -- 从 worldHistory 回溯联赛冠军
+    -- 从 worldHistory 回溯联赛冠军和国内杯冠军
     if playerTeamId then
         for _, record in ipairs(gameState.worldHistory or {}) do
             for leagueKey, leagueRecord in pairs(record.leagues or {}) do
@@ -765,6 +768,20 @@ function RecordsManager.migrateFromHistory(gameState)
                             teamId = playerTeamId,
                             teamName = leagueRecord.champion.teamName,
                             points = leagueRecord.champion.points,
+                        })
+                    end
+                end
+            end
+            for _, cupRecord in pairs(record.domesticCups or {}) do
+                if cupRecord.winnerId == playerTeamId then
+                    if not _hasTrophy(r, "cup", record.season) then
+                        table.insert(r.trophies, {
+                            season = record.season,
+                            year = record.year,
+                            competition = "cup",
+                            competitionName = cupRecord.name or "杯赛",
+                            teamId = playerTeamId,
+                            teamName = cupRecord.winnerName,
                         })
                     end
                 end
@@ -805,6 +822,23 @@ function RecordsManager.migrateFromHistory(gameState)
                     competitionName = "世界杯",
                     teamId = playerTeamId,
                     teamName = team and team.name or wcRecord.championName,
+                })
+            end
+        end
+    end
+
+    -- 从欧洲杯历史回溯（玩家当时执教的国家队）
+    for _, euroRecord in ipairs(gameState._euroHistory or {}) do
+        if coachNation and euroRecord.championId == coachNation then
+            if not _hasTrophy(r, "euro", euroRecord.season) then
+                local team = playerTeamId and gameState.teams[playerTeamId]
+                table.insert(r.trophies, {
+                    season = euroRecord.season,
+                    year = euroRecord.season,
+                    competition = "euro",
+                    competitionName = "欧洲杯",
+                    teamId = playerTeamId,
+                    teamName = team and team.name or euroRecord.championName,
                 })
             end
         end

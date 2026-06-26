@@ -90,6 +90,16 @@ local function buildTrophiesTab(gameState)
             }
         })
     end
+    if (counts.euro or 0) > 0 then
+        table.insert(summaryItems, UI.Panel {
+            alignItems = "center", marginRight = 20,
+            children = {
+                UI.Label { text = "🇪🇺", fontSize = 28 },
+                UI.Label { text = tostring(counts.euro), fontSize = 18, fontWeight = "bold", color = TROPHY_COLORS.euro, marginTop = 2 },
+                UI.Label { text = "欧洲杯", fontSize = 10, color = COLORS.TEXT_SECONDARY, marginTop = 1 },
+            }
+        })
+    end
     if counts.worldcup > 0 then
         table.insert(summaryItems, UI.Panel {
             alignItems = "center",
@@ -192,6 +202,7 @@ local function buildManagerTab(gameState)
         infoRow("杯赛冠军", mr.cupTitles or 0, TROPHY_COLORS.cup),
         infoRow("欧冠冠军", mr.uclTitles, TROPHY_COLORS.ucl),
         infoRow("世界杯冠军", mr.worldCupTitles, TROPHY_COLORS.worldcup),
+        infoRow("欧洲杯冠军", mr.euroTitles or 0, TROPHY_COLORS.euro),
         infoRow("最佳联赛排名", mr.bestLeagueFinish < 999 and ("第" .. mr.bestLeagueFinish .. "名") or "-"),
     }})
 
@@ -201,6 +212,8 @@ local function buildManagerTab(gameState)
         infoRow("总比赛", mr.totalMatches),
         infoRow("胜/平/负", string.format("%d / %d / %d", mr.totalWins, mr.totalDraws, mr.totalLosses)),
         infoRow("胜率", string.format("%.1f%%", mr.winRate)),
+        infoRow("当前连胜", tostring(mr.currentWinStreak or 0) .. "场"),
+        infoRow("当前不败", tostring(mr.currentUnbeatenStreak or 0) .. "场"),
         infoRow("最长连胜", mr.longestWinStreak .. "场"),
         infoRow("最长不败", mr.longestUnbeatenStreak .. "场"),
     }})
@@ -319,6 +332,26 @@ local function buildRecordsTab(gameState)
         table.insert(cards, Theme.Card { children = {
             Theme.Subtitle { text = "历史总助攻榜 Top5" },
             table.unpack(assistRows),
+        }})
+    end
+
+    if pr.allTimeAppearances and #pr.allTimeAppearances > 0 then
+        local appRows = {}
+        for i = 1, math.min(5, #pr.allTimeAppearances) do
+            local entry = pr.allTimeAppearances[i]
+            table.insert(appRows, UI.Panel {
+                width = "100%", height = 30, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 10, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = tostring(i), width = 20, fontSize = 11, color = COLORS.TEXT_MUTED },
+                    UI.Label { text = entry.playerName, flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                    UI.Label { text = tostring(entry.value) .. "场", fontSize = 12, fontWeight = "bold", color = COLORS.PRIMARY },
+                }
+            })
+        end
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "历史总出场榜 Top5" },
+            table.unpack(appRows),
         }})
     end
 

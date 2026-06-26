@@ -147,7 +147,15 @@ function BindEvents()
         if factory then
             local page = factory(params)
             if page then
-                UI.SetRoot(LayoutAdapter.wrapPage(page), true)
+                if params and params._softRefresh then
+                    local oldRoot = UI.GetRoot()
+                    UI.SetRoot(LayoutAdapter.wrapPage(page), false)
+                    if oldRoot then
+                        oldRoot:Destroy()
+                    end
+                else
+                    UI.SetRoot(LayoutAdapter.wrapPage(page), true)
+                end
             end
             -- 首次进入 dashboard 时自动触发新手指引
             if screenId == "dashboard" and not TutorialGuide.isCompleted() then

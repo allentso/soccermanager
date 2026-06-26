@@ -1534,6 +1534,8 @@ function Youth._watchAdForUnlock(gameState)
             local unlocked, _progress = YouthManager.watchAdForUnlock(gameState)
             -- 实时存档，防止闪退丢失广告进度
             SaveManager.save(gameState, "auto")
+            -- 广告视频释放后强制 GC，防止连续观看时内存峰值过高
+            collectgarbage("collect")
             if unlocked then
                 ConfirmDialog.show({
                     title = "传奇球星池已解锁!",
@@ -1700,6 +1702,8 @@ function Youth._doWatchAdInModal(gameState)
             local newPulls = YouthManager.watchAdForPulls(gameState)
             -- 实时存档，防止闪退丢失广告进度
             SaveManager.save(gameState, "auto")
+            -- 广告视频释放后强制 GC，防止连续观看时内存峰值过高
+            collectgarbage("collect")
             -- 显示奖励反馈弹窗
             Youth._showAdRewardPopup(gameState, newPulls)
         else

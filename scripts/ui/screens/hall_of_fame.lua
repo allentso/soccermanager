@@ -59,6 +59,14 @@ end
 
 local function buildAwardsTab(gameState)
     local allAwards = gameState._seasonAwards
+    if (not allAwards or #allAwards == 0) and gameState.worldHistory then
+        allAwards = {}
+        for _, record in ipairs(gameState.worldHistory) do
+            if record.awards then
+                table.insert(allAwards, record.awards)
+            end
+        end
+    end
     if not allAwards or #allAwards == 0 then
         return { Theme.Card { children = { UI.Label { text = "暂无奖项记录", fontSize = 13, color = COLORS.TEXT_MUTED } } } }
     end
@@ -68,18 +76,25 @@ local function buildAwardsTab(gameState)
         local seasonAward = allAwards[i]
         local rows = {}
 
+        if seasonAward.ballonDor and seasonAward.ballonDor[1] then
+            local bd = seasonAward.ballonDor[1]
+            table.insert(rows, HallOfFame._awardRow("金球奖", bd.playerName, (bd.teamName or "?") .. " · " .. string.format("%.1f分", bd.score or 0)))
+        end
+
         for leagueKey, la in pairs(seasonAward.leagues or {}) do
             if la.goldenBoot then
                 table.insert(rows, HallOfFame._awardRow("金靴", la.goldenBoot.playerName, tostring(la.goldenBoot.goals or 0) .. "球"))
             end
             if la.bestPlayer then
-                table.insert(rows, HallOfFame._awardRow("MVP", la.bestPlayer.playerName, string.format("%.1f分", la.bestPlayer.rating or 0)))
+                local score = la.bestPlayer.score or la.bestPlayer.rating or la.bestPlayer.overall or 0
+                table.insert(rows, HallOfFame._awardRow("MVP", la.bestPlayer.playerName, string.format("%.1f分", score)))
             end
             if la.bestYoungPlayer then
                 table.insert(rows, HallOfFame._awardRow("新秀", la.bestYoungPlayer.playerName, tostring(la.bestYoungPlayer.age or 0) .. "岁"))
             end
-            if la.bestAssist then
-                table.insert(rows, HallOfFame._awardRow("助攻王", la.bestAssist.playerName, tostring(la.bestAssist.assists or 0) .. "次"))
+            local assistAward = la.topAssists or la.bestAssist
+            if assistAward then
+                table.insert(rows, HallOfFame._awardRow("助攻王", assistAward.playerName, tostring(assistAward.assists or 0) .. "次"))
             end
         end
         if seasonAward.bestManager then
@@ -238,6 +253,27 @@ local function buildRecordsTab(gameState)
         table.insert(cards, Theme.Card { children = {
             Theme.Subtitle { text = "历史总助攻 Top5" },
             table.unpack(assistRows)
+        }})
+    end
+
+    -- 历史总出场 Top5
+    if pr.allTimeAppearances and #pr.allTimeAppearances > 0 then
+        local appRows = {}
+        for i = 1, math.min(5, #pr.allTimeAppearances) do
+            local entry = pr.allTimeAppearances[i]
+            table.insert(appRows, UI.Panel {
+                width = "100%", height = 32, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = tostring(i), width = 20, fontSize = 10, color = COLORS.TEXT_MUTED },
+                    UI.Label { text = entry.playerName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                    UI.Label { text = tostring(entry.value) .. "场", width = 50, fontSize = 11, fontWeight = "bold", color = COLORS.PRIMARY, textAlign = "right" },
+                }
+            })
+        end
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "历史总出场 Top5" },
+            table.unpack(appRows)
         }})
     end
 

@@ -33,6 +33,9 @@ function AwardsManager.processSeasonAwards(gameState)
     -- 全局最佳经理
     awards.bestManager = AwardsManager._calculateBestManager(gameState)
 
+    -- 全局金球奖前三名
+    awards.ballonDor = AwardsManager._calculateBallonDor(gameState)
+
     -- 保存到历史
     table.insert(gameState._seasonAwards, awards)
 
@@ -268,6 +271,90 @@ function AwardsManager._findBestGoalkeeper(players)
 end
 
 ------------------------------------------------------
+-- 金球奖（全世界年度最高个人奖项，取前三名）
+------------------------------------------------------
+
+function AwardsManager._calculateBallonDor(gameState)
+    local candidates = {}
+    local teamPositions = {}
+
+    for _, lg in pairs(gameState.leagues or {}) do
+        local sorted = lg:getSortedStandings()
+        for pos, entry in ipairs(sorted or {}) do
+            teamPositions[entry.teamId] = {
+                position = pos,
+                totalTeams = #sorted,
+                champion = pos == 1,
+                topFour = pos <= 4,
+            }
+        end
+    end
+
+    for _, player in pairs(gameState.players or {}) do
+        if player.retired then goto nextPlayer end
+        local stats = player.seasonStats or {}
+        local appearances = stats.appearances or 0
+        if appearances < 15 then goto nextPlayer end
+
+        local team = gameState.teams[player.teamId]
+        if not team then goto nextPlayer end
+
+        local goals = stats.goals or 0
+        local assists = stats.assists or 0
+        local avgRating = stats.avgRating or 0
+        local cleanSheets = stats.cleanSheets or 0
+        local achievement = teamPositions[player.teamId] or {}
+
+        local score = goals * 4
+            + assists * 3
+            + avgRating * 8
+            + appearances * 0.6
+            + (player.reputation or 0) * 0.2
+            + (player.overall or 0) * 0.15
+
+        if player.position == "GK" or player.position == "CB" or player.position == "LB" or player.position == "RB" then
+            score = score + cleanSheets * 3
+        end
+        if achievement.champion then
+            score = score + 20
+        elseif achievement.topFour then
+            score = score + 8
+        end
+
+        table.insert(candidates, {
+            playerId = player.id,
+            playerName = player.displayName,
+            teamId = player.teamId,
+            teamName = team.name,
+            position = player.position,
+            goals = goals,
+            assists = assists,
+            appearances = appearances,
+            avgRating = avgRating,
+            cleanSheets = cleanSheets,
+            overall = player.overall,
+            reputation = player.reputation,
+            score = math.floor(score * 10) / 10,
+            season = gameState.season,
+        })
+
+        ::nextPlayer::
+    end
+
+    table.sort(candidates, function(a, b)
+        if a.score ~= b.score then return a.score > b.score end
+        if (a.avgRating or 0) ~= (b.avgRating or 0) then return (a.avgRating or 0) > (b.avgRating or 0) end
+        return (a.goals or 0) > (b.goals or 0)
+    end)
+
+    local top3 = {}
+    for i = 1, math.min(3, #candidates) do
+        top3[i] = candidates[i]
+    end
+    return top3
+end
+
+------------------------------------------------------
 -- 最佳经理（排名超预期最多）
 ------------------------------------------------------
 
@@ -294,9 +381,14 @@ function AwardsManager._calculateBestManager(gameState)
 
             if delta > bestDelta then
                 bestDelta = delta
+                local manager = team.managerId and gameState.managers and gameState.managers[team.managerId] or nil
+                local managerName = manager and manager.displayName or team.name
                 best = {
                     teamId = entry.teamId,
                     teamName = team.name,
+                    managerId = team.managerId,
+                    managerName = managerName,
+                    name = managerName,
                     leagueName = lg.name,
                     expectedPosition = expectedPosition,
                     actualPosition = actualPosition,
@@ -388,6 +480,10 @@ function AwardsManager._notifyPlayerAwards(gameState, awards)
         if leagueAwards.bestGoalkeeper and leagueAwards.bestGoalkeeper.teamId == playerTeamId then
             table.insert(playerAwards, "最佳门将: " .. leagueAwards.bestGoalkeeper.playerName)
         end
+    end
+
+    if awards.ballonDor and awards.ballonDor[1] and awards.ballonDor[1].teamId == playerTeamId then
+        table.insert(playerAwards, "金球奖: " .. awards.ballonDor[1].playerName)
     end
 
     -- 最佳经理
