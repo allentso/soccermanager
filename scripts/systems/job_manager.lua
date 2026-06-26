@@ -1195,6 +1195,56 @@ function JobManager.handleRelegation(gameState, prevTeamId, divisionName)
     EventBus.emit("player_unemployed", { prevTeamId = prevTeamId, reason = "relegated" })
 end
 
+--- 降级至可执教的次级联赛：留任继续带队
+---@param gameState table
+---@param prevTeamId number
+---@param childLeagueKey string 次级联赛 key（如 Championship）
+---@param divisionName string 次级联赛名称（如「英冠」）
+function JobManager.handleRelegationToSecondTier(gameState, prevTeamId, childLeagueKey, divisionName)
+    if not prevTeamId or prevTeamId ~= gameState.playerTeamId then return end
+    if gameState._cheatAutoPlay then return end
+
+    local childLg = gameState.leagues and gameState.leagues[childLeagueKey]
+    if not childLg then
+        JobManager.handleRelegation(gameState, prevTeamId, divisionName)
+        return
+    end
+
+    local team = gameState.teams[prevTeamId]
+    divisionName = divisionName or childLg.name or "次级联赛"
+
+    gameState.league = childLg
+    gameState.playerLeagueId = childLeagueKey
+    gameState._isUnemployed = false
+    gameState._unemployedSince = nil
+    gameState._firedFromTeamId = nil
+    gameState._firedFromSeason = nil
+
+    local manager = gameState:getPlayerManager()
+    if manager then
+        manager.teamId = prevTeamId
+        manager.isUnemployed = false
+    end
+
+    gameState:sendMessage({
+        category = "league",
+        title = "球队降级",
+        body = string.format(
+            "非常遗憾，%s 排名联赛倒数，下赛季将征战%s。董事会决定留任，继续带队冲回顶级联赛。",
+            team and team.name or "球队", divisionName),
+        priority = "critical",
+    })
+
+    if team then
+        gameState:addNews({
+            category = "transfers",
+            title = "降级留任",
+            body = string.format("%s 降级至%s，主教练将继续执教球队。",
+                team.name or "球队", divisionName),
+        })
+    end
+end
+
 --- 格式化金额
 function JobManager._formatMoney(amount)
     if amount >= 1000000 then

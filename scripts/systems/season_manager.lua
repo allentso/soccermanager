@@ -18,6 +18,7 @@ local TrainingManager = require("scripts/systems/training_manager")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
 local ReincarnationManager = require("scripts/systems/reincarnation_manager")
 local DomesticCup = require("scripts/systems/domestic_cup")
+local RealDataLoader = require("scripts/data/real_data_loader")
 
 local SeasonManager = {}
 
@@ -703,84 +704,120 @@ local function _getLeagueCountry(leagueKey, league)
     return LEAGUE_COUNTRIES[leagueKey] or (league and league.country) or "ENG"
 end
 
+--- 补模拟联赛中尚未完成的比赛（升降级前确保积分榜最终化）
+function SeasonManager._simulateRemainingLeagueFixtures(gameState, lg)
+    if not lg or lg:isSeasonComplete() then return end
+    local MatchEngine = require("scripts/match/match_engine")
+    for _, fixture in ipairs(lg.fixtures or {}) do
+        if fixture.status == "scheduled" then
+            local report = MatchEngine.simulate(gameState, fixture)
+            if report then
+                MatchEngine.applyResult(gameState, fixture, report)
+            end
+        end
+    end
+end
+
 --- 处理所有联赛的升降级
 function SeasonManager._processPromotionRelegation(gameState)
-    -- 初始化二级联赛储备池
     if not gameState.secondDivision then
-        gameState.secondDivision = {}  -- { [leagueKey] = { teamIds = {...}, standings = {...} } }
+        gameState.secondDivision = {}
     end
 
+    local RealDataLoader = require("scripts/data/real_data_loader")
+    local JobManager = require("scripts/systems/job_manager")
     local promotionNews = {}
 
     for leagueKey, lg in pairs(gameState.leagues) do
+        if (lg.tier or 1) >= 2 or lg.parentLeague then goto continue_league end
+        if RealDataLoader.NO_PROMOTION_LEAGUES[leagueKey] then goto continue_league end
+
         local sorted = lg:getSortedStandings()
         local totalTeams = #sorted
-        if totalTeams < 6 then goto continue_league end  -- 联赛球队太少，跳过
+        if totalTeams < 6 then goto continue_league end
 
-        -- 确保该联赛的二级联赛储备池存在
-        if not gameState.secondDivision[leagueKey] then
-            SeasonManager._initSecondDivision(gameState, leagueKey, lg)
+        local childKey = RealDataLoader.getChildLeagueKey(leagueKey)
+        local childLg = childKey and gameState.leagues[childKey]
+        local useFullSecondDiv = childLg ~= nil
+
+        local secondDiv
+        if useFullSecondDiv then
+            secondDiv = childLg
+            -- 玩家顶级联赛先结束时，次级联赛可能还有未赛场次
+            SeasonManager._simulateRemainingLeagueFixtures(gameState, childLg)
+            if not lg:isSeasonComplete() then
+                SeasonManager._simulateRemainingLeagueFixtures(gameState, lg)
+            end
         else
-            SeasonManager._repairSecondDivisionTeamCountries(gameState, leagueKey, lg)
+            if not gameState.secondDivision[leagueKey] then
+                SeasonManager._initSecondDivision(gameState, leagueKey, lg)
+            else
+                SeasonManager._repairSecondDivisionTeamCountries(gameState, leagueKey, lg)
+            end
+            secondDiv = gameState.secondDivision[leagueKey]
         end
 
-        local secondDiv = gameState.secondDivision[leagueKey]
-
-        -- 1. 确定降级球队（倒数3名，作弊模式下保护玩家球队）
         local relegatedTeams = {}
         for i = totalTeams - RELEGATION_SPOTS + 1, totalTeams do
             if sorted[i] then
                 local tid = sorted[i].teamId
-                -- 作弊跳赛季时不允许玩家球队降级
                 if tid == gameState.playerTeamId and gameState._cheatAutoPlay then
-                    -- 跳过玩家球队
+                    -- 作弊跳赛季时不允许玩家球队降级
                 else
                     table.insert(relegatedTeams, tid)
                 end
             end
         end
 
-        -- 2. 确定升级球队（二级联赛前3名）
         local promotedTeams = {}
-        local secondSorted = SeasonManager._getSecondDivSorted(secondDiv)
+        local secondSorted = useFullSecondDiv
+            and childLg:getSortedStandings()
+            or SeasonManager._getSecondDivSorted(secondDiv)
         for i = 1, math.min(PROMOTION_SPOTS, #secondSorted) do
             table.insert(promotedTeams, secondSorted[i].teamId)
         end
 
-        -- 确保有足够的升级球队（如果不够则生成）
-        while #promotedTeams < RELEGATION_SPOTS do
-            local newTeam = SeasonManager._generatePromotionTeam(gameState, leagueKey, _getLeagueCountry(leagueKey, lg))
-            table.insert(promotedTeams, newTeam.id)
-            table.insert(secondDiv.teamIds, newTeam.id)
+        if not useFullSecondDiv then
+            while #promotedTeams < RELEGATION_SPOTS do
+                local newTeam = SeasonManager._generatePromotionTeam(gameState, leagueKey, _getLeagueCountry(leagueKey, lg))
+                table.insert(promotedTeams, newTeam.id)
+                table.insert(secondDiv.teamIds, newTeam.id)
+            end
         end
 
-        -- 3. 执行升降级交换
-        -- 将降级球队从顶级联赛移除，加入二级
+        -- 升降级人数必须对等，避免联赛球队数漂移
+        local swapCount = math.min(#relegatedTeams, #promotedTeams)
+        while #relegatedTeams > swapCount do
+            table.remove(relegatedTeams)
+        end
+        while #promotedTeams > swapCount do
+            table.remove(promotedTeams)
+        end
+
+        local secondDivName = useFullSecondDiv
+            and childLg.name
+            or (SECOND_DIVISION_NAMES[leagueKey] or "二级联赛")
+
         for _, teamId in ipairs(relegatedTeams) do
-            -- 从联赛球队列表移除
-            for i, tid in ipairs(lg.teamIds) do
-                if tid == teamId then
-                    table.remove(lg.teamIds, i)
-                    break
-                end
-            end
-            -- 加入二级联赛
+            SeasonManager._removeTeamFromLeagueList(lg.teamIds, teamId)
             table.insert(secondDiv.teamIds, teamId)
 
             local team = gameState.teams[teamId]
             local teamName = team and team.name or "未知球队"
 
-            -- 如果是玩家球队降级
             if teamId == gameState.playerTeamId then
-                gameState:sendMessage({
-                    category = "league",
-                    title = "球队降级!",
-                    body = string.format("非常遗憾，%s 排名联赛倒数，下赛季将降级至%s。",
-                        teamName, SECOND_DIVISION_NAMES[leagueKey] or "二级联赛"),
-                    priority = "critical",
-                })
-                local JobManager = require("scripts/systems/job_manager")
-                JobManager.handleRelegation(gameState, teamId, SECOND_DIVISION_NAMES[leagueKey] or "二级联赛")
+                if useFullSecondDiv then
+                    JobManager.handleRelegationToSecondTier(gameState, teamId, childKey, secondDivName)
+                else
+                    gameState:sendMessage({
+                        category = "league",
+                        title = "球队降级!",
+                        body = string.format("非常遗憾，%s 排名联赛倒数，下赛季将降级至%s。",
+                            teamName, secondDivName),
+                        priority = "critical",
+                    })
+                    JobManager.handleRelegation(gameState, teamId, secondDivName)
+                end
             end
 
             table.insert(promotionNews, {
@@ -791,16 +828,8 @@ function SeasonManager._processPromotionRelegation(gameState)
             })
         end
 
-        -- 将升级球队从二级移除，加入顶级
         for _, teamId in ipairs(promotedTeams) do
-            -- 从二级移除
-            for i, tid in ipairs(secondDiv.teamIds) do
-                if tid == teamId then
-                    table.remove(secondDiv.teamIds, i)
-                    break
-                end
-            end
-            -- 加入顶级联赛
+            SeasonManager._removeTeamFromLeagueList(secondDiv.teamIds, teamId)
             table.insert(lg.teamIds, teamId)
 
             local team = gameState.teams[teamId]
@@ -809,13 +838,12 @@ function SeasonManager._processPromotionRelegation(gameState)
                 team._promotedThisSeason = true
             end
 
-            -- 如果是玩家球队升级
             if teamId == gameState.playerTeamId then
                 gameState:sendMessage({
                     category = "league",
                     title = "球队升级!",
                     body = string.format("恭喜！%s 赢得%s冠军，下赛季将升级至%s！",
-                        teamName, SECOND_DIVISION_NAMES[leagueKey] or "二级联赛", lg.name),
+                        teamName, secondDivName, lg.name),
                     priority = "critical",
                 })
             end
@@ -828,16 +856,15 @@ function SeasonManager._processPromotionRelegation(gameState)
             })
         end
 
-        -- 4. 模拟二级联赛赛季结果（为下赛季准备排名）
-        SeasonManager._simulateSecondDivision(gameState, leagueKey, secondDiv)
+        if not useFullSecondDiv then
+            SeasonManager._simulateSecondDivision(gameState, leagueKey, secondDiv)
+        end
 
         ::continue_league::
     end
 
-    -- 保存升降级数据供赛季结算页面使用
     gameState.lastPromotionRelegation = promotionNews
 
-    -- 如果玩家球队发生了升降级，需要更新 gameState.league 引用
     if gameState.playerTeamId then
         for leagueKey, lg in pairs(gameState.leagues) do
             for _, tid in ipairs(lg.teamIds) do
@@ -851,9 +878,17 @@ function SeasonManager._processPromotionRelegation(gameState)
         ::league_updated::
     end
 
-    -- 生成升降级综合新闻
     if #promotionNews > 0 then
         SeasonManager._generatePromotionRelegationNews(gameState, promotionNews)
+    end
+end
+
+function SeasonManager._removeTeamFromLeagueList(teamIds, teamId)
+    for i, tid in ipairs(teamIds) do
+        if tid == teamId then
+            table.remove(teamIds, i)
+            return
+        end
     end
 end
 

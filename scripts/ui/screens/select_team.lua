@@ -108,7 +108,6 @@ function SelectTeam.create(params)
             marginRight = 6,
             onClick = function()
                 if cslLoaded then
-                    -- 已加载 → 卸载
                     RealDataLoader.unloadOptionalLeague(gameState, "CSL")
                     if selectedLeagueKey == "CSL" then
                         selectedLeagueKey = "EPL"
@@ -116,9 +115,10 @@ function SelectTeam.create(params)
                     pendingTeam = nil
                     Router.replaceWith("select_team", params)
                 else
-                    -- 未加载 → 加载
                     local success = RealDataLoader.loadOptionalLeague(gameState, "CSL")
                     if success then
+                        local WorldGenerator = require("scripts/systems/world_generator")
+                        WorldGenerator.bootstrapLeagueTeams(gameState, "CSL")
                         selectedLeagueKey = "CSL"
                         pendingTeam = nil
                         Router.replaceWith("select_team", params)
@@ -130,6 +130,48 @@ function SelectTeam.create(params)
                     text = cslLoaded and "中超 ✕" or "+ 中超",
                     fontSize = 12,
                     color = isActive and Theme.COLORS.GOLD or (cslLoaded and "#FF6B6B" or Theme.COLORS.GOLD),
+                    fontWeight = "bold",
+                },
+            },
+        })
+    end
+
+    -- 次级联赛 Tab：批量加载/卸载五大次级联赛
+    do
+        local secondLoaded = RealDataLoader.areSecondDivisionsLoaded(gameState)
+        local isSecondActive = secondLoaded and RealDataLoader.isSecondDivisionKey(selectedLeagueKey)
+        table.insert(leagueTabs, UI.Panel {
+            height = 30,
+            paddingLeft = 12, paddingRight = 12,
+            backgroundColor = isSecondActive and "rgba(212,175,55,0.15)" or (secondLoaded and "rgba(255,75,75,0.08)" or "rgba(100,180,255,0.08)"),
+            borderRadius = 15,
+            borderWidth = 1,
+            borderColor = isSecondActive and "rgba(212,175,55,0.4)" or (secondLoaded and "rgba(255,75,75,0.3)" or "rgba(100,180,255,0.3)"),
+            justifyContent = "center",
+            alignItems = "center",
+            marginRight = 6,
+            onClick = function()
+                if secondLoaded then
+                    RealDataLoader.unloadAllSecondDivisions(gameState)
+                    if RealDataLoader.isSecondDivisionKey(selectedLeagueKey) then
+                        selectedLeagueKey = "EPL"
+                    end
+                    pendingTeam = nil
+                    Router.replaceWith("select_team", params)
+                else
+                    local success = RealDataLoader.loadAllSecondDivisions(gameState)
+                    if success then
+                        selectedLeagueKey = "Championship"
+                        pendingTeam = nil
+                        Router.replaceWith("select_team", params)
+                    end
+                end
+            end,
+            children = {
+                UI.Label {
+                    text = secondLoaded and "次级 ✕" or "+ 次级",
+                    fontSize = 12,
+                    color = isSecondActive and Theme.COLORS.GOLD or (secondLoaded and "#FF6B6B" or "#64B4FF"),
                     fontWeight = "bold",
                 },
             },

@@ -298,6 +298,7 @@ function NavigateTo(screenId, params)
         local gs = GameState.new()
         local genOpts = {
             includeCSL = params and params.includeCSL or false,
+            includeSecondDivisions = params and params.includeSecondDivisions or false,
         }
         local ok, err = pcall(function()
             local success = WorldGenerator.generate(gs, genOpts)

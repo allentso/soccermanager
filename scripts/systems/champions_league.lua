@@ -692,6 +692,8 @@ end
 
 --- 联赛是否已解锁欧冠席位（含「第2赛季起」规则）
 function ChampionsLeague._isLeagueUclActive(gameState, leagueKey)
+    local lg = gameState.leagues and gameState.leagues[leagueKey]
+    if lg and (lg.tier or 1) >= 2 then return false end
     if not UCL_SPOTS_FROM_SEASON_2[leagueKey] then
         return gameState.leagues[leagueKey] ~= nil
     end

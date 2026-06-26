@@ -1097,15 +1097,10 @@ function Settings._ensurePlayerLeagueIntegrity(gameState)
     end
 
     if not foundLeague then
-        -- 玩家球队不在任何顶级联赛中（可能被降级了）
-        -- 强制恢复：将玩家球队重新加回原联赛
-        local targetLeague = gameState.league
+        -- 存档异常：球队不在任何联赛球队列表中，尝试恢复到 playerLeagueId 指向的联赛
+        local targetLeague = gameState.leagues[gameState.playerLeagueId]
+            or gameState.league
         if not targetLeague then
-            -- 用 playerLeagueId 找联赛
-            targetLeague = gameState.leagues[gameState.playerLeagueId]
-        end
-        if not targetLeague then
-            -- 取第一个联赛
             for _, lg in pairs(gameState.leagues) do
                 targetLeague = lg
                 break
@@ -1114,7 +1109,7 @@ function Settings._ensurePlayerLeagueIntegrity(gameState)
         if targetLeague then
             table.insert(targetLeague.teamIds, playerTeamId)
             foundLeague = targetLeague
-            -- 从二级联赛储备池中移除（如果在的话）
+            -- 从旧版抽象储备池移除（若在的话）
             if gameState.secondDivision then
                 for _, sd in pairs(gameState.secondDivision) do
                     for i, tid in ipairs(sd.teamIds or {}) do

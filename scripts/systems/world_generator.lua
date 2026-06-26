@@ -409,9 +409,26 @@ function WorldGenerator.generateAIManager(gameState, teamId, country)
     return m
 end
 
+--- 为联赛内尚未配置职员的球队补全职员与 AI 经理（动态加载联赛时用）
+function WorldGenerator.bootstrapLeagueTeams(gameState, leagueKey)
+    local lg = gameState.leagues and gameState.leagues[leagueKey]
+    if not lg then return end
+    for _, teamId in ipairs(lg.teamIds) do
+        local team = gameState.teams[teamId]
+        if team then
+            if not team.staffIds or #team.staffIds == 0 then
+                generateStaff(gameState, teamId, team.country)
+            end
+            if not team.managerId then
+                WorldGenerator.generateAIManager(gameState, teamId, team.country)
+            end
+        end
+    end
+end
+
 -- 生成完整世界（使用真实联赛数据）
 ---@param gameState table
----@param opts table|nil { includeCSL = boolean }
+---@param opts table|nil { includeCSL = boolean, includeSecondDivisions = boolean }
 function WorldGenerator.generate(gameState, opts)
     opts = opts or {}
     gameState.newGameOptions = opts

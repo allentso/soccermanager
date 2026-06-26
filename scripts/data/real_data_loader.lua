@@ -146,7 +146,50 @@ RealDataLoader.CORE_LEAGUE_FILES = {
 
 -- 可选联赛（新游戏时由玩家勾选）
 RealDataLoader.OPTIONAL_LEAGUES = {
-    CSL = {file = "fm2024_csl.json", name = "中超", country = "CHN", shortName = "CSL"},
+    CSL = {file = "fm2024_csl.json", name = "中超", country = "CHN", shortName = "CSL", tier = 1},
+}
+
+-- 次级联赛（可选，与五大联赛一一对应）
+RealDataLoader.SECOND_DIVISION_LEAGUES = {
+    Championship = {
+        file = "second/fm2024_championship.json",
+        name = "英冠", country = "ENG", shortName = "Championship",
+        parentLeague = "EPL", tier = 2,
+    },
+    LaLiga2 = {
+        file = "second/fm2024_la_liga_2.json",
+        name = "西乙", country = "ES", shortName = "LaLiga2",
+        parentLeague = "LaLiga", tier = 2,
+    },
+    SerieB = {
+        file = "second/fm2024_serie_b.json",
+        name = "意乙", country = "IT", shortName = "SerieB",
+        parentLeague = "SerieA", tier = 2,
+    },
+    Bundesliga2 = {
+        file = "second/fm2024_bundesliga_2.json",
+        name = "德乙", country = "DE", shortName = "Bundesliga2",
+        parentLeague = "Bundesliga", tier = 2,
+    },
+    Ligue2 = {
+        file = "second/fm2024_ligue_2.json",
+        name = "法乙", country = "FR", shortName = "Ligue2",
+        parentLeague = "Ligue1", tier = 2,
+    },
+}
+
+-- 顶级联赛 → 次级联赛 key
+RealDataLoader.PARENT_TO_SECOND = {
+    EPL = "Championship",
+    LaLiga = "LaLiga2",
+    SerieA = "SerieB",
+    Bundesliga = "Bundesliga2",
+    Ligue1 = "Ligue2",
+}
+
+-- 不做升降级的顶级联赛
+RealDataLoader.NO_PROMOTION_LEAGUES = {
+    CSL = true,
 }
 
 -- 兼容旧引用
@@ -162,12 +205,38 @@ function RealDataLoader.getActiveLeagueConfigs(opts)
     if opts.includeCSL and RealDataLoader.OPTIONAL_LEAGUES.CSL then
         table.insert(configs, RealDataLoader.OPTIONAL_LEAGUES.CSL)
     end
+    if opts.includeSecondDivisions then
+        for _, cfg in pairs(RealDataLoader.SECOND_DIVISION_LEAGUES) do
+            table.insert(configs, cfg)
+        end
+    end
     return configs
+end
+
+--- 次级联赛是否已全部加载
+function RealDataLoader.areSecondDivisionsLoaded(gameState)
+    return gameState and gameState.leagues and gameState.leagues.Championship ~= nil
+end
+
+--- 获取顶级联赛对应的次级联赛 key
+function RealDataLoader.getChildLeagueKey(parentKey)
+    return RealDataLoader.PARENT_TO_SECOND[parentKey]
+end
+
+--- 是否为次级联赛 key
+function RealDataLoader.isSecondDivisionKey(leagueKey)
+    return RealDataLoader.SECOND_DIVISION_LEAGUES[leagueKey] ~= nil
 end
 
 --- UI 展示用联赛顺序（仅包含已加载联赛）
 function RealDataLoader.getLeagueDisplayOrder(gameState)
-    local order = {"EPL", "LaLiga", "SerieA", "Bundesliga", "Ligue1"}
+    local order = {
+        "EPL", "Championship",
+        "LaLiga", "LaLiga2",
+        "SerieA", "SerieB",
+        "Bundesliga", "Bundesliga2",
+        "Ligue1", "Ligue2",
+    }
     if gameState and gameState.leagues and gameState.leagues.CSL then
         table.insert(order, "CSL")
     end
@@ -180,6 +249,9 @@ function RealDataLoader.getLeagueConfigByKey(leagueKey)
         if cfg.shortName == leagueKey then return cfg end
     end
     for _, cfg in pairs(RealDataLoader.OPTIONAL_LEAGUES) do
+        if cfg.shortName == leagueKey then return cfg end
+    end
+    for _, cfg in pairs(RealDataLoader.SECOND_DIVISION_LEAGUES) do
         if cfg.shortName == leagueKey then return cfg end
     end
     return nil
@@ -248,7 +320,8 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         local position, naturalPositions = mapPositions(pData.position, pData.alternate_positions)
         local attrs = convertAttributes(pData.attributes or {})
         local birthYear = extractBirthYear(pData.date_of_birth)
-        if CORE_LEAGUE_AGE_OFFSET_KEYS[leagueConfig.shortName] then
+        if CORE_LEAGUE_AGE_OFFSET_KEYS[leagueConfig.shortName]
+            or (leagueConfig.tier or 1) >= 2 then
             birthYear = birthYear + CORE_LEAGUE_AGE_OFFSET
         end
         local contractEnd = extractContractEnd(pData.contract_end)
@@ -333,6 +406,8 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         country = leagueConfig.country,
         season = gameState.season,
         teamIds = teamIds,
+        tier = leagueConfig.tier or 1,
+        parentLeague = leagueConfig.parentLeague,
     })
 
     local seasonStartDate = {
@@ -341,8 +416,8 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         day = Constants.SEASON_START_DAY,
     }
 
-    -- 中超视为「第六大联赛」：与五大联赛共用 8 月开季、周六双循环，不用 JSON 里的 3 月自然年赛程
-    if leagueConfig.shortName == "CSL" then
+    -- 中超 / 次级联赛：与五大联赛共用 8 月开季、周六双循环
+    if leagueConfig.shortName == "CSL" or (leagueConfig.tier or 1) >= 2 then
         league:generateFixtures(seasonStartDate)
     elseif leagueData.league and leagueData.league.fixtures and #leagueData.league.fixtures > 0 then
         -- 转换JSON赛程格式到游戏格式（年份偏移：JSON数据基于2024赛季）
@@ -487,7 +562,7 @@ end
 
 --- 加载联赛到 gameState
 --- @param gameState table GameState实例
---- @param opts table|nil { includeCSL = boolean }
+--- @param opts table|nil { includeCSL = boolean, includeSecondDivisions = boolean }
 --- @return boolean success
 function RealDataLoader.loadAllLeagues(gameState, opts)
     opts = opts or gameState.newGameOptions or {}
@@ -950,6 +1025,63 @@ function RealDataLoader.unloadOptionalLeague(gameState, leagueKey)
     gameState.leagues[leagueKey] = nil
 
     log:Write(LOG_INFO, "RealDataLoader: 已卸载联赛 " .. leagueKey)
+    return true
+end
+
+--- 加载全部次级联赛（英冠、西乙等）
+---@param gameState table
+---@return boolean success
+function RealDataLoader.loadAllSecondDivisions(gameState)
+    if RealDataLoader.areSecondDivisionsLoaded(gameState) then
+        return true
+    end
+
+    local loadedKeys = {}
+    local loaded = 0
+    for _, config in pairs(RealDataLoader.SECOND_DIVISION_LEAGUES) do
+        local data = RealDataLoader.loadLeagueFile(config.file)
+        if not data then
+            log:Write(LOG_ERROR, "RealDataLoader: 无法加载次级联赛 " .. config.file)
+            for _, key in ipairs(loadedKeys) do
+                RealDataLoader.unloadOptionalLeague(gameState, key)
+            end
+            return false
+        end
+        local league = RealDataLoader.importLeague(gameState, data, config)
+        gameState.leagues[config.shortName] = league
+        table.insert(loadedKeys, config.shortName)
+        loaded = loaded + 1
+        log:Write(LOG_INFO, "RealDataLoader: 已加载次级联赛 " .. config.name ..
+            " (" .. #league.teamIds .. " 支球队)")
+    end
+
+    -- 为新加载的次级联赛球队生成 AI 经理和职员
+    if loaded > 0 then
+        gameState.newGameOptions = gameState.newGameOptions or {}
+        gameState.newGameOptions.includeSecondDivisions = true
+        local WorldGenerator = require("scripts/systems/world_generator")
+        for leagueKey in pairs(RealDataLoader.SECOND_DIVISION_LEAGUES) do
+            WorldGenerator.bootstrapLeagueTeams(gameState, leagueKey)
+        end
+    end
+
+    return loaded > 0
+end
+
+--- 卸载全部次级联赛
+---@param gameState table
+---@return boolean success
+function RealDataLoader.unloadAllSecondDivisions(gameState)
+    if not RealDataLoader.areSecondDivisionsLoaded(gameState) then
+        return true
+    end
+
+    for leagueKey in pairs(RealDataLoader.SECOND_DIVISION_LEAGUES) do
+        RealDataLoader.unloadOptionalLeague(gameState, leagueKey)
+    end
+    if gameState.newGameOptions then
+        gameState.newGameOptions.includeSecondDivisions = false
+    end
     return true
 end
 

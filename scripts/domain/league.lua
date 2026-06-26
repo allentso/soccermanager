@@ -10,6 +10,8 @@ function League.new(data)
     self.name = data.name or "超级联赛"
     self.country = data.country or "ENG"
     self.season = data.season or 2026
+    self.tier = data.tier or 1
+    self.parentLeague = data.parentLeague or nil
     self.teamIds = data.teamIds or {}
     self.currentRound = data.currentRound or 0
     self.totalRounds = data.totalRounds or 0
@@ -319,6 +321,8 @@ function League:serialize()
         name = self.name,
         country = self.country,
         season = self.season,
+        tier = self.tier,
+        parentLeague = self.parentLeague,
         teamIds = self.teamIds,
         currentRound = self.currentRound,
         totalRounds = self.totalRounds,
