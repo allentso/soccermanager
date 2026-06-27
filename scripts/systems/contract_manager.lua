@@ -202,13 +202,14 @@ end
 -- 获取续约建议参数
 ------------------------------------------------------
 function ContractManager.getSuggestedTerms(player, team, gameState)
-    -- 建议工资：基于当前工资和球员能力
-    local baseWage = player.wage or 5000
-    local abilityFactor = (player.overall or 50) / 70
-    local suggestedWage = math.floor(baseWage * abilityFactor * 1.1)  -- 涨薪10%
-    suggestedWage = math.max(suggestedWage, 1000)
+    local FinanceManager = require("scripts/systems/finance_manager")
+    local marketWage = FinanceManager.estimateMarketWage(player, team, gameState)
+    local currentWage = player.wage or 5000
 
-    -- 建议年限：基于年龄
+    -- 建议工资：市场公平价，略高于当前合同以体现涨薪诉求
+    local suggestedWage = math.max(marketWage, math.floor(currentWage * 1.05))
+    suggestedWage = math.floor(suggestedWage / 100) * 100
+
     local currentYear = (gameState and gameState.date and gameState.date.year) or 2024
     local age = (player.birthYear and (currentYear - player.birthYear)) or 25
     local suggestedYears = 3
@@ -220,8 +221,9 @@ function ContractManager.getSuggestedTerms(player, team, gameState)
     return {
         wage = suggestedWage,
         years = suggestedYears,
-        minWage = math.floor(baseWage * 0.9),
-        maxWage = math.floor(baseWage * 2.0),
+        minWage = math.max(1000, math.floor(marketWage * 0.85)),
+        maxWage = math.floor(marketWage * 1.35),
+        marketWage = marketWage,
     }
 end
 
@@ -316,6 +318,63 @@ function ContractManager._calcAcceptChance(player, team, offeredWage, offeredYea
     end
 
     return math.max(0.1, math.min(0.95, chance))
+end
+
+------------------------------------------------------
+-- 赛季末薪资审查（成长后重估合同工资）
+------------------------------------------------------
+function ContractManager.processSeasonWageReview(gameState)
+    local FinanceManager = require("scripts/systems/finance_manager")
+
+    for teamId, team in pairs(gameState.teams or {}) do
+        local playerIds = {}
+        for _, pid in ipairs(team.playerIds or {}) do table.insert(playerIds, pid) end
+        for _, pid in ipairs(team._youthPlayerIds or {}) do table.insert(playerIds, pid) end
+
+        for _, pid in ipairs(playerIds) do
+            local player = gameState.players[pid]
+            if not player or player.retired then goto continueReview end
+            if player._loanOriginTeamId or player.squadRole == "loaned" then goto continueReview end
+
+            local ratio = FinanceManager.getWageMarketRatio(player, team, gameState)
+            local marketWage = FinanceManager.estimateMarketWage(player, team, gameState, { noFloor = true })
+
+            if teamId == gameState.playerTeamId then
+                -- 球员工资明显低于市场：发起加薪诉求（每赛季每球员最多一次）
+                if ratio < 0.55 and not player._wageDemandSent then
+                    player._wageDemandSent = true
+                    player._wageDemandAmount = math.floor(marketWage * 0.92 / 100) * 100
+                    gameState:sendMessage({
+                        category = "contract",
+                        title = "球员要求加薪",
+                        body = string.format(
+                            "%s 认为当前周薪 %s 低于其市场价值，希望涨至至少 %s。",
+                            player.displayName,
+                            FinanceManager.formatMoney(player.wage or 0),
+                            FinanceManager.formatMoney(player._wageDemandAmount)),
+                        priority = "normal",
+                    })
+                elseif ratio < 0.40 then
+                    player.morale = math.max(30, (player.morale or 70) - 8)
+                end
+            else
+                -- AI：低于市场 70% 则自动调整到 85% 市场工资
+                if ratio < 0.70 then
+                    player.wage = math.max(player.wage or 0, math.floor(marketWage * 0.85 / 100) * 100)
+                end
+            end
+
+            ::continueReview::
+        end
+    end
+end
+
+--- 清除赛季加薪诉求标记（新赛季）
+function ContractManager.resetSeasonWageFlags(gameState)
+    for _, player in pairs(gameState.players or {}) do
+        player._wageDemandSent = nil
+        player._wageDemandAmount = nil
+    end
 end
 
 ------------------------------------------------------

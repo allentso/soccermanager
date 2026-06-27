@@ -547,11 +547,12 @@ end
 
 function AIManager._finalizeEmergencySign(gameState, team, player, years)
     years = years or 2
+    local FinanceManager = require("scripts/systems/finance_manager")
     player.isYouth = false
     player.isFreeAgent = nil
     player.listedForSale = false
     player.listedForLoan = false
-    player.wage = math.max(500, math.floor((player.overall or 50) * 80))
+    player.wage = FinanceManager.estimateMarketWage(player, team, gameState)
     player.contractEnd = { year = gameState.date.year + years, month = 6, day = 30 }
     player.squadRole = player.squadRole or "squad"
 end
@@ -633,9 +634,13 @@ function AIManager._tryGenerateYouthForTarget(gameState, team, needGroup, minOvr
     local usedNames = {}
 
     local candidate = nil
+    local fallback = nil
     for _ = 1, 16 do
         local roll = YouthManager._generateYouthPlayer(
             gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
+        if not fallback or (roll.overall or 0) > (fallback.overall or 0) then
+            fallback = roll
+        end
         if (roll.overall or 0) >= minOvr then
             if needGroup ~= "GK" or roll.position == "GK" then
                 candidate = roll
@@ -648,6 +653,7 @@ function AIManager._tryGenerateYouthForTarget(gameState, team, needGroup, minOvr
             end
         end
     end
+    if not candidate then candidate = fallback end
     if not candidate then return false end
 
     if needGroup == "GK" and candidate.position ~= "GK" then
@@ -768,14 +774,19 @@ function AIManager._tryGenerateYouthForMinimum(gameState, team, needGroup)
     local usedNames = {}
 
     local candidate = nil
+    local fallback = nil
     for _ = 1, 12 do
         local roll = YouthManager._generateYouthPlayer(
             gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
+        if not fallback or (roll.overall or 0) > (fallback.overall or 0) then
+            fallback = roll
+        end
         if needGroup ~= "GK" or roll.position == "GK" then
             candidate = roll
             break
         end
     end
+    if not candidate then candidate = fallback end
     if not candidate then return false end
 
     if needGroup == "GK" and candidate.position ~= "GK" then

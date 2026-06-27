@@ -278,7 +278,7 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
     -- 1. 导入球队
     for _, tData in ipairs(leagueData.teams) do
         local rep = cslRepMap and cslRepMap[tData.id]
-            or RealDataLoader._calcReputation(tData.wage_budget)
+            or RealDataLoader._calcReputation(tData.wage_budget, leagueConfig.tier)
         -- 中超：财务与初始声望对应（声望后续仍可通过赛季/比赛变动）
         local wb = cslRepMap and RealDataLoader._reputationToWageBudget(rep)
             or (tData.wage_budget or 200000)
@@ -626,18 +626,25 @@ function RealDataLoader.getTeamLeague(gameState, teamId)
 end
 
 --- 根据 wage_budget 推导球队声望
---- wage_budget 范围约 200K~6.1M，映射到 500~950 reputation
---- 这比 JSON 中的 reputation 字段更准确（原字段实际是 finance/10000，与声望无关）
-function RealDataLoader._calcReputation(wageBudget)
+--- tier 1: wage 200K~6.5M → rep 500~950
+--- tier 2: wage 200K~1.2M → rep 380~630（低于顶级下限，内部拉开差距）
+function RealDataLoader._calcReputation(wageBudget, tier)
     local wb = wageBudget or 200000
+    tier = tier or 1
+    if (tier or 1) >= 2 then
+        local logWb = math.log(math.max(wb, 200000))
+        local logMin = math.log(200000)
+        local logMax = math.log(1200000)
+        local ratio = (logWb - logMin) / (logMax - logMin)
+        ratio = math.max(0, math.min(1, ratio))
+        return math.floor(380 + ratio * 250)
+    end
     -- 对数映射：让中等球队也有合理区分度
-    -- ln(200000)≈12.2, ln(6100000)≈15.6，差值约3.4
     local logWb = math.log(wb)
     local logMin = math.log(200000)   -- 最低周薪预算
     local logMax = math.log(6500000)  -- 最高周薪预算（留余量）
     local ratio = (logWb - logMin) / (logMax - logMin)
     ratio = math.max(0, math.min(1, ratio))
-    -- 映射到 500~950
     return math.floor(500 + ratio * 450)
 end
 

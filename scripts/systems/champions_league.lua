@@ -40,6 +40,15 @@ end
 
 local TOTAL_TEAMS = 36
 
+-- 欧冠奖金（与现实量级对齐：参赛保底 + 阶段奖励 + 决赛）
+local UCL_PRIZE = {
+    participation = 12000000,   -- 联赛阶段参赛保底
+    directR16     = 8000000,    -- 联赛阶段前8直通16强
+    playoffWinner = 5000000,    -- 附加赛晋级16强
+    champion      = 40000000,
+    runnerUp      = 20000000,
+}
+
 -- 欧冠日程（2024/25 新赛制）
 local UCL_SCHEDULE = {
     league_start    = { month = 9, day = 17 },  -- 9月中旬联赛阶段开始
@@ -147,6 +156,8 @@ function ChampionsLeague.initialize(gameState)
     -- 存储到 gameState
     gameState.championsLeague = ucl
 
+    ChampionsLeague._payParticipationBonuses(gameState, qualifiedTeams, season)
+
     -- 新闻
     gameState:addNews({
         category = "ucl_news",
@@ -155,6 +166,27 @@ function ChampionsLeague.initialize(gameState)
     })
 
     return ucl
+end
+
+--- 发放欧冠参赛保底奖金（每队每赛季一次）
+function ChampionsLeague._payParticipationBonuses(gameState, teamIds, season)
+    gameState._uclFinance = gameState._uclFinance or {}
+    if gameState._uclFinance.participationSeason == season then return end
+    gameState._uclFinance.participationSeason = season
+
+    for _, tid in ipairs(teamIds or {}) do
+        FinanceManager.addIncome(gameState, tid, UCL_PRIZE.participation,
+            "欧冠联赛阶段参赛奖金", "prize")
+        if tid == gameState.playerTeamId then
+            gameState:sendMessage({
+                category = "finance",
+                title = "欧冠参赛奖金",
+                body = string.format("球队获得欧冠联赛阶段参赛奖金 %s。",
+                    FinanceManager.formatMoney(UCL_PRIZE.participation)),
+                priority = "normal",
+            })
+        end
+    end
 end
 
 ------------------------------------------------------
@@ -834,6 +866,14 @@ function ChampionsLeague._advanceToPlayoff(gameState, ucl)
     }
     ucl:generateKnockoutRound("playoff", matchups, startDate)
 
+    if not ucl._leagueAdvanceBonusesPaid then
+        ucl._leagueAdvanceBonusesPaid = true
+        for _, tid in ipairs(directR16) do
+            FinanceManager.addIncome(gameState, tid, UCL_PRIZE.directR16,
+                "欧冠直通16强奖金", "prize")
+        end
+    end
+
     -- 新闻
     gameState:addNews({
         category = "ucl_news",
@@ -874,6 +914,14 @@ function ChampionsLeague._advanceToR16(gameState, ucl)
         day = UCL_SCHEDULE.r16_start.day,
     }
     ucl:generateKnockoutRound("r16", matchups, startDate)
+
+    if not ucl._playoffBonusesPaid then
+        ucl._playoffBonusesPaid = true
+        for _, tid in ipairs(playoffWinners) do
+            FinanceManager.addIncome(gameState, tid, UCL_PRIZE.playoffWinner,
+                "欧冠附加赛晋级奖金", "prize")
+        end
+    end
 
     gameState:addNews({
         category = "ucl_news",
@@ -985,19 +1033,8 @@ function ChampionsLeague._completeTournament(gameState, ucl)
 
         -- 冠军奖金
         if champion then
-            local prize = 40000000  -- 欧冠冠军总奖金 40M
-            champion.balance = champion.balance + prize
-            champion.transferBudget = (champion.transferBudget or 0) + prize
-            champion.seasonIncome = (champion.seasonIncome or 0) + prize
-            champion.incomeBreakdown = champion.incomeBreakdown or {}
-            champion.incomeBreakdown.prize = (champion.incomeBreakdown.prize or 0) + prize
-            FinanceManager.addTransaction(champion, {
-                amount = prize,
-                description = "欧冠冠军奖金",
-                category = "prize",
-                season = gameState.season,
-                week = FinanceManager._getWeekNumber(gameState),
-            })
+            FinanceManager.addIncome(gameState, champion.id, UCL_PRIZE.champion,
+                "欧冠冠军奖金", "prize")
         end
 
         -- 玩家球队
@@ -1005,7 +1042,8 @@ function ChampionsLeague._completeTournament(gameState, ucl)
             gameState:sendMessage({
                 category = "league",
                 title = "恭喜！欧冠冠军！",
-                body = "你的球队赢得了欧洲冠军联赛！这是足坛最高荣誉！\n冠军奖金 40.0M 已到账。",
+                body = string.format("你的球队赢得了欧洲冠军联赛！这是足坛最高荣誉！\n冠军奖金 %s 已到账。",
+                    FinanceManager.formatMoney(UCL_PRIZE.champion)),
                 priority = "high",
             })
         end
@@ -1022,19 +1060,8 @@ function ChampionsLeague._completeTournament(gameState, ucl)
             -- 亚军奖金
             local finalist = gameState.teams[finalistId]
             if finalist then
-                local runnerUpPrize = 20000000  -- 欧冠亚军奖金 20M
-                finalist.balance = finalist.balance + runnerUpPrize
-                finalist.transferBudget = (finalist.transferBudget or 0) + runnerUpPrize
-                finalist.seasonIncome = (finalist.seasonIncome or 0) + runnerUpPrize
-                finalist.incomeBreakdown = finalist.incomeBreakdown or {}
-                finalist.incomeBreakdown.prize = (finalist.incomeBreakdown.prize or 0) + runnerUpPrize
-                FinanceManager.addTransaction(finalist, {
-                    amount = runnerUpPrize,
-                    description = "欧冠亚军奖金",
-                    category = "prize",
-                    season = gameState.season,
-                    week = FinanceManager._getWeekNumber(gameState),
-                })
+                FinanceManager.addIncome(gameState, finalistId, UCL_PRIZE.runnerUp,
+                    "欧冠亚军奖金", "prize")
             end
 
             -- 声望更新：亚军
@@ -1045,7 +1072,9 @@ function ChampionsLeague._completeTournament(gameState, ucl)
                 gameState:sendMessage({
                     category = "league",
                     title = "欧冠决赛惜败",
-                    body = "你的球队在欧冠决赛中惜败，获得亚军。\n虽然遗憾，但这已经是伟大的征程！\n亚军奖金 3.0M 已到账。",
+                    body = string.format(
+                        "你的球队在欧冠决赛中惜败，获得亚军。\n虽然遗憾，但这已经是伟大的征程！\n亚军奖金 %s 已到账。",
+                        FinanceManager.formatMoney(UCL_PRIZE.runnerUp)),
                     priority = "high",
                 })
             end

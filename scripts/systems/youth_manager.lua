@@ -23,6 +23,7 @@ local YOUTH_POOL_SIZE = 10         -- 每次刷新10名候选
 local MAX_YOUTH_SQUAD = 18         -- AI 球队青训上限
 local MAX_YOUTH_SQUAD_PLAYER = 30  -- 玩家球队青训上限
 local INITIAL_YOUTH_COUNT = 10     -- 每队初始青训人数
+local AI_TIER2_YOUTH_COUNT = 7     -- 次级 AI 队青训目标，降低长档球员总量
 local YOUTH_MIN_AGE = 15
 local YOUTH_MAX_AGE = 18
 local YOUTH_WAGE = 500             -- 青训球员固定周薪
@@ -245,6 +246,7 @@ YouthManager.MAX_YOUTH_SQUAD = MAX_YOUTH_SQUAD
 YouthManager.MAX_YOUTH_SQUAD_PLAYER = MAX_YOUTH_SQUAD_PLAYER
 YouthManager.YOUTH_POOL_SIZE = YOUTH_POOL_SIZE
 YouthManager.INITIAL_YOUTH_COUNT = INITIAL_YOUTH_COUNT
+YouthManager.AI_TIER2_YOUTH_COUNT = AI_TIER2_YOUTH_COUNT
 
 --- 获取指定球队的青训名额上限（玩家 30，AI 18）
 ---@param gameState table
@@ -514,6 +516,24 @@ function YouthManager.processMonthly(gameState)
 
     -- AI 球队青训管理（每月执行一次简化逻辑）
     YouthManager._processAITeamsMonthly(gameState)
+
+    -- 青训在训球员工资随能力缓慢上调
+    YouthManager.syncYouthAcademyWages(gameState)
+end
+
+--- 同步所有球队青训在训球员周薪
+function YouthManager.syncYouthAcademyWages(gameState)
+    for teamId, team in pairs(gameState.teams or {}) do
+        for _, pid in ipairs(team._youthPlayerIds or {}) do
+            local player = gameState.players[pid]
+            if player and player.teamId == teamId then
+                local newWage = FinanceManager.estimateYouthAcademyWage(player, team, gameState)
+                if newWage > (player.wage or 0) then
+                    player.wage = newWage
+                end
+            end
+        end
+    end
 end
 
 --- 获取当前青训候选球员列表
@@ -573,6 +593,7 @@ function YouthManager.signCandidate(gameState, candidateIndex)
 
     -- 设置球队归属
     player.teamId = team.id
+    player.wage = FinanceManager.estimateYouthAcademyWage(player, team, gameState)
 
     -- 初始化潜力评级
     player.paRating = PotentialSystem.rawToRating(player.potential)
@@ -636,7 +657,7 @@ function YouthManager.promote(gameState, playerId)
     -- 已在一线队（如转会后残留引用）：仅清除青训身份，保留现有合同
     if not alreadyFirstTeam then
         player.contractEnd = {year = gameState.date.year + 3, month = 6, day = 30}
-        player.wage = math.max(YOUTH_WAGE * 2, math.floor(player.overall * 80))
+        player.wage = FinanceManager.estimateYouthPromoteWage(player, team, gameState)
         MessageManager.send(gameState, "youth_promoted", {player.displayName})
         EventBus.emit("youth_promoted", {teamId = team.id, playerId = playerId})
     end
@@ -735,7 +756,7 @@ function YouthManager.demoteToYouth(gameState, playerId)
     player.isYouth = true
     player.squadRole = "youth"
     player.teamId = team.id
-    player.wage = YOUTH_WAGE
+    player.wage = FinanceManager.estimateYouthAcademyWage(player, team, gameState)
     player.listedForSale = false
     player.listedForLoan = false
 
@@ -1315,11 +1336,29 @@ end
 -- 初始化：为所有球队填充青训到 INITIAL_YOUTH_COUNT 人
 ------------------------------------------------------
 
---- 为单队补齐青训至 INITIAL_YOUTH_COUNT（已有 wonderkids 只补差额）
+function YouthManager.getAIYouthTarget(gameState, teamId, team)
+    if not gameState or teamId == gameState.playerTeamId then
+        return INITIAL_YOUTH_COUNT
+    end
+
+    local ok, RealDataLoader = pcall(require, "scripts/data/real_data_loader")
+    if ok and RealDataLoader and RealDataLoader.getTeamLeague then
+        local _, leagueKey = RealDataLoader.getTeamLeague(gameState, teamId)
+        local league = gameState.leagues and leagueKey and gameState.leagues[leagueKey]
+        if league and (league.tier or 1) >= 2 then
+            return AI_TIER2_YOUTH_COUNT
+        end
+    end
+
+    return INITIAL_YOUTH_COUNT
+end
+
+--- 为单队补齐青训至目标人数（已有 wonderkids 只补差额）
 ---@return number generated
 local function _fillTeamYouthToInitial(gameState, teamId, team)
     team._youthPlayerIds = team._youthPlayerIds or {}
-    local needed = INITIAL_YOUTH_COUNT - #team._youthPlayerIds
+    local target = YouthManager.getAIYouthTarget(gameState, teamId, team)
+    local needed = target - #team._youthPlayerIds
     if needed <= 0 then return 0 end
 
     local generated = 0
@@ -2020,7 +2059,7 @@ function YouthManager._processAITeamsMonthly(gameState)
                     player.isYouth = false
                     player.teamId = teamId
                     player.contractEnd = {year = gameState.date.year + 3, month = 6, day = 30}
-                    player.wage = math.max(YOUTH_WAGE * 2, math.floor((player.overall or 50) * 80))
+                    player.wage = FinanceManager.estimateYouthPromoteWage(player, team, gameState)
                     if team:addPlayer(pid) then
                         -- promoted
                     end
@@ -2056,11 +2095,12 @@ function YouthManager._processAITeamsMonthly(gameState)
                 end
             end
 
-            -- 3. 自动补员：每3个月生成新球员补齐至 INITIAL_YOUTH_COUNT
+            -- 3. 自动补员：每3个月生成新球员补齐至分级青训目标
             team._aiYouthRefresh = (team._aiYouthRefresh or 0) + 1
             if team._aiYouthRefresh >= YOUTH_REFRESH_INTERVAL then
                 team._aiYouthRefresh = 0
-                local needed = INITIAL_YOUTH_COUNT - #team._youthPlayerIds
+                local targetYouth = YouthManager.getAIYouthTarget(gameState, teamId, team)
+                local needed = targetYouth - #team._youthPlayerIds
                 if needed > 0 then
                     local youthDevBonus, facilityYouthBonus =
                         YouthManager._getTeamYouthGenBonuses(gameState, teamId)

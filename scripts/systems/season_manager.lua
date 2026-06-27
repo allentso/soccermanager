@@ -214,6 +214,10 @@ function SeasonManager.endSeason(gameState)
         -- 3. 球员成长/退化（全局）
         SeasonManager._processPlayerDevelopment(gameState)
 
+        -- 3.5 赛季末薪资审查（成长后重估合同）
+        local ContractManager = require("scripts/systems/contract_manager")
+        ContractManager.processSeasonWageReview(gameState)
+
         -- 4. B3: 重新计算所有球员特性（成长后）
         SeasonManager._recalculateTraits(gameState)
 
@@ -525,6 +529,8 @@ function SeasonManager._processContractExpiry(gameState)
             end
             if Random() < renewChance then
                 player.contractEnd = {year = gameState.date.year + RandomInt(1, 3), month = 6}
+                local marketWage = FinanceManager.estimateMarketWage(player, team, gameState)
+                player.wage = math.max(player.wage or 0, math.floor(marketWage * 0.88 / 100) * 100)
             else
                 -- 释放球员
                 if team then
@@ -538,12 +544,16 @@ function SeasonManager._processContractExpiry(gameState)
                 player.teamId = nil
             end
         else
-            -- 玩家球队球员合同到期：自动续约1年（简化处理）
+            -- 玩家球队球员合同到期：按市场工资重估后续约
+            local marketWage = FinanceManager.estimateMarketWage(player, team, gameState)
+            local newWage = math.max(player.wage or 0, math.floor(marketWage * 0.90 / 100) * 100)
+            player.wage = newWage
             player.contractEnd = {year = gameState.date.year + 1, month = 6}
             gameState:sendMessage({
                 category = "contract",
                 title = "合同自动续约",
-                body = string.format("%s 的合同已到期，已自动续约1年。", player.displayName),
+                body = string.format("%s 的合同已到期，已按市场水平自动续约1年（周薪 %s）。",
+                    player.displayName, FinanceManager.formatMoney(newWage)),
                 priority = "normal",
             })
         end
@@ -1290,43 +1300,57 @@ end
 ------------------------------------------------------
 function SeasonManager._allocateSeasonBudgets(gameState)
     local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
+    local TransferManager = require("scripts/systems/transfer_manager")
+
     for _, team in pairs(gameState.teams) do
         AiSquadPolicy.ensureFinancialBaseline(team)
-        -- 计算当前实际周薪支出
-        local actualWeeklyWage = 0
-        for _, pid in ipairs(team.playerIds) do
-            local p = gameState.players[pid]
-            if p then actualWeeklyWage = actualWeeklyWage + (p.wage or 0) end
-        end
-        for _, sid in ipairs(team.staffIds or {}) do
-            local s = gameState.staff[sid]
-            if s then actualWeeklyWage = actualWeeklyWage + (s.wage or 0) end
-        end
+        local actualWeeklyWage = FinanceManager.getWeeklyWageTotal(gameState, team.id)
 
-        -- 工资预算：实际周薪 * 1.3，并保留品牌财务底盘
         local baseWb = team._baseWageBudget or team.wageBudget or 200000
         local floorFactor = AiSquadPolicy.getFinancialFloorFactor(team)
         local wageFloor = math.floor(baseWb * floorFactor)
-        local newWageBudget = math.max(200000, math.floor(actualWeeklyWage * 1.3), wageFloor)
 
-        -- 转会预算：基于余额的 25%，并参考声望加成
-        -- reputation 实际范围约 500-700（FM数据），标准化到 0.5-1.5 的系数
+        -- 工资预算：基于实际支出 + 小幅缓冲，但不无限跟涨
+        local incomeScale = FinanceManager._getWageScale(team)
+        local incomeBasedWageCap = math.floor((team._lastSeasonIncome or team.seasonIncome or 0) / 520 * incomeScale)
+        local newWageBudget = math.max(
+            200000,
+            wageFloor,
+            math.floor(actualWeeklyWage * 1.08),
+            math.min(math.floor(actualWeeklyWage * 1.25), incomeBasedWageCap > 0 and incomeBasedWageCap or math.floor(actualWeeklyWage * 1.25))
+        )
+
+        -- 现金安全垫：至少覆盖 16 周工资 + 未付分期
+        local pendingPayables = TransferManager.getPendingPayablesTotal and TransferManager.getPendingPayablesTotal(team) or 0
+        local cashReserve = math.floor(actualWeeklyWage * 16 + pendingPayables + newWageBudget * 4)
+        local spendableBalance = math.max(0, (team.balance or 0) - cashReserve)
+
         local rep = team.reputation or 600
-        local repFactor = 0.5 + math.max(0, math.min(1.0, (rep - 400) / 400))  -- 400→0.5, 600→1.0, 800→1.5
-        local balanceBased = math.floor((team.balance or 0) * 0.25 * repFactor)
+        local repFactor = 0.45 + math.max(0, math.min(1.0, (rep - 400) / 400))
+        local balanceBased = math.floor(spendableBalance * 0.18 * repFactor)
 
-        -- 保底：至少有 wageBudget * 10（约10周工资当量）的转会资金
-        local floor = math.floor(newWageBudget * 10)
-        -- 上限：不超过余额的 50%（防止过度花费导致破产）
-        local cap = math.floor((team.balance or 0) * 0.5)
+        local tierFloor
+        if rep >= 780 then tierFloor = 8000000
+        elseif rep >= 680 then tierFloor = 5000000
+        elseif rep >= 580 then tierFloor = 2500000
+        else tierFloor = 1000000
+        end
 
-        local newTransferBudget = math.max(floor, math.min(cap, balanceBased))
-        -- 绝对下限 5M（保证所有球队都能引援）
-        newTransferBudget = math.max(5000000, newTransferBudget)
+        local floor = math.floor(newWageBudget * 6)
+        local cap = math.floor(math.max(0, team.balance or 0) * 0.35)
+        local newTransferBudget = math.max(tierFloor, math.min(cap, math.max(floor, balanceBased)))
 
+        if FinanceManager.isTransferRestricted(team) then
+            newTransferBudget = math.floor(newTransferBudget * 0.5)
+        end
+
+        team._lastSeasonIncome = team.seasonIncome or team._lastSeasonIncome
         team.wageBudget = newWageBudget
         team.transferBudget = newTransferBudget
     end
+
+    local ContractManager = require("scripts/systems/contract_manager")
+    ContractManager.resetSeasonWageFlags(gameState)
 end
 
 function SeasonManager._startNewSeason(gameState)

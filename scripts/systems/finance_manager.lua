@@ -10,16 +10,43 @@ local FinanceManager = {}
 ------------------------------------------------------
 -- 每周处理：扣除所有球队的周薪
 ------------------------------------------------------
+--- 按球员 ID 查找活跃租借记录
+function FinanceManager._getActiveLoanForPlayer(gameState, playerId)
+    for _, loan in ipairs(gameState._activeLoans or {}) do
+        if loan.playerId == playerId then return loan end
+    end
+    return nil
+end
+
 function FinanceManager.processWeeklyWages(gameState)
     for teamId, team in pairs(gameState.teams) do
         local totalPlayerWage = 0
         local totalStaffWage = 0
 
-        -- 球员薪资
+        -- 球员薪资（含租借工资分摊）
         for _, pid in ipairs(team.playerIds) do
             local p = gameState.players[pid]
             if p then
-                totalPlayerWage = totalPlayerWage + (p.wage or 0)
+                local wage = p.wage or 0
+                local loan = FinanceManager._getActiveLoanForPlayer(gameState, pid)
+                if loan and loan.loanTeamId == teamId then
+                    local share = loan.wageShare or 0.5
+                    totalPlayerWage = totalPlayerWage + math.floor(wage * share)
+                elseif not loan or loan.originTeamId ~= teamId then
+                    totalPlayerWage = totalPlayerWage + wage
+                end
+            end
+        end
+
+        -- 外租出去的球员：出租方承担剩余工资份额
+        for _, loan in ipairs(gameState._activeLoans or {}) do
+            if loan.originTeamId == teamId then
+                local p = gameState.players[loan.playerId]
+                if p then
+                    local share = loan.wageShare or 0.5
+                    local originShare = math.max(0, 1.0 - share)
+                    totalPlayerWage = totalPlayerWage + math.floor((p.wage or 0) * originShare)
+                end
             end
         end
 
@@ -83,6 +110,8 @@ function FinanceManager.processWeeklyWages(gameState)
                 end
             end
         end
+
+        FinanceManager._trackDebtConsequences(gameState, team)
     end
 end
 
@@ -94,7 +123,8 @@ function FinanceManager.processTransferIn(gameState, teamId, amount, playerName)
     if not team then return end
 
     team.balance = team.balance + amount
-    team.transferBudget = (team.transferBudget or 0) + amount  -- 售球收入回补转会预算
+    -- 售球收入仅部分回补转会预算，避免卖人循环放大购买力
+    team.transferBudget = (team.transferBudget or 0) + math.floor(amount * 0.65)
     team.seasonIncome = (team.seasonIncome or 0) + amount
     team.incomeBreakdown = team.incomeBreakdown or {}
     team.incomeBreakdown.transfer = (team.incomeBreakdown.transfer or 0) + amount
@@ -178,7 +208,7 @@ function FinanceManager.generateSponsorOffers(gameState)
     -- 基础赞助金额跟球队声望挂钩（reputation 值域 500-900，归一化到 0-100）
     -- 英超顶级队年赞助 2-3 亿，月约 2000 万；中游约 5000-8000 万/年
     local reputation = (team.reputation or 500) / 10
-    local baseFactor = 0.8 + (reputation / 100) * 2.0  -- 0.8x ~ 2.8x
+    local baseFactor = 0.65 + (reputation / 100) * 1.6  -- 0.65x ~ 2.25x
 
     local offers = {}
     for _, tmpl in ipairs(FinanceManager.SPONSOR_TEMPLATES) do
@@ -186,11 +216,11 @@ function FinanceManager.generateSponsorOffers(gameState)
         -- 根据类型设定基础金额范围（月薪）
         local baseAmount
         if tmpl.type == "primary" then
-            baseAmount = math.floor(2000000 * baseFactor)
+            baseAmount = math.floor(1400000 * baseFactor)
         elseif tmpl.type == "kit" then
-            baseAmount = math.floor(1200000 * baseFactor)
+            baseAmount = math.floor(850000 * baseFactor)
         else
-            baseAmount = math.floor(500000 * baseFactor)
+            baseAmount = math.floor(350000 * baseFactor)
         end
 
         -- 生成 3 个方案：保守/均衡/激进
@@ -315,12 +345,12 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
 
     -- 动态票价 = 基础票价 × 对手热度加成 × 策略系数
     -- 英超票价通常 40-100 镑，rep68(曼联级)基础应约 48-50
-    local basePrice = 35 + math.floor(rep / 5)  -- rep50=45, rep68=48, rep80=51
-    local opponentHype = math.min(1.8, 1.0 + opponentRep / 120)  -- 强队来访加价（缓和）
+    local basePrice = 32 + math.floor(rep / 5)  -- rep50=42, rep68=45, rep80=48
+    local opponentHype = math.min(1.75, 1.0 + opponentRep / 130)
     local ticketPrice = math.floor(basePrice * opponentHype * strategy.multiplier)
 
     -- 智能上座率 = 基础率 + 对手吸引力 + 连胜奖励 + 策略调整
-    local baseAttendance = 0.65 + rep / 500  -- rep50=0.75, rep80=0.81
+    local baseAttendance = 0.60 + rep / 520  -- 略低于旧版，贴近现实票房占比
     local hypeBonus = math.min(0.15, opponentRep / 500)  -- 强队来访+观众
     if isDerby then
         hypeBonus = hypeBonus + 0.08  -- 德比战额外上座率
@@ -333,13 +363,20 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
     attendanceRate = math.min(0.99, math.max(0.45, attendanceRate + (Random() - 0.5) * 0.10))
 
     local attendance = math.floor(capacity * attendanceRate)
-    local revenue = attendance * ticketPrice
+    local grossRevenue = attendance * ticketPrice
+    -- 赛事运营成本（安保、转播布置、球童等）：约 15% 票房 + 按容量固定成本
+    local matchOpsCost = math.floor(grossRevenue * 0.15 + capacity * 12)
+    local revenue = math.max(0, grossRevenue - matchOpsCost)
 
     team.balance = team.balance + revenue
-    team.seasonIncome = (team.seasonIncome or 0) + revenue
+    if matchOpsCost > 0 then
+        team.seasonExpense = (team.seasonExpense or 0) + matchOpsCost
+    end
+    -- 赛季财报按毛票房入账，再用赛日成本冲减；现金余额只增加净票房。
+    team.seasonIncome = (team.seasonIncome or 0) + grossRevenue
     -- 分类细计
     team.incomeBreakdown = team.incomeBreakdown or {}
-    team.incomeBreakdown.ticket = (team.incomeBreakdown.ticket or 0) + revenue
+    team.incomeBreakdown.ticket = (team.incomeBreakdown.ticket or 0) + grossRevenue
 
     FinanceManager.addTransaction(team, {
         amount = revenue,
@@ -352,6 +389,8 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
     -- 返回明细数据（用于赛后弹窗）
     local revenueDetails = {
         revenue = revenue,
+        grossRevenue = grossRevenue,
+        matchOpsCost = matchOpsCost,
         attendance = attendance,
         capacity = capacity,
         attendanceRate = attendanceRate,
@@ -449,12 +488,10 @@ function FinanceManager.processMonthlySponsorship(gameState)
             -- 经济规模系数：让小型俱乐部收入与其体量匹配
             local wageScale = FinanceManager._getWageScale(team)
 
-            local baseSponsor = rep * 15000 + (capacity / 30000) * 500000
-            local posBonus = math.max(0, (11 - position) * rep * 1000)
-            -- 顶级俱乐部品牌溢价：rep>=80 时有额外商业收入（模拟全球品牌效应）
-            -- prestigeBonus 不受 wageScale 影响（仅顶级俱乐部有此加成）
-            local prestigeBonus = math.max(0, (rep - 80) * 500000)
-            sponsorRevenue = math.floor(((baseSponsor + posBonus) * wageScale + prestigeBonus) * (0.85 + Random() * 0.30))
+            local baseSponsor = rep * 10000 + (capacity / 30000) * 320000
+            local posBonus = math.max(0, (11 - position) * rep * 700)
+            local prestigeBonus = math.max(0, (rep - 80) * 280000)
+            sponsorRevenue = math.floor(((baseSponsor + posBonus) * wageScale + prestigeBonus) * (0.85 + Random() * 0.25))
         end
 
         team.balance = team.balance + sponsorRevenue
@@ -485,9 +522,9 @@ function FinanceManager.processMonthlyBroadcast(gameState)
         local wageScale = FinanceManager._getWageScale(team)
 
         -- 转播池按排名分配（第1名拿最大份额，第20名最小）
-        -- 英超每队年转播约 1-1.5 亿，月付约 800-1200 万
-        local shareRatio = 1.0 + (20 - position) * 0.05  -- 第1=1.95x, 第10=1.50x, 第20=1.00x
-        local baseAmount = rep * 60000 + 500000
+        -- 英超中游年转播约 1.0-1.3 亿（校准 Brighton/Wolves 2023/24）
+        local shareRatio = 1.0 + (20 - position) * 0.04  -- 第1=1.76x, 第10=1.40x, 第20=1.00x
+        local baseAmount = rep * 105000 + 750000
         local amount = math.floor(baseAmount * shareRatio * wageScale)
 
         team.balance = team.balance + amount
@@ -531,10 +568,9 @@ function FinanceManager.processMonthlyMerchandise(gameState)
         end
         local starBonus = 1.0 + math.min(0.9, starCount * 0.15 + legendCount * 0.15)
 
-        local baseAmount = rep * 18000 + 200000
-        -- 顶级俱乐部全球商品溢价（不受 wageScale 影响）
-        local prestigeMerch = math.max(0, (rep - 80) * 300000)
-        local amount = math.floor((baseAmount * wageScale + prestigeMerch) * starBonus * (0.90 + Random() * 0.20))
+        local baseAmount = rep * 14000 + 150000
+        local prestigeMerch = math.max(0, (rep - 80) * 200000)
+        local amount = math.floor((baseAmount * wageScale + prestigeMerch) * starBonus * (0.88 + Random() * 0.18))
 
         team.balance = team.balance + amount
         team.seasonIncome = (team.seasonIncome or 0) + amount
@@ -559,10 +595,10 @@ end
 FinanceManager.FACILITY_MAINTENANCE = {
     -- [level] = 月维护费（Lv.1免费）
     [1] = 0,
-    [2] = 50000,
-    [3] = 120000,
-    [4] = 250000,
-    [5] = 500000,
+    [2] = 80000,
+    [3] = 180000,
+    [4] = 380000,
+    [5] = 750000,
 }
 
 function FinanceManager.processMonthlyMaintenance(gameState)
@@ -575,10 +611,35 @@ function FinanceManager.processMonthlyMaintenance(gameState)
             totalMaintenance = totalMaintenance + (FinanceManager.FACILITY_MAINTENANCE[level] or 0)
         end
 
-        -- 球场维护费 = 容量 × 10（30K容量 = 300K/月）
+        -- 球场维护费 = 容量 × 18（30K容量 ≈ 540K/月）
         local capacity = team.stadiumCapacity or 30000
-        local stadiumCost = math.floor(capacity * 10)
+        local stadiumCost = math.floor(capacity * 18)
         totalMaintenance = totalMaintenance + stadiumCost
+
+        -- 俱乐部行政/运营（按声望与职员规模）
+        local rep = (team.reputation or 500) / 10
+        local staffCount = #(team.staffIds or {})
+        local adminCost = math.floor(rep * 12000 + staffCount * 45000 + 80000)
+        totalMaintenance = totalMaintenance + adminCost
+
+        -- 青训学院运营费
+        local youthCount = #(team._youthPlayerIds or {})
+        local youthLevel = (facilities.youth or 1)
+        if youthCount > 0 then
+            totalMaintenance = totalMaintenance + math.floor(youthCount * (25000 + youthLevel * 12000))
+        end
+
+        -- 球探部门运营费（设施等级 + 活跃报告数）
+        local scoutLevel = facilities.scouting or 1
+        local activeReports = 0
+        if gameState.scoutReports then
+            for _, report in ipairs(gameState.scoutReports) do
+                if report.teamId == teamId and (report.status == "active" or report.status == "in_progress") then
+                    activeReports = activeReports + 1
+                end
+            end
+        end
+        totalMaintenance = totalMaintenance + math.floor(scoutLevel * 60000 + activeReports * 15000)
 
         if totalMaintenance > 0 then
             team.balance = team.balance - totalMaintenance
@@ -709,6 +770,9 @@ end
 function FinanceManager.expandStadium(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return false, "无法获取球队" end
+    if FinanceManager.isSpendingFrozen(team) then
+        return false, "财务管制中，无法启动球场扩建"
+    end
 
     -- 检查是否正在建设中
     if team.stadiumExpanding then
@@ -796,6 +860,157 @@ function FinanceManager.resetSeasonFinance(gameState)
             team.transactions = recent
         end
     end
+end
+
+------------------------------------------------------
+-- 市场工资模型（能力/身价/年龄/角色统一估算）
+------------------------------------------------------
+
+--- 基于 OVR 的分段公平周薪（校准：70≈20K, 80≈70K, 90≈200K）
+function FinanceManager._ovrBaseWage(ovr)
+    ovr = ovr or 50
+    if ovr < 65 then
+        return math.floor(ovr * 220)
+    elseif ovr < 75 then
+        return math.floor(8000 + (ovr - 65) * 2500)
+    elseif ovr < 85 then
+        return math.floor(33000 + (ovr - 75) * 7500)
+    else
+        return math.floor(108000 + (ovr - 85) * 18000)
+    end
+end
+
+--- 估算球员市场公平周薪
+--- @param player table
+--- @param team table|nil
+--- @param gameState table|nil
+--- @param opts table|nil { contractType = "youth"|"promote"|"first_team", noFloor }
+function FinanceManager.estimateMarketWage(player, team, gameState, opts)
+    if not player then return 1000 end
+    opts = opts or {}
+
+    local ovr = player.overall or 50
+    local wage = FinanceManager._ovrBaseWage(ovr)
+
+    -- 身价修正（上限参考，避免合同折价身价拉低）
+    local value = player.value or 0
+    if value > 0 then
+        local valueWage = math.floor(value / 520)
+        wage = math.max(wage, valueWage)
+    end
+
+    -- 年龄：黄金期略高，老将略低
+    local currentYear = (gameState and gameState.date and gameState.date.year) or 2025
+    local age = player.getAge and player:getAge(currentYear) or (currentYear - (player.birthYear or 2000))
+    if age <= 21 then
+        wage = math.floor(wage * 0.88)
+    elseif age <= 24 then
+        wage = math.floor(wage * 0.95)
+    elseif age >= 33 then
+        wage = math.floor(wage * 0.72)
+    elseif age >= 30 then
+        wage = math.floor(wage * 0.85)
+    end
+
+    -- 潜力溢价（仅年轻球员）
+    local pot = player.actualPotential or player.potential or ovr
+    if age <= 23 and pot > ovr then
+        local gap = math.min(15, pot - ovr)
+        wage = math.floor(wage * (1.0 + gap * 0.025))
+    end
+
+    -- 球员名气 / 角色
+    if player.isLegend then
+        wage = math.floor(wage * 1.35)
+    end
+    if player.squadRole == "key" then
+        wage = math.floor(wage * 1.12)
+    elseif player.squadRole == "rotation" then
+        wage = math.floor(wage * 1.04)
+    end
+    local rep = player.reputation or 30
+    if rep >= 80 then wage = math.floor(wage * 1.15)
+    elseif rep >= 60 then wage = math.floor(wage * 1.06)
+    end
+
+    -- 俱乐部声望加成（豪门球员要求更高）
+    if team and (team.reputation or 0) >= 780 then
+        wage = math.floor(wage * 1.08)
+    end
+
+    -- 合同类型折扣
+    if opts.contractType == "youth" then
+        wage = math.max(500, math.floor(wage * 0.18))
+    elseif opts.contractType == "promote" then
+        wage = math.max(1000, math.floor(wage * 0.55))
+    end
+
+    wage = math.floor(wage / 100) * 100
+    wage = math.max(500, wage)
+
+    if not opts.noFloor and player.wage and player.wage > 0 then
+        wage = math.max(wage, player.wage)
+    end
+
+    return wage
+end
+
+--- 青训学院在训周薪（随能力缓慢上调，仍低于一线队）
+function FinanceManager.estimateYouthAcademyWage(player, team, gameState)
+    local market = FinanceManager.estimateMarketWage(player, team, gameState, { noFloor = true })
+    return math.max(500, math.min(market, math.floor(market * 0.15 + (player.overall or 50) * 120)))
+end
+
+--- 提拔至一线队的建议周薪
+function FinanceManager.estimateYouthPromoteWage(player, team, gameState)
+    return FinanceManager.estimateMarketWage(player, team, gameState, { contractType = "promote" })
+end
+
+--- 球员当前工资相对市场的比例（<1 表示被低估）
+function FinanceManager.getWageMarketRatio(player, team, gameState)
+    local market = FinanceManager.estimateMarketWage(player, team, gameState, { noFloor = true })
+    if market <= 0 then return 1.0 end
+    return (player.wage or 0) / market
+end
+
+--- 更新负债周数并施加轻量财务惩罚
+function FinanceManager._trackDebtConsequences(gameState, team)
+    if not team.finance then team.finance = {} end
+    if (team.balance or 0) < 0 then
+        team.finance.debtWeeks = (team.finance.debtWeeks or 0) + 1
+    else
+        team.finance.debtWeeks = 0
+    end
+
+    local debtWeeks = team.finance.debtWeeks or 0
+    team.finance.spendingFrozen = debtWeeks >= 4
+    team.finance.transferRestricted = debtWeeks >= 8
+
+    if debtWeeks == 4 and team.id == gameState.playerTeamId then
+        gameState:sendMessage({
+            category = "finance",
+            title = "财务管制",
+            body = "连续负债已触发董事会管制：设施升级与商业活动暂停，直至现金回正。",
+            priority = "high",
+        })
+    elseif debtWeeks == 8 and team.id == gameState.playerTeamId then
+        team.transferBudget = math.max(0, math.floor((team.transferBudget or 0) * 0.6))
+        team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - 15)
+        gameState:sendMessage({
+            category = "finance",
+            title = "严重财务危机",
+            body = "董事会削减转会预算并下调满意度。请尽快出售高薪球员或降低开支。",
+            priority = "high",
+        })
+    end
+end
+
+function FinanceManager.isSpendingFrozen(team)
+    return team and team.finance and team.finance.spendingFrozen
+end
+
+function FinanceManager.isTransferRestricted(team)
+    return team and team.finance and team.finance.transferRestricted
 end
 
 ------------------------------------------------------
@@ -1035,6 +1250,9 @@ end
 function FinanceManager.upgradeFacility(gameState, facilityType)
     local team = gameState:getPlayerTeam()
     if not team then return false, "无法获取球队" end
+    if FinanceManager.isSpendingFrozen(team) then
+        return false, "财务管制中，无法升级设施"
+    end
     local config = FinanceManager.FACILITY_TYPES[facilityType]
     if not config then return false, "未知设施类型" end
 
@@ -1137,6 +1355,9 @@ end
 function FinanceManager.seekSponsorship(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return false, "无法获取球队信息" end
+    if FinanceManager.isSpendingFrozen(team) then
+        return false, "财务管制中，无法开展赞助推介"
+    end
 
     if not team.finance then team.finance = {} end
 
@@ -1155,9 +1376,10 @@ function FinanceManager.seekSponsorship(gameState)
         return false, "赞助商对当前球队表现不感兴趣，推介失败"
     end
 
-    local amount = math.floor(rep * 50000 + 2000000 + Random() * 3000000)  -- 5M~10M级
+    local amount = math.floor(rep * 35000 + 1200000 + Random() * 1800000)  -- 约 1.2M~3M
 
     team.balance = team.balance + amount
+    team.transferBudget = (team.transferBudget or 0) + math.floor(amount * 0.5)
     team.seasonIncome = (team.seasonIncome or 0) + amount
     team.finance.sponsorSeeksThisSeason = seekCount + 1
 
@@ -1185,6 +1407,9 @@ end
 function FinanceManager.hostCommercialEvent(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return false, "无法获取球队信息" end
+    if FinanceManager.isSpendingFrozen(team) then
+        return false, "财务管制中，无法举办商业活动"
+    end
 
     if not team.finance then team.finance = {} end
 
@@ -1202,10 +1427,11 @@ function FinanceManager.hostCommercialEvent(gameState)
     -- 收入 = 声望 + 球场容量影响
     local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
     local capacity = team.stadiumCapacity or 30000
-    local amount = math.floor(capacity * 30 + rep * 30000 + Random() * 2000000)  -- 2M~5M级
+    local amount = math.floor(capacity * 18 + rep * 18000 + Random() * 900000)  -- 约 1M~2.5M
 
     team.balance = team.balance + amount
     team.seasonIncome = (team.seasonIncome or 0) + amount
+    team.transferBudget = (team.transferBudget or 0) + math.floor(amount * 0.3)
     team.finance.lastCommercialEventDate = {
         year = gameState.date.year,
         month = gameState.date.month,
@@ -1324,6 +1550,9 @@ function FinanceManager.resetRecoveryCounters(team)
     if not team.finance then team.finance = {} end
     team.finance.boardInjectionsThisSeason = 0
     team.finance.sponsorSeeksThisSeason = 0
+    team.finance.debtWeeks = 0
+    team.finance.spendingFrozen = nil
+    team.finance.transferRestricted = nil
     -- 商业活动CD跨赛季保留
 end
 

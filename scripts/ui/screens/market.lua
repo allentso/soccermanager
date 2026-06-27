@@ -676,7 +676,7 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
     local currentWage = team and FinanceManager.getWeeklyWageTotal(gameState, team.id) or 0
     local baseValue = player.value
     local sellerTeam = gameState.teams[player.teamId]
-    local suggestedWage = TransferManager.getSuggestedTransferWage(player)
+    local suggestedWage = TransferManager.getSuggestedTransferWage(player, gameState:getPlayerTeam(), gameState)
 
     local clauseOptions = {
         { key = "simple", label = "一次付清·无附加条款", installments = 1, bonus = 0, sellOn = 0 },

@@ -396,6 +396,15 @@ end
 function Youth._confirmSign(candidate, index, gameState)
     local scoutAccuracy = getTeamScoutAccuracy(gameState)
     local _, potStarText = getPotentialStars(candidate.potential, scoutAccuracy)
+    local team = gameState.teams[gameState.playerTeamId]
+    local previewPlayer = {
+        overall = candidate.overall,
+        potential = candidate.potential,
+        actualPotential = candidate.potential,
+        birthYear = gameState.date.year - (candidate.age or 16),
+        position = candidate.position,
+    }
+    local wagePreview = FinanceManager.estimateYouthAcademyWage(previewPlayer, team, gameState)
     ConfirmDialog.showWithDetails({
         title = "签入青训球员",
         details = {
@@ -404,7 +413,7 @@ function Youth._confirmSign(candidate, index, gameState)
             { label = "年龄", value = tostring(candidate.age) .. "岁" },
             { label = "能力", value = tostring(candidate.overall) },
             { label = "潜力", value = potStarText, valueColor = Theme.COLORS.ACCENT },
-            { label = "周薪", value = FinanceManager.formatMoney(500) },
+            { label = "周薪", value = FinanceManager.formatMoney(wagePreview) },
             { label = "合同", value = "3年" },
         },
         confirmText = "确认签入",
@@ -741,7 +750,8 @@ end
 ------------------------------------------------------
 function Youth._confirmPromote(player, gameState)
     local age = player.birthYear and math.floor(gameState.date.year - player.birthYear) or 0
-    local newWage = math.max(1000, math.floor((player.overall or 0) * 80))
+    local team = gameState.teams[gameState.playerTeamId]
+    local newWage = FinanceManager.estimateYouthPromoteWage(player, team, gameState)
     local scoutAccuracy = getTeamScoutAccuracy(gameState)
     local _, potStarText = getPotentialStars(player.actualPotential or player.potential or 0, scoutAccuracy)
 
