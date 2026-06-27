@@ -594,38 +594,6 @@ function Dashboard.create(params)
         })
     end
 
-    local function finishContinueAdvance(reason, playerFixture)
-        if reason == "done" then
-            showPopupMessages(function()
-                Router.replaceWith("dashboard")
-            end)
-            return
-        end
-        finishSkipAdvance(reason, playerFixture)
-    end
-
-    local function doAdvanceDayForButton()
-        if gameState.pendingPlayerFixture or daysToMatch == 0 then
-            doAdvanceDay()
-            return
-        end
-
-        local enteringMatchDay = (daysToMatch == 1)
-        DayAdvanceOverlay.run({
-            gameState = gameState,
-            totalSteps = 1,
-            minStepsForOverlay = 1,
-            title = enteringMatchDay and "进入比赛日" or "继续推进",
-            message = enteringMatchDay
-                and "正在模拟同日其他比赛和日常事务，游戏没有卡死，请稍候…"
-                or "正在处理训练、体能恢复、转会与消息，游戏没有卡死，请稍候…",
-            stepFn = function()
-                return runOneSkipDayStep("match")
-            end,
-            onComplete = finishContinueAdvance,
-        })
-    end
-
     -- 判断当前身份
     local isNTMode = gameState.currentRole == "national_team" and gameState.nationalTeamCoach ~= nil
     -- 如果国家队已不存在（世界杯结束），自动切回俱乐部
@@ -662,7 +630,7 @@ function Dashboard.create(params)
             -- 顶部状态栏：日期 + 推进按钮
             Dashboard._buildTopBar(
                 gameState, team, isBlocked, hasAnyBlockers, blockers,
-                daysToMatch, doAdvanceDayForButton, doSkipToMatchDay,
+                daysToMatch, doAdvanceDay, doSkipToMatchDay,
                 offerSkipToTransferWindow, daysToTransferWindow, doSkipToTransferWindow,
                 offerSkipToMatch
             ),
