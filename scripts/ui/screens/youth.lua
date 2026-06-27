@@ -253,6 +253,87 @@ function Youth._buildSummaryCard(youthSquad, maxYouthSquad)
 end
 
 ------------------------------------------------------
+-- 批量操作
+------------------------------------------------------
+function Youth._signAllCandidates(candidates, gameState)
+    if not candidates or #candidates == 0 then return end
+    ConfirmDialog.show({
+        title = "一键签入",
+        message = string.format("确认签入全部 %d 名候选青训球员？", #candidates),
+        confirmText = "全部签入",
+        confirmColor = Theme.COLORS.SECONDARY,
+        onConfirm = function()
+            local signedCount, failCount = 0, 0
+            while true do
+                local current = YouthManager.getCandidates(gameState)
+                if not current or #current == 0 then break end
+                local ok = YouthManager.signCandidate(gameState, 1)
+                if ok then
+                    signedCount = signedCount + 1
+                else
+                    failCount = failCount + 1
+                    break
+                end
+            end
+            if signedCount > 0 then
+                SaveManager.save(gameState, "auto")
+                UI.Toast.Show({
+                    message = string.format("已签入 %d 名青训球员", signedCount),
+                    variant = failCount > 0 and "warning" or "success",
+                })
+            else
+                UI.Toast.Show({ message = "没有可签入的候选球员", variant = "warning" })
+            end
+            Router.replaceWith("youth", { tab = "recruit" })
+        end,
+    })
+end
+
+function Youth._listAllYouthForSale(youthSquad, gameState)
+    if not youthSquad or #youthSquad == 0 then return end
+    local targets = {}
+    for _, player in ipairs(youthSquad) do
+        if player and not player.listedForSale then
+            table.insert(targets, player)
+        end
+    end
+    if #targets == 0 then
+        UI.Toast.Show({ message = "青训球员已全部挂牌", variant = "info" })
+        return
+    end
+
+    ConfirmDialog.show({
+        title = "一键挂牌",
+        message = string.format("确认将 %d 名未挂牌青训球员全部挂牌出售？", #targets),
+        confirmText = "全部挂牌",
+        confirmColor = Theme.COLORS.ACCENT,
+        onConfirm = function()
+            local okCount, failCount = 0, 0
+            local lastErr = nil
+            for _, player in ipairs(targets) do
+                local ok, err = TransferManager.listForSale(gameState, player)
+                if ok then
+                    okCount = okCount + 1
+                else
+                    failCount = failCount + 1
+                    lastErr = err
+                end
+            end
+            if okCount > 0 then
+                UI.Toast.Show({
+                    message = string.format("已挂牌 %d 名青训球员", okCount),
+                    variant = failCount > 0 and "warning" or "success",
+                })
+            end
+            if failCount > 0 then
+                UI.Toast.Show({ message = lastErr or "部分球员无法挂牌", variant = "error" })
+            end
+            Router.replaceWith("youth", { tab = "squad" })
+        end,
+    })
+end
+
+------------------------------------------------------
 -- 候选招募区域
 ------------------------------------------------------
 function Youth._buildCandidatesSection(candidates, gameState)
@@ -279,10 +360,19 @@ function Youth._buildCandidatesSection(candidates, gameState)
         marginBottom = 4,
         children = {
             Theme.Subtitle { text = "候选球员", marginBottom = 0 },
-            UI.Label {
-                text = tostring(#candidates) .. "人可签入",
-                fontSize = 11,
-                color = Theme.COLORS.ACCENT,
+            UI.Button {
+                text = string.format("一键签入 %d", #candidates),
+                height = 30,
+                paddingLeft = 12,
+                paddingRight = 12,
+                backgroundColor = Theme.COLORS.SECONDARY,
+                borderRadius = 15,
+                fontSize = 12,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontWeight = "bold",
+                onClick = function()
+                    Youth._signAllCandidates(candidates, gameState)
+                end,
             },
         },
     })
@@ -455,7 +545,36 @@ function Youth._buildSquadSection(youthSquad, gameState)
     end
 
     local rows = {}
-    table.insert(rows, Theme.Subtitle { text = string.format("青训球员 (%d人)", #youthSquad) })
+    local unlistedCount = 0
+    for _, player in ipairs(youthSquad) do
+        if player and not player.listedForSale then
+            unlistedCount = unlistedCount + 1
+        end
+    end
+    table.insert(rows, UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        justifyContent = "space-between",
+        alignItems = "center",
+        marginBottom = 4,
+        children = {
+            Theme.Subtitle { text = string.format("青训球员 (%d人)", #youthSquad), marginBottom = 0 },
+            UI.Button {
+                text = string.format("一键挂牌 %d", unlistedCount),
+                height = 30,
+                paddingLeft = 12,
+                paddingRight = 12,
+                backgroundColor = unlistedCount > 0 and Theme.COLORS.ACCENT or {51, 59, 84, 255},
+                borderRadius = 15,
+                fontSize = 12,
+                color = unlistedCount > 0 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+                fontWeight = "bold",
+                onClick = function()
+                    Youth._listAllYouthForSale(youthSquad, gameState)
+                end,
+            },
+        },
+    })
 
     for _, player in ipairs(youthSquad) do
         table.insert(rows, Youth._buildYouthPlayerRow(player, gameState))

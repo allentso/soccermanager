@@ -1742,9 +1742,40 @@ function Market._buildListedContent(gameState)
             if hasBid then
                 primaryBid = TransferManager.pickPrimaryIncomingSaleBid(gameState, p.id)
                 if #incomingBids > 1 then
+                    local pendingCount, awaitingCount, consideringCount, counterCount = 0, 0, 0, 0
+                    for _, b in ipairs(incomingBids) do
+                        if b.status == "pending" then
+                            pendingCount = pendingCount + 1
+                        elseif b.status == "awaiting_sale_confirmation" then
+                            awaitingCount = awaitingCount + 1
+                        elseif b.status == "player_considering_sale" then
+                            consideringCount = consideringCount + 1
+                        elseif b.status == "counter_pending" then
+                            counterCount = counterCount + 1
+                        end
+                    end
+
                     bidInfo = string.format("%d份报价 · 最高 %s", #incomingBids, Market._formatValue(incomingBids[1].amount or 0))
-                    bidColor = Theme.COLORS.ACCENT
-                    btnText = "处理"
+                    if awaitingCount > 0 then
+                        bidInfo = bidInfo .. string.format(" · %d笔待确认", awaitingCount)
+                        bidColor = Theme.COLORS.SECONDARY
+                        btnText = "确认"
+                    elseif pendingCount > 0 then
+                        bidInfo = bidInfo .. string.format(" · %d笔待处理", pendingCount)
+                        bidColor = Theme.COLORS.ACCENT
+                        btnText = "处理"
+                    elseif consideringCount > 0 then
+                        bidInfo = bidInfo .. " · 球员考虑中"
+                        bidColor = {255, 180, 60, 255}
+                        btnText = "查看"
+                    elseif counterCount > 0 then
+                        bidInfo = bidInfo .. " · 还价中"
+                        bidColor = Theme.COLORS.WARNING
+                        btnText = "查看"
+                    else
+                        bidColor = Theme.COLORS.TEXT_MUTED
+                        btnText = "查看"
+                    end
                 elseif primaryBid then
                     local buyer = gameState.teams[primaryBid.buyerTeamId]
                     if primaryBid.status == "counter_pending" then
@@ -1986,7 +2017,11 @@ _buildDeferTransferButton = function(gameState, bidId, playerName, tabKey, opts,
         onClick = function()
             local ok, err = TransferManager.deferTransferSignConfirmation(gameState, bidId)
             if ok then
-                BottomSheet.close()
+                if opts and opts.closeSheetForAction then
+                    opts.closeSheetForAction()
+                else
+                    BottomSheet.close()
+                end
                 _onDeferSignSuccess(gameState, playerName, tabKey, opts)
             else
                 AudioManager.deny()
@@ -2012,7 +2047,11 @@ local function _buildDeferFreeAgentButton(gameState, negoId, playerName, tabKey,
         onClick = function()
             local ok, err = TransferManager.deferFreeAgentSignConfirmation(gameState, negoId)
             if ok then
-                BottomSheet.close()
+                if opts and opts.closeSheetForAction then
+                    opts.closeSheetForAction()
+                else
+                    BottomSheet.close()
+                end
                 _onDeferSignSuccess(gameState, playerName, tabKey, opts)
             else
                 AudioManager.deny()
@@ -2026,6 +2065,18 @@ function Market._showBatchTransferSignConfirmSheet(gameState, pendingList, opts)
     opts = opts or {}
     pendingList = pendingList or TransferManager.getPendingTransferSignConfirmations(gameState)
     if #pendingList == 0 then return end
+    local suppressCloseComplete = false
+    local sheetOpts = {}
+    for k, v in pairs(opts) do sheetOpts[k] = v end
+    local function closeSheetForAction()
+        suppressCloseComplete = true
+        BottomSheet.close()
+    end
+    sheetOpts.closeSheetForAction = closeSheetForAction
+    local function finish(tabKey)
+        suppressCloseComplete = true
+        _finishBatchSheet(opts, tabKey)
+    end
 
     local rows = {}
     for _, item in ipairs(pendingList) do
@@ -2059,12 +2110,12 @@ function Market._showBatchTransferSignConfirmSheet(gameState, pendingList, opts)
                             TransferManager.confirmTransfer(gameState, bidId)
                             UI.Toast.Show({ message = item.playerName .. " 签约完成", variant = "success" })
                         end
-                        BottomSheet.close()
+                        closeSheetForAction()
                         local remaining = TransferManager.getPendingTransferSignConfirmations(gameState)
                         if #remaining > 0 then
                             Market._showBatchTransferSignConfirmSheet(gameState, remaining, opts)
                         else
-                            _finishBatchSheet(opts, "my_bids")
+                            finish("my_bids")
                         end
                     end,
                 },
@@ -2079,17 +2130,17 @@ function Market._showBatchTransferSignConfirmSheet(gameState, pendingList, opts)
                             TransferManager.cancelTransferConfirmation(gameState, bidId)
                         end
                         UI.Toast.Show({ message = "已放弃 " .. item.playerName, variant = "info" })
-                        BottomSheet.close()
+                        closeSheetForAction()
                         local remaining = TransferManager.getPendingTransferSignConfirmations(gameState)
                         if #remaining > 0 then
                             Market._showBatchTransferSignConfirmSheet(gameState, remaining, opts)
                         else
-                            _finishBatchSheet(opts, "my_bids")
+                            finish("my_bids")
                         end
                     end,
                 },
             }
-            local deferBtn = _buildDeferTransferButton(gameState, bidId, item.playerName, "my_bids", opts, true)
+            local deferBtn = _buildDeferTransferButton(gameState, bidId, item.playerName, "my_bids", sheetOpts, true)
             if deferBtn then
                 table.insert(rowActions, 1, deferBtn)
             end
@@ -2125,7 +2176,7 @@ function Market._showBatchTransferSignConfirmSheet(gameState, pendingList, opts)
                 borderRadius = 8, fontSize = 15, fontWeight = "bold",
                 color = {255, 255, 255, 255},
                 onClick = function()
-                    BottomSheet.close()
+                    closeSheetForAction()
                     local okCount, failCount, lastErr = TransferManager.confirmAllPendingTransfers(gameState)
                     if okCount > 0 then
                         UI.Toast.Show({
@@ -2142,7 +2193,7 @@ function Market._showBatchTransferSignConfirmSheet(gameState, pendingList, opts)
                             return
                         end
                     end
-                    _finishBatchSheet(opts, "my_bids")
+                    finish("my_bids")
                 end,
             },
         },
@@ -2155,7 +2206,7 @@ function Market._showBatchTransferSignConfirmSheet(gameState, pendingList, opts)
         children = rows,
         footer = footer,
         onClose = function()
-            if opts.onComplete then opts.onComplete() end
+            if opts.onComplete and not suppressCloseComplete then opts.onComplete() end
         end,
     })
 end
@@ -2164,6 +2215,18 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
     opts = opts or {}
     pendingList = pendingList or TransferManager.getPendingSaleConfirmations(gameState)
     if #pendingList == 0 then return end
+    local suppressCloseComplete = false
+    local sheetOpts = {}
+    for k, v in pairs(opts) do sheetOpts[k] = v end
+    local function closeSheetForAction()
+        suppressCloseComplete = true
+        BottomSheet.close()
+    end
+    sheetOpts.closeSheetForAction = closeSheetForAction
+    local function finish(tabKey)
+        suppressCloseComplete = true
+        _finishBatchSheet(opts, tabKey)
+    end
 
     local totalAmount = 0
     local rows = {}
@@ -2207,12 +2270,12 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                                             AudioManager.deny()
                                             UI.Toast.Show({ message = err or "出售失败", variant = "error" })
                                         end
-                                        BottomSheet.close()
+                                        closeSheetForAction()
                                         local remaining = TransferManager.getPendingSaleConfirmations(gameState)
                                         if #remaining > 0 then
                                             Market._showBatchSaleConfirmSheet(gameState, remaining, opts)
                                         else
-                                            _finishBatchSheet(opts, "listed")
+                                            finish("listed")
                                         end
                                     end,
                                 })
@@ -2225,12 +2288,12 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                             onClick = function()
                                 TransferManager.cancelSale(gameState, bidId)
                                 UI.Toast.Show({ message = "已取消 " .. item.playerName .. " 的交易", variant = "info" })
-                                BottomSheet.close()
+                                closeSheetForAction()
                                 local remaining = TransferManager.getPendingSaleConfirmations(gameState)
                                 if #remaining > 0 then
                                     Market._showBatchSaleConfirmSheet(gameState, remaining, opts)
                                 else
-                                    _finishBatchSheet(opts, "listed")
+                                    finish("listed")
                                 end
                             end,
                         },
@@ -2256,7 +2319,7 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                             #pendingList, Market._formatValue(totalAmount)),
                         confirmText = "全部卖出",
                         onConfirm = function()
-                            BottomSheet.close()
+                            closeSheetForAction()
                             local okCount, failCount, lastErr = TransferManager.confirmAllPendingSales(gameState)
                             if okCount > 0 then
                                 UI.Toast.Show({
@@ -2273,7 +2336,7 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                                     return
                                 end
                             end
-                            _finishBatchSheet(opts, "listed")
+                            finish("listed")
                         end,
                     })
                 end,
@@ -2288,7 +2351,7 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
         children = rows,
         footer = footer,
         onClose = function()
-            if opts.onComplete then opts.onComplete() end
+            if opts.onComplete and not suppressCloseComplete then opts.onComplete() end
         end,
     })
 end
@@ -2297,6 +2360,18 @@ function Market._showBatchFreeAgentConfirmSheet(gameState, pendingList, opts)
     opts = opts or {}
     pendingList = pendingList or TransferManager.getPendingFreeAgentSignConfirmations(gameState)
     if #pendingList == 0 then return end
+    local suppressCloseComplete = false
+    local sheetOpts = {}
+    for k, v in pairs(opts) do sheetOpts[k] = v end
+    local function closeSheetForAction()
+        suppressCloseComplete = true
+        BottomSheet.close()
+    end
+    sheetOpts.closeSheetForAction = closeSheetForAction
+    local function finish(tabKey)
+        suppressCloseComplete = true
+        _finishBatchSheet(opts, tabKey)
+    end
 
     local rows = {}
     for _, item in ipairs(pendingList) do
@@ -2316,12 +2391,12 @@ function Market._showBatchFreeAgentConfirmSheet(gameState, pendingList, opts)
                     else
                         UI.Toast.Show({ message = item.playerName .. " 签约完成", variant = "success" })
                     end
-                    BottomSheet.close()
+                    closeSheetForAction()
                     local remaining = TransferManager.getPendingFreeAgentSignConfirmations(gameState)
                     if #remaining > 0 then
                         Market._showBatchFreeAgentConfirmSheet(gameState, remaining, opts)
                     else
-                        _finishBatchSheet(opts, "free")
+                        finish("free")
                     end
                 end,
             },
@@ -2332,17 +2407,17 @@ function Market._showBatchFreeAgentConfirmSheet(gameState, pendingList, opts)
                 onClick = function()
                     TransferManager.cancelFreeAgentConfirmation(gameState, negoId)
                     UI.Toast.Show({ message = "已放弃 " .. item.playerName, variant = "info" })
-                    BottomSheet.close()
+                    closeSheetForAction()
                     local remaining = TransferManager.getPendingFreeAgentSignConfirmations(gameState)
                     if #remaining > 0 then
                         Market._showBatchFreeAgentConfirmSheet(gameState, remaining, opts)
                     else
-                        _finishBatchSheet(opts, "free")
+                        finish("free")
                     end
                 end,
             },
         }
-        local deferBtn = _buildDeferFreeAgentButton(gameState, negoId, item.playerName, "free", opts, true)
+        local deferBtn = _buildDeferFreeAgentButton(gameState, negoId, item.playerName, "free", sheetOpts, true)
         if deferBtn then
             table.insert(rowActions, 1, deferBtn)
         end
@@ -2378,7 +2453,7 @@ function Market._showBatchFreeAgentConfirmSheet(gameState, pendingList, opts)
                 borderRadius = 8, fontSize = 15, fontWeight = "bold",
                 color = {255, 255, 255, 255},
                 onClick = function()
-                    BottomSheet.close()
+                    closeSheetForAction()
                     local okCount, failCount, lastErr = TransferManager.confirmAllPendingFreeAgents(gameState)
                     if okCount > 0 then
                         UI.Toast.Show({
@@ -2395,7 +2470,7 @@ function Market._showBatchFreeAgentConfirmSheet(gameState, pendingList, opts)
                             return
                         end
                     end
-                    _finishBatchSheet(opts, "free")
+                    finish("free")
                 end,
             },
         },
@@ -2408,7 +2483,7 @@ function Market._showBatchFreeAgentConfirmSheet(gameState, pendingList, opts)
         children = rows,
         footer = footer,
         onClose = function()
-            if opts.onComplete then opts.onComplete() end
+            if opts.onComplete and not suppressCloseComplete then opts.onComplete() end
         end,
     })
 end

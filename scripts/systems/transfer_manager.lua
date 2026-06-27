@@ -3819,6 +3819,21 @@ function TransferManager.acceptIncomingBid(gameState, bidId)
                 bid.playerConsiderSaleDays = RandomInt(1, 2)  -- 卖出方球员考虑1-2天
             end
 
+            for _, otherBid in ipairs(gameState.transfers.bids) do
+                if otherBid.playerId == bid.playerId
+                    and not _bidIdsEqual(otherBid.id, bid.id)
+                    and otherBid.isIncomingBid then
+                    local activeStatuses = {
+                        pending = true, counter_pending = true,
+                        awaiting_sale_confirmation = true, player_considering_sale = true,
+                    }
+                    if activeStatuses[otherBid.status] then
+                        otherBid.status = "rejected"
+                        otherBid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                    end
+                end
+            end
+
             local buyerTeam = gameState.teams[bid.buyerTeamId]
             local player = gameState.players[bid.playerId]
             gameState:sendMessage({
