@@ -45,8 +45,8 @@ local SORT_OPTIONS = {
 local POS_GROUP_MAP = {
     GK = "GK",
     CB = "DEF", LB = "DEF", RB = "DEF",
-    CDM = "MID", CM = "MID", LM = "MID", RM = "MID", CAM = "MID",
-    LW = "FWD", RW = "FWD", ST = "FWD", CF = "FWD",
+    CDM = "MID", CM = "MID", CAM = "MID",
+    LW = "FWD", RW = "FWD", ST = "FWD",
 }
 
 function Squad.create(params)
@@ -105,7 +105,7 @@ function Squad.create(params)
     end
 
     -- 排序
-    local posOrder = {GK=1, CB=2, LB=3, RB=4, CDM=5, CM=6, LM=7, RM=8, CAM=9, LW=10, RW=11, CF=12, ST=13}
+    local posOrder = {GK=1, CB=2, LB=3, RB=4, CDM=5, CM=6, CAM=7, LW=8, RW=9, ST=10}
     table.sort(players, function(a, b)
         if _sortBy == "position" then
             local oa = posOrder[getEffectivePos(a)] or 99

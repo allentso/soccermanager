@@ -1633,7 +1633,7 @@ function PlayerDetail._getKeyAttributes(player)
             {label="传球", key="passing", value=a.passing}, {label="站位", key="positioning", value=a.positioning},
             {label="体能", key="stamina", value=a.stamina}, {label="力量", key="strength", value=a.strength},
         }
-    elseif pos == "ST" or pos == "CF" then
+    elseif pos == "ST" then
         return {
             {label="射门", key="shooting", value=a.shooting}, {label="镇定", key="composure", value=a.composure},
             {label="站位", key="positioning", value=a.positioning}, {label="速度", key="speed", value=a.speed},
@@ -1645,7 +1645,7 @@ function PlayerDetail._getKeyAttributes(player)
             {label="敏捷", key="agility", value=a.agility}, {label="射门", key="shooting", value=a.shooting},
             {label="传球", key="passing", value=a.passing}, {label="视野", key="vision", value=a.vision},
         }
-    else -- CM/CAM/LM/RM
+    else -- CM/CAM
         return {
             {label="传球", key="passing", value=a.passing}, {label="视野", key="vision", value=a.vision},
             {label="体能", key="stamina", value=a.stamina}, {label="决策", key="decisions", value=a.decisions},

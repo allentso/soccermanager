@@ -125,6 +125,10 @@ end
 ---@param filters table 搜索条件
 ---@return boolean success, string? error
 function ScoutManager.createSearchTask(gameState, filters)
+    filters = filters or {}
+    if filters.position and filters.position ~= "" then
+        filters.position = Constants.normalizePosition(filters.position)
+    end
     local team = gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 

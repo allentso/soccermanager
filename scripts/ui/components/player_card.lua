@@ -16,8 +16,8 @@ local PlayerCard = {}
 local POS_GROUP_MAP = {
     GK = "GK",
     CB = "DEF", LB = "DEF", RB = "DEF",
-    CDM = "MID", CM = "MID", LM = "MID", RM = "MID", CAM = "MID",
-    LW = "FWD", RW = "FWD", ST = "FWD", CF = "FWD",
+    CDM = "MID", CM = "MID", CAM = "MID",
+    LW = "FWD", RW = "FWD", ST = "FWD",
 }
 
 -- 位置颜色（统一使用 Theme.posColor）

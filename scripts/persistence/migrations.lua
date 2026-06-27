@@ -218,11 +218,11 @@ function Migrations.v4_to_v5(gameStateData)
         DefensiveMidfielder = "CDM",
         CentralMidfielder = "CM",
         AttackingMidfielder = "CAM",
-        LeftMidfielder = "LM", RightMidfielder = "RM",
+        LeftMidfielder = "LW", RightMidfielder = "RW",
         LeftWinger = "LW", RightWinger = "RW",
         LeftWing = "LW", RightWing = "RW",
         Striker = "ST",
-        CentreForward = "CF", CenterForward = "CF",
+        CentreForward = "ST", CenterForward = "ST",
     }
 
     local legendPositions = {}  -- legendName → 正确的缩写位置
@@ -660,7 +660,7 @@ function Migrations.v12_to_v13(gameStateData)
 
     local LegendsLoader = require("scripts/data/legends_loader")
 
-    -- 从 JSON 数据构建 CentreForward 传奇球员名单
+    -- 从 JSON 数据构建 CentreForward 传奇球员名单，按标准协议统一为 ST
     local cfLegends = {}  -- legendName → true
     for _, lData in ipairs(LegendsLoader.loadAllPlayers()) do
         if lData.position == "CentreForward" then
@@ -672,19 +672,146 @@ function Migrations.v12_to_v13(gameStateData)
     local migrated = 0
     for _, pData in pairs(players) do
         if pData.isLegend and pData.legendName and cfLegends[pData.legendName] then
-            if pData.position ~= "CF" then
+            if pData.position ~= "ST" then
                 local oldPos = pData.position
-                pData.position = "CF"
+                pData.position = "ST"
                 -- 修正 naturalPositions 列表中的主位置
                 if type(pData.naturalPositions) == "table" then
-                    pData.naturalPositions[1] = "CF"
+                    pData.naturalPositions[1] = "ST"
                 end
                 migrated = migrated + 1
             end
         end
     end
 
-    print("[SaveMigration] v12→v13: 修正了 " .. migrated .. " 名 CentreForward 传奇球员的位置映射(CM→CF)")
+    print("[SaveMigration] v12→v13: 修正了 " .. migrated .. " 名 CentreForward 传奇球员的位置映射(CM→ST)")
+end
+
+--- v13 → v14: 统一球员位置协议，只保留 GK/CB/LB/RB/CDM/CM/CAM/LW/RW/ST
+--- 位置训练迁移只改 target 代码，不重置已有训练进度。
+function Migrations.v13_to_v14(gameStateData)
+    local Constants = require("scripts/app/constants")
+    local migrated = 0
+
+    local function normalizePosition(pos)
+        return Constants.normalizePosition(pos)
+    end
+
+    local function normalizePositionList(list, primary)
+        local normalizedPrimary = normalizePosition(primary) or "CM"
+        return Constants.normalizePositionList(list, normalizedPrimary)
+    end
+
+    local function normalizePlayerLike(pData)
+        if not pData then return end
+        local oldPos = pData.position
+        local newPos = normalizePosition(oldPos)
+        if newPos and newPos ~= oldPos then
+            pData.position = newPos
+            migrated = migrated + 1
+        elseif not newPos and oldPos then
+            pData.position = "CM"
+            migrated = migrated + 1
+        end
+
+        local oldNatural = pData.naturalPositions
+        local normalizedNatural = normalizePositionList(oldNatural, pData.position)
+        local changedNatural = type(oldNatural) ~= "table" or #oldNatural ~= #normalizedNatural
+        if not changedNatural then
+            for i, pos in ipairs(normalizedNatural) do
+                if oldNatural[i] ~= pos then changedNatural = true; break end
+            end
+        end
+        if changedNatural then
+            pData.naturalPositions = normalizedNatural
+            migrated = migrated + 1
+        end
+
+        local oldTarget = pData.positionTrainingTarget
+        if oldTarget then
+            local newTarget = normalizePosition(oldTarget)
+            if newTarget and newTarget ~= oldTarget then
+                pData.positionTrainingTarget = newTarget
+                migrated = migrated + 1
+            elseif not newTarget then
+                pData.positionTrainingTarget = nil
+                migrated = migrated + 1
+            end
+        end
+    end
+
+    for _, pData in pairs(gameStateData.players or {}) do
+        normalizePlayerLike(pData)
+    end
+
+    for _, cData in ipairs(gameStateData._youthCandidates or {}) do
+        normalizePlayerLike(cData)
+    end
+
+    for _, teamData in pairs(gameStateData.teams or {}) do
+        if type(teamData.customSlots) == "table" then
+            for slotIdx, pos in pairs(teamData.customSlots) do
+                local normalized = normalizePosition(pos)
+                if normalized and normalized ~= pos then
+                    teamData.customSlots[slotIdx] = normalized
+                    migrated = migrated + 1
+                elseif not normalized then
+                    teamData.customSlots[slotIdx] = nil
+                    migrated = migrated + 1
+                end
+
+                if teamData.slotRoles and teamData.slotRoles[slotIdx] then
+                    local role = Constants.getPositionRole(teamData.customSlots[slotIdx], teamData.slotRoles[slotIdx])
+                    if not role or role.key ~= teamData.slotRoles[slotIdx] then
+                        teamData.slotRoles[slotIdx] = nil
+                    end
+                end
+            end
+        end
+    end
+
+    print("[SaveMigration] v13→v14: 已规范化 " .. migrated .. " 条位置记录")
+end
+
+--- v14 → v15: 确保球员体力/士气/长期体能以数值形式存档（兼容旧档字符串）
+function Migrations.v14_to_v15(gameStateData)
+    if not gameStateData or not gameStateData.players then return end
+    local migrated = 0
+
+    local function normPercent(raw)
+        if raw == nil then return nil end
+        local n = tonumber(raw)
+        if n == nil then return nil end
+        return math.max(0, math.min(100, math.floor(n + 0.5)))
+    end
+
+    for _, pData in pairs(gameStateData.players) do
+        if pData.fitness ~= nil then
+            local f = normPercent(pData.fitness)
+            if f ~= nil and (f ~= pData.fitness or type(pData.fitness) ~= "number") then
+                pData.fitness = f
+                migrated = migrated + 1
+            end
+        end
+        if pData.morale ~= nil then
+            local m = normPercent(pData.morale)
+            if m ~= nil and (m ~= pData.morale or type(pData.morale) ~= "number") then
+                pData.morale = m
+                migrated = migrated + 1
+            end
+        end
+        if pData.condition ~= nil then
+            local c = normPercent(pData.condition)
+            if c ~= nil and (c ~= pData.condition or type(pData.condition) ~= "number") then
+                pData.condition = c
+                migrated = migrated + 1
+            end
+        end
+    end
+
+    if migrated > 0 then
+        print("[SaveMigration] v14→v15: 规范了 " .. migrated .. " 处球员动态状态数值")
+    end
 end
 
 --- 迁移路由：根据存档版本逐级升级
@@ -751,6 +878,16 @@ function Migrations.run(saveData)
     if version < 13 then
         Migrations.v12_to_v13(saveData.game_state)
         version = 13
+    end
+
+    if version < 14 then
+        Migrations.v13_to_v14(saveData.game_state)
+        version = 14
+    end
+
+    if version < 15 then
+        Migrations.v14_to_v15(saveData.game_state)
+        version = 15
     end
 
     saveData.version = version

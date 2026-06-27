@@ -42,6 +42,34 @@ local function buildChampionsTab(gameState)
                 }
             })
         end
+        for _, info in ipairs(sc.continental or {}) do
+            table.insert(rows, UI.Panel {
+                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                onClick = info.teamId and function()
+                    Router.navigate("team_detail", { teamId = info.teamId })
+                end or nil,
+                children = {
+                    UI.Label { text = info.competitionName or "洲际赛事", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                    UI.Label { text = info.teamName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.PRIMARY },
+                    UI.Label { text = "冠军", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
+                }
+            })
+        end
+        for _, info in ipairs(sc.cups or {}) do
+            table.insert(rows, UI.Panel {
+                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                onClick = info.teamId and function()
+                    Router.navigate("team_detail", { teamId = info.teamId })
+                end or nil,
+                children = {
+                    UI.Label { text = info.competitionName or "杯赛", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                    UI.Label { text = info.teamName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.WARNING },
+                    UI.Label { text = "冠军", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
+                }
+            })
+        end
         if #rows > 0 then
             table.insert(cards, Theme.Card { children = {
                 Theme.Subtitle { text = "第 " .. tostring(sc.season) .. " 赛季 (" .. tostring(sc.year or "?") .. ")" },
@@ -95,6 +123,10 @@ local function buildAwardsTab(gameState)
             local assistAward = la.topAssists or la.bestAssist
             if assistAward then
                 table.insert(rows, HallOfFame._awardRow("助攻王", assistAward.playerName, tostring(assistAward.assists or 0) .. "次"))
+            end
+            local goldenGlove = la.goldenGlove or la.bestGoalkeeper
+            if goldenGlove then
+                table.insert(rows, HallOfFame._awardRow("金手套", goldenGlove.playerName, tostring(goldenGlove.cleanSheets or 0) .. "次零封"))
             end
         end
         if seasonAward.bestManager then

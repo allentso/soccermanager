@@ -328,7 +328,9 @@ function TimeBlockerManager._checkSaleConfirmationPending(gameState, team, block
         severity = "warn",
         message = message,
         target = "market",
-        targetParams = { tab = "listed", highlightBidId = first.bidId },
+        targetParams = #pending > 1
+            and { tab = "listed", batchConfirm = "sale" }
+            or { tab = "listed", highlightBidId = first.bidId },
     })
 end
 
@@ -351,7 +353,9 @@ function TimeBlockerManager._checkTransferSignPending(gameState, team, blockers)
         severity = "warn",
         message = message,
         target = "market",
-        targetParams = { tab = "my_bids", highlightBidId = first.bidId },
+        targetParams = #pending > 1
+            and { tab = "my_bids", batchConfirm = "sign" }
+            or { tab = "my_bids", highlightBidId = first.bidId },
     })
 end
 
@@ -374,7 +378,9 @@ function TimeBlockerManager._checkFreeAgentSignPending(gameState, team, blockers
         severity = "warn",
         message = message,
         target = "market",
-        targetParams = { tab = "free", highlightNegoId = first.negoId },
+        targetParams = #pending > 1
+            and { tab = "free", batchConfirm = "free" }
+            or { tab = "free", highlightNegoId = first.negoId },
     })
 end
 

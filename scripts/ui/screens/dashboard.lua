@@ -23,6 +23,7 @@ local DomesticCup = require("scripts/systems/domestic_cup")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local DayAdvanceOverlay = require("scripts/ui/components/day_advance_overlay")
 local MessageActionHandlers = require("scripts/ui/message_action_handlers")
+local Market = require("scripts/ui/screens/market")
 
 ---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
@@ -114,6 +115,13 @@ function Dashboard._findNextMatch(gameState)
                 return cacheAndReturn(daysAhead, f, true, false)
             end
         end
+        -- 检查欧联杯比赛
+        local uelFixtures = TurnProcessor.getUELFixturesForDate(gameState, futureDate)
+        for _, f in ipairs(uelFixtures) do
+            if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                return cacheAndReturn(daysAhead, f, false, false)
+            end
+        end
         -- 检查国内杯赛
         local cupFixtures = DomesticCup.getFixturesForDate(gameState, futureDate)
         for _, f in ipairs(cupFixtures) do
@@ -146,6 +154,21 @@ function Dashboard._getDaysToNextMatch(gameState)
     return days
 end
 
+--- 夏/冬窗期间若下一场比赛在关窗之后，不提供「跳到比赛日」（优先留时间操作转会）
+function Dashboard._shouldOfferSkipToMatch(gameState, daysToMatch)
+    if not daysToMatch or daysToMatch <= 1 then return false end
+    if not TransferManager.isInTransferWindow(gameState) then return true end
+    local month = gameState.date.month
+    -- 夏窗：赛季初留时间处理转会，不提供一键跳到首场联赛
+    if month >= 7 and month <= 8 then
+        return false
+    end
+    -- 冬窗：仅当下一场比赛在关窗前才允许快进
+    local daysToClose = TransferManager.daysUntilWindowClose(gameState)
+    if daysToClose >= 999 then return true end
+    return daysToMatch <= daysToClose
+end
+
 ------------------------------------------------------
 -- 主入口
 ------------------------------------------------------
@@ -168,8 +191,12 @@ function Dashboard.create(params)
     local isBlocked = TimeBlockerManager.hasBlockingItems(blockers)
     local hasAnyBlockers = #blockers > 0
 
-    -- 跳到比赛日（使用统一搜索）
+    -- 跳到比赛日 / 转会窗（使用统一搜索）
     local daysToMatch, todayFixtureRef = Dashboard._findNextMatch(gameState)
+    local daysToTransferWindow = TransferManager.daysUntilWindowOpen(gameState)
+    local inTransferWindow = TransferManager.isInTransferWindow(gameState)
+    local offerSkipToTransferWindow = not inTransferWindow and daysToTransferWindow > 1
+    local offerSkipToMatch = Dashboard._shouldOfferSkipToMatch(gameState, daysToMatch)
 
     -- 弹窗消息处理：依次弹出 popup 消息，全部处理完后执行 onDone 回调
     local function runPopupAction(actionId, data)
@@ -187,65 +214,125 @@ function Dashboard.create(params)
 
     local function showPopupMessages(onDone)
         local queue = gameState:consumePopupQueue()
-        if #queue == 0 then
-            if onDone then onDone() end
-            return
+
+        -- 多人转会/出售/自由球员待确认：合并为一页，避免连续弹窗
+        local signSingles, saleSingles, freeSingles = {}, {}, {}
+        local filteredQueue = {}
+        for _, msg in ipairs(queue) do
+            local firstAction = msg.actions and msg.actions[1]
+            local actionId = firstAction and firstAction.actionId
+            if actionId == "confirm_transfer" or actionId == "confirm_loan" then
+                msg.read = true
+                table.insert(signSingles, msg)
+            elseif actionId == "confirm_sale" then
+                msg.read = true
+                table.insert(saleSingles, msg)
+            elseif actionId == "confirm_free_agent" then
+                msg.read = true
+                table.insert(freeSingles, msg)
+            else
+                table.insert(filteredQueue, msg)
+            end
+        end
+        queue = filteredQueue
+        if #signSingles == 1 then table.insert(queue, 1, signSingles[1]) end
+        if #saleSingles == 1 then table.insert(queue, 1, saleSingles[1]) end
+        if #freeSingles == 1 then table.insert(queue, 1, freeSingles[1]) end
+
+        local batchSheets = {}
+        if #signSingles > 1 then
+            table.insert(batchSheets, function(done)
+                Market._showBatchTransferSignConfirmSheet(gameState, nil, { onComplete = done })
+            end)
+        end
+        if #saleSingles > 1 then
+            table.insert(batchSheets, function(done)
+                Market._showBatchSaleConfirmSheet(gameState, nil, { onComplete = done })
+            end)
+        end
+        if #freeSingles > 1 then
+            table.insert(batchSheets, function(done)
+                Market._showBatchFreeAgentConfirmSheet(gameState, nil, { onComplete = done })
+            end)
         end
 
-        local index = 0
-        local function showNext()
-            index = index + 1
-            if index > #queue then
+        local function runDialogQueue()
+            if #queue == 0 then
                 if onDone then onDone() end
                 return
             end
-            local msg = queue[index]
 
-            if msg.actions and #msg.actions > 2 then
-                -- 多选项消息（如国家队邀请）：已有 time blocker 处理，跳过弹窗
-                showNext()
-            elseif msg.actions and #msg.actions > 0 then
-                local firstAction = msg.actions[1]
-                local secondAction = msg.actions[2]
-                ConfirmDialog.show({
-                    title = msg.title or "通知",
-                    message = msg.body,
-                    confirmText = firstAction and firstAction.label or "确认",
-                    cancelText = secondAction and secondAction.label or "关闭",
-                    confirmColor = Theme.COLORS.SECONDARY,
-                    onConfirm = function()
-                        if firstAction then
-                            runPopupAction(firstAction.actionId, firstAction.data)
-                        end
-                        msg.read = true
-                        showNext()
-                    end,
-                    onCancel = function()
-                        if secondAction then
-                            runPopupAction(secondAction.actionId, secondAction.data)
-                        end
-                        msg.read = true
-                        showNext()
-                    end,
-                })
-            else
-                ConfirmDialog.show({
-                    title = msg.title or "通知",
-                    message = msg.body,
-                    confirmText = "知道了",
-                    cancelText = "关闭",
-                    onConfirm = function()
-                        msg.read = true
-                        showNext()
-                    end,
-                    onCancel = function()
-                        msg.read = true
-                        showNext()
-                    end,
-                })
+            local index = 0
+            local function showNext()
+                index = index + 1
+                if index > #queue then
+                    if onDone then onDone() end
+                    return
+                end
+                local msg = queue[index]
+
+                if msg.actions and #msg.actions > 2 then
+                    -- 多选项消息（如国家队邀请）：已有 time blocker 处理，跳过弹窗
+                    showNext()
+                elseif msg.actions and #msg.actions > 0 then
+                    local firstAction = msg.actions[1]
+                    local secondAction = msg.actions[2]
+                    ConfirmDialog.show({
+                        title = msg.title or "通知",
+                        message = msg.body,
+                        confirmText = firstAction and firstAction.label or "确认",
+                        cancelText = secondAction and secondAction.label or "关闭",
+                        confirmColor = Theme.COLORS.SECONDARY,
+                        onConfirm = function()
+                            if firstAction then
+                                runPopupAction(firstAction.actionId, firstAction.data)
+                            end
+                            msg.read = true
+                            showNext()
+                        end,
+                        onCancel = function()
+                            if secondAction then
+                                runPopupAction(secondAction.actionId, secondAction.data)
+                            end
+                            msg.read = true
+                            showNext()
+                        end,
+                    })
+                else
+                    ConfirmDialog.show({
+                        title = msg.title or "通知",
+                        message = msg.body,
+                        confirmText = "知道了",
+                        cancelText = "关闭",
+                        onConfirm = function()
+                            msg.read = true
+                            showNext()
+                        end,
+                        onCancel = function()
+                            msg.read = true
+                            showNext()
+                        end,
+                    })
+                end
             end
+            showNext()
         end
-        showNext()
+
+        local batchIndex = 0
+        local function showNextBatch()
+            batchIndex = batchIndex + 1
+            if batchIndex > #batchSheets then
+                runDialogQueue()
+                return
+            end
+            batchSheets[batchIndex](showNextBatch)
+        end
+
+        if #batchSheets > 0 then
+            showNextBatch()
+        else
+            runDialogQueue()
+        end
     end
 
     -- 通用推进回调
@@ -348,9 +435,16 @@ function Dashboard.create(params)
         end
     end
 
-    local function finishSkipToMatchDay(reason, playerFixture)
+    local function finishSkipAdvance(reason, playerFixture)
         if reason == "season_end" then
             SaveManager.save(gameState, "auto")
+            return
+        end
+        if reason == "transfer_window" then
+            SaveManager.save(gameState, "auto")
+            showPopupMessages(function()
+                Router.replaceWith("dashboard")
+            end)
             return
         end
         if reason == "popup" then
@@ -373,11 +467,11 @@ function Dashboard.create(params)
         end)
     end
 
-    local function runOneSkipDayStep()
+    local function runOneSkipDayStep(stopAt)
         local prevSeason = gameState.season
         local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
         if not ok then
-            if log then log:Write(LOG_ERROR, "doSkipToMatchDay: advanceDay 异常已捕获: " .. tostring(fixtures)) end
+            if log then log:Write(LOG_ERROR, "skip advanceDay 异常已捕获: " .. tostring(fixtures)) end
             fixtures = nil
         end
 
@@ -385,12 +479,16 @@ function Dashboard.create(params)
             return "season_end"
         end
 
+        if stopAt == "transfer_window" and TransferManager.isInTransferWindow(gameState) then
+            return "transfer_window"
+        end
+
         local popupQueue = gameState._popupQueue or {}
         if #popupQueue > 0 then
             return "popup"
         end
 
-        if fixtures and #fixtures > 0 then
+        if stopAt == "match" and fixtures and #fixtures > 0 then
             for _, f in ipairs(fixtures) do
                 if f._pendingPlayerMatch then
                     return "player_match", f
@@ -399,6 +497,22 @@ function Dashboard.create(params)
         end
 
         return "continue"
+    end
+
+    local function doSkipToTransferWindow()
+        if DayAdvanceOverlay.isRunning() then return end
+
+        local maxSkip = math.max(daysToTransferWindow, 1)
+        DayAdvanceOverlay.run({
+            gameState = gameState,
+            totalSteps = maxSkip,
+            title = "快进到转会窗",
+            message = "正在模拟各队训练与其他比赛，游戏没有卡死，请稍候…",
+            stepFn = function()
+                return runOneSkipDayStep("transfer_window")
+            end,
+            onComplete = finishSkipAdvance,
+        })
     end
 
     local function doSkipToMatchDay()
@@ -423,9 +537,9 @@ function Dashboard.create(params)
             title = "快进到比赛日",
             message = "正在模拟各队训练、转会与其他比赛，游戏没有卡死，请稍候…",
             stepFn = function()
-                return runOneSkipDayStep()
+                return runOneSkipDayStep("match")
             end,
-            onComplete = finishSkipToMatchDay,
+            onComplete = finishSkipAdvance,
         })
     end
 
@@ -444,7 +558,7 @@ function Dashboard.create(params)
             title = "快进到赛季结束",
             message = "正在模拟剩余赛程、训练、转会和赛季结算，游戏没有卡死，请稍候…",
             stepFn = function()
-                return runOneSkipDayStep()
+                return runOneSkipDayStep("match")
             end,
             onComplete = function(reason, playerFixture)
                 if reason == "done" then
@@ -454,7 +568,7 @@ function Dashboard.create(params)
                     end)
                     return
                 end
-                finishSkipToMatchDay(reason, playerFixture)
+                finishSkipAdvance(reason, playerFixture)
             end,
         })
     end
@@ -493,7 +607,12 @@ function Dashboard.create(params)
         backgroundColor = Theme.COLORS.BG_DARK,
         children = {
             -- 顶部状态栏：日期 + 推进按钮
-            Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay),
+            Dashboard._buildTopBar(
+                gameState, team, isBlocked, hasAnyBlockers, blockers,
+                daysToMatch, doAdvanceDay, doSkipToMatchDay,
+                offerSkipToTransferWindow, daysToTransferWindow, doSkipToTransferWindow,
+                offerSkipToMatch
+            ),
 
             -- 滚动内容区
             UI.ScrollView {
@@ -650,7 +769,7 @@ end
 ------------------------------------------------------
 -- 顶部操作栏
 ------------------------------------------------------
-function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay)
+function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay, offerSkipToTransferWindow, daysToTransferWindow, doSkipToTransferWindow, offerSkipToMatch)
     -- 继续按钮颜色和文本（仅 warn 级阻断改样式；info 提示已在紧急事项区展示，不拦截推进）
     local hasTodayMatch = (daysToMatch == 0)
     local continueColor = isBlocked and Theme.COLORS.DANGER
@@ -694,8 +813,28 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
                 Dashboard._skipToJobOffer(gameState)
             end,
         })
-    elseif daysToMatch > 1 then
-        -- 跳到比赛日按钮（2天以上显示）
+    elseif offerSkipToTransferWindow then
+        -- 窗外观赛期：快进到转会窗开启（赛季结束后优先处理转会）
+        table.insert(children, UI.Button {
+            text = ">>" .. daysToTransferWindow .. "天",
+            width = 64,
+            height = 30,
+            backgroundColor = hasAnyBlockers and Theme.COLORS.BG_SURFACE or Theme.COLORS.BG_CARD_ELEVATED,
+            borderRadius = 6,
+            fontSize = 11,
+            color = hasAnyBlockers and Theme.COLORS.TEXT_MUTED or Theme.COLORS.ACCENT,
+            marginRight = 6,
+            onClick = function()
+                if DayAdvanceOverlay.isRunning() then return end
+                if isBlocked then
+                    BlockerDialog.show(blockers)
+                    return
+                end
+                doSkipToTransferWindow()
+            end,
+        })
+    elseif offerSkipToMatch then
+        -- 跳到比赛日按钮（2天以上显示；夏/冬窗且首场在关窗后时不显示）
         table.insert(children, UI.Button {
             text = ">>" .. daysToMatch .. "天",
             width = 64,
@@ -793,6 +932,22 @@ function Dashboard._showFixtureCalendar(gameState)
                         daysAhead = daysAhead,
                         competition = "欧冠",
                         competitionShort = "UCL",
+                    })
+                end
+            end
+        end
+
+        -- 欧联杯比赛
+        if gameState.europaLeague then
+            local uelFixtures = gameState.europaLeague:getFixturesForDate(futureDate)
+            for _, f in ipairs(uelFixtures) do
+                if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                    table.insert(upcomingFixtures, {
+                        fixture = f,
+                        date = futureDate,
+                        daysAhead = daysAhead,
+                        competition = "欧联杯",
+                        competitionShort = "UEL",
                     })
                 end
             end
@@ -1089,6 +1244,9 @@ function Dashboard._buildMatchHero(gameState, team, onSkipToSeasonEnd)
     elseif isUCLMatch then
         local matchdayStr = nextFixture.matchday and ("第" .. nextFixture.matchday .. "比赛日") or ""
         competitionInfo = "欧冠 " .. matchdayStr
+    elseif nextFixture._isUEL then
+        local matchdayStr = nextFixture.matchday and ("第" .. nextFixture.matchday .. "比赛日") or ""
+        competitionInfo = "欧联杯 " .. matchdayStr
     elseif nextFixture._isDomesticCup then
         -- 国内杯赛
         local cupName = "杯赛"
@@ -2192,6 +2350,29 @@ function Dashboard._getUCLInfo(gameState)
             posText = posText,
             color = Theme.COLORS.INFO_BLUE,
         }
+    end
+    -- 欧联杯
+    if gameState.europaLeague then
+        local uel = gameState.europaLeague
+        local playerIn = false
+        if uel.qualifiedTeams then
+            for _, tid in ipairs(uel.qualifiedTeams) do
+                if tid == gameState.playerTeamId then playerIn = true; break end
+            end
+        end
+        if playerIn then
+            local posText = ""
+            if uel.phase == "league" and uel.getLeaguePhasePosition then
+                local pos = uel:getLeaguePhasePosition(gameState.playerTeamId)
+                if pos > 0 then posText = "#" .. pos end
+            end
+            return {
+                name = "欧联杯",
+                phase = phaseNames[uel.phase] or uel.phase,
+                posText = posText,
+                color = {80, 140, 220, 255},
+            }
+        end
     end
     -- 其次欧洲杯
     if gameState.euroCup then

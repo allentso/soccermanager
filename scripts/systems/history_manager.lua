@@ -109,6 +109,24 @@ function HistoryManager.recordSeasonEnd(gameState, awards)
         end
     end
 
+    -- 欧冠 / 欧联杯冠军
+    if gameState.championsLeague and gameState.championsLeague.champion then
+        local tid = gameState.championsLeague.champion
+        local team = gameState.teams[tid]
+        record.uclChampion = {
+            teamId = tid,
+            teamName = team and team.name or "?",
+        }
+    end
+    if gameState.europaLeague and gameState.europaLeague.champion then
+        local tid = gameState.europaLeague.champion
+        local team = gameState.teams[tid]
+        record.uelChampion = {
+            teamId = tid,
+            teamName = team and team.name or "?",
+        }
+    end
+
     if gameState.lastPromotionRelegation then
         record.promotionRelegation = gameState.lastPromotionRelegation
     end
@@ -333,6 +351,8 @@ function HistoryManager.getChampionsList(gameState)
             season = record.season,
             year = record.year,
             leagues = {},
+            continental = {},
+            cups = {},
         }
         for leagueKey, leagueRecord in pairs(record.leagues or {}) do
             if leagueRecord.champion then
@@ -342,6 +362,29 @@ function HistoryManager.getChampionsList(gameState)
                     teamName = leagueRecord.champion.teamName,
                     points = leagueRecord.champion.points,
                 }
+            end
+        end
+        if record.uclChampion then
+            table.insert(seasonChampions.continental, {
+                competitionName = "欧洲冠军联赛",
+                teamId = record.uclChampion.teamId,
+                teamName = record.uclChampion.teamName,
+            })
+        end
+        if record.uelChampion then
+            table.insert(seasonChampions.continental, {
+                competitionName = "欧洲联赛",
+                teamId = record.uelChampion.teamId,
+                teamName = record.uelChampion.teamName,
+            })
+        end
+        for _, cupData in pairs(record.domesticCups or {}) do
+            if cupData.winnerId then
+                table.insert(seasonChampions.cups, {
+                    competitionName = cupData.name or "国内杯赛",
+                    teamId = cupData.winnerId,
+                    teamName = cupData.winnerName,
+                })
             end
         end
         table.insert(champions, seasonChampions)

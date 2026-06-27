@@ -788,6 +788,8 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                     TurnProcessor._applyWCResult(gameState, fixture, report)
                                 elseif fixture._isUCL then
                                     TurnProcessor._applyUCLResult(gameState, fixture, report)
+                                elseif fixture._isUEL then
+                                    TurnProcessor._applyUELResult(gameState, fixture, report)
                                 elseif fixture._isDomesticCup then
                                     local DomesticCup = require("scripts/systems/domestic_cup")
                                     DomesticCup.applyResult(gameState, fixture, report)
@@ -928,7 +930,7 @@ function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixtur
         local group = "MID"
         if slotPos == "GK" then group = "GK"
         elseif slotPos == "CB" or slotPos == "LB" or slotPos == "RB" then group = "DEF"
-        elseif slotPos == "ST" or slotPos == "CF" or slotPos == "LW" or slotPos == "RW" then group = "FWD"
+        elseif slotPos == "ST" or slotPos == "LW" or slotPos == "RW" then group = "FWD"
         end
         local arrowDir = arrowDef[group]
         local arrowLabel = nil

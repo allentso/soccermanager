@@ -36,6 +36,7 @@ function GameState.new()
 
     -- 锦标赛
     self.championsLeague = nil  -- 欧冠 Tournament 实例
+    self.europaLeague = nil     -- 欧联杯 Tournament 实例
     self.worldCup = nil         -- 世界杯 Tournament 实例
     self.euroCup = nil          -- 欧洲杯 Tournament 实例
 
@@ -211,6 +212,9 @@ function GameState:normalizeRuntimeScalars()
     if self.championsLeague and self.championsLeague.season then
         self.championsLeague.season = tonumber(self.championsLeague.season) or self.season
     end
+    if self.europaLeague and self.europaLeague.season then
+        self.europaLeague.season = tonumber(self.europaLeague.season) or self.season
+    end
     if self.worldCup and self.worldCup.season then
         self.worldCup.season = tonumber(self.worldCup.season) or self.season
     end
@@ -263,6 +267,7 @@ function GameState:serialize()
 
     -- 锦标赛序列化
     local uclData = self.championsLeague and self.championsLeague:serialize() or nil
+    local uelData = self.europaLeague and self.europaLeague:serialize() or nil
     local wcData = self.worldCup and self.worldCup:serialize() or nil
     local euroData = self.euroCup and self.euroCup:serialize() or nil
 
@@ -279,6 +284,7 @@ function GameState:serialize()
         managers = managers,
         leagues = leaguesData,
         championsLeague = uclData,
+        europaLeague = uelData,
         worldCup = wcData,
         euroCup = euroData,
         inbox = self.inbox,
@@ -317,6 +323,7 @@ function GameState:serialize()
         -- UCL迁移追踪
         _uclCompletedSeasons = self._uclCompletedSeasons,
         _uclOverwritePatched = self._uclOverwritePatched,
+        _uelCompletedSeasons = self._uelCompletedSeasons,
         -- 求职系统状态
         _isUnemployed = self._isUnemployed,
         _unemployedSince = self._unemployedSince,
@@ -411,6 +418,7 @@ function GameState:deserialize(data)
     -- UCL迁移追踪
     self._uclCompletedSeasons = data._uclCompletedSeasons or nil
     self._uclOverwritePatched = data._uclOverwritePatched or nil
+    self._uelCompletedSeasons = data._uelCompletedSeasons or nil
 
     -- 求职系统状态恢复
     self._isUnemployed = data._isUnemployed or false
@@ -538,6 +546,12 @@ function GameState:deserialize(data)
         self.championsLeague = Tournament.new(data.championsLeague)
     end
 
+    -- 恢复欧联杯
+    self.europaLeague = nil
+    if data.europaLeague then
+        self.europaLeague = Tournament.new(data.europaLeague)
+    end
+
     -- 恢复世界杯
     self.worldCup = nil
     if data.worldCup then
@@ -601,6 +615,7 @@ function GameState:deserialize(data)
     -- 迁移：验证并修复欧冠/世界杯联赛阶段积分榜一致性
     local tournaments = {}
     if self.championsLeague then table.insert(tournaments, self.championsLeague) end
+    if self.europaLeague then table.insert(tournaments, self.europaLeague) end
     if self.worldCup then table.insert(tournaments, self.worldCup) end
     if self.euroCup then table.insert(tournaments, self.euroCup) end
     for _, tourney in ipairs(tournaments) do
@@ -687,7 +702,15 @@ function GameState:deserialize(data)
     local TeamRivalries = require("scripts/data/team_rivalries")
     TeamRivalries.initializeIfNeeded(self)
 
+    self:normalizePlayerDynamicState()
     self:normalizeRuntimeScalars()
+end
+
+--- 读档后校正球员动态状态（体力/士气/长期体能），兼容旧档缺字段或 JSON 字符串数值
+function GameState:normalizePlayerDynamicState()
+    for _, p in pairs(self.players or {}) do
+        Player.normalizeDynamicState(p)
+    end
 end
 
 -- 获取玩家所在联赛

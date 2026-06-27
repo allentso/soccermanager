@@ -39,7 +39,7 @@ local WC = {
 local function getPosGroup(pos)
     if pos == "GK" then return "GK"
     elseif pos == "CB" or pos == "LB" or pos == "RB" then return "DEF"
-    elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then return "FWD"
+    elseif pos == "ST" or pos == "LW" or pos == "RW" then return "FWD"
     else return "MID"
     end
 end

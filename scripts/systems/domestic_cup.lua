@@ -5,6 +5,7 @@
 local League = require("scripts/domain/league")
 local Tournament = require("scripts/domain/tournament")
 local EventBus = require("scripts/app/event_bus")
+local RealDataLoader = require("scripts/data/real_data_loader")
 
 local DomesticCup = {}
 
@@ -72,6 +73,62 @@ DomesticCup.CUP_CONFIG = {
 }
 
 ------------------------------------------------------
+-- 参赛球队收集（含已加载次级联赛）
+------------------------------------------------------
+
+function DomesticCup._resolveParentCupKey(gameState, leagueKey)
+    if RealDataLoader.isSecondDivisionKey(leagueKey) then
+        local lg = gameState.leagues and gameState.leagues[leagueKey]
+        if lg and lg.parentLeague then
+            return lg.parentLeague
+        end
+    end
+    return leagueKey
+end
+
+function DomesticCup._collectCupTeamIds(gameState, leagueKey, lg)
+    local teamIds = {}
+    local seen = {}
+
+    local function addTeam(tid)
+        if not tid or seen[tid] then return end
+        seen[tid] = true
+        table.insert(teamIds, tid)
+    end
+
+    for _, tid in ipairs(lg.teamIds or {}) do
+        addTeam(tid)
+    end
+
+    local childKey = RealDataLoader.getChildLeagueKey(leagueKey)
+    if childKey then
+        local childLg = gameState.leagues and gameState.leagues[childKey]
+        if childLg then
+            for _, tid in ipairs(childLg.teamIds or {}) do
+                addTeam(tid)
+            end
+        end
+    end
+
+    return teamIds
+end
+
+--- 按声望排序（高声望优先轮空）
+function DomesticCup._sortTeamsByReputation(gameState, teamIds)
+    local sorted = {}
+    for _, tid in ipairs(teamIds) do
+        local team = gameState.teams[tid]
+        table.insert(sorted, { id = tid, rep = team and team.reputation or 0 })
+    end
+    table.sort(sorted, function(a, b) return a.rep > b.rep end)
+    local result = {}
+    for _, entry in ipairs(sorted) do
+        table.insert(result, entry.id)
+    end
+    return result
+end
+
+------------------------------------------------------
 -- 初始化本赛季杯赛（所有联赛）
 ------------------------------------------------------
 
@@ -91,19 +148,13 @@ end
 
 --- 初始化单个杯赛
 function DomesticCup._initializeCup(gameState, leagueKey, lg, config)
-    local teamIds = {}
-    for _, tid in ipairs(lg.teamIds) do
-        table.insert(teamIds, tid)
-    end
+    local teamIds = DomesticCup._sortTeamsByReputation(
+        gameState, DomesticCup._collectCupTeamIds(gameState, leagueKey, lg))
 
     local n = #teamIds
     if n < 4 then return nil end
 
-    -- 随机打乱（无种子抽签）
-    for i = n, 2, -1 do
-        local j = RandomInt(1, i)
-        teamIds[i], teamIds[j] = teamIds[j], teamIds[i]
-    end
+    -- 高声望球队优先轮空：按声望排序后，末尾低声望队先打第一轮
 
     -- 计算需要多少轮
     -- 向上取 2 的幂: 20队 → 需要先打一轮让 12 队晋级（变成 16 队 → 再3轮）
@@ -125,8 +176,8 @@ function DomesticCup._initializeCup(gameState, leagueKey, lg, config)
         day = config.firstRoundDay,
     }, 2) -- 2=周二
 
-    -- 检测并避让欧冠周（如果周三有欧冠，杯赛推迟一周）
-    roundDate = DomesticCup._avoidUCLWeek(gameState, roundDate)
+    -- 检测并避让洲际赛事周（欧冠周三 / 欧联周四）
+    roundDate = DomesticCup._avoidContinentalWeek(gameState, roundDate)
 
     -- 前 firstRoundMatches*2 支队伍参加第一轮
     local matchTeams = {}
@@ -182,26 +233,29 @@ function DomesticCup._initializeCup(gameState, leagueKey, lg, config)
 end
 
 ------------------------------------------------------
--- 避让欧冠周（如果杯赛日期的次日是欧冠日，推迟一周）
+-- 避让洲际赛事周（杯赛周二，若次日周三有欧冠或周四有欧联则推迟一周）
 ------------------------------------------------------
-function DomesticCup._avoidUCLWeek(gameState, date)
-    local ucl = gameState.championsLeague
-    if not ucl then return date end
-
-    -- 检查该周三（杯赛周二的次日）是否有欧冠比赛
+function DomesticCup._avoidContinentalWeek(gameState, date)
     local wednesday = League._addDays(date, 1)
+    local thursday = League._addDays(date, 2)
 
-    local uclFixtures = {}
-    if ucl.leaguePhase and ucl.leaguePhase.fixtures then
-        for _, f in ipairs(ucl.leaguePhase.fixtures) do
-            if f.date.year == wednesday.year and f.date.month == wednesday.month and f.date.day == wednesday.day then
-                -- 有欧冠，推迟一周
-                return League._addDays(date, 7)
-            end
-        end
+    local function hasFixtureOn(tournament, targetDate)
+        if not tournament or tournament.phase == "completed" then return false end
+        local fixtures = tournament:getFixturesForDate(targetDate)
+        return fixtures and #fixtures > 0
+    end
+
+    if hasFixtureOn(gameState.championsLeague, wednesday)
+        or hasFixtureOn(gameState.europaLeague, thursday) then
+        return League._addDays(date, 7)
     end
 
     return date
+end
+
+--- 兼容旧调用
+function DomesticCup._avoidUCLWeek(gameState, date)
+    return DomesticCup._avoidContinentalWeek(gameState, date)
 end
 
 ------------------------------------------------------
@@ -421,8 +475,8 @@ function DomesticCup._generateNextRound(gameState, cup, teamIds, isFinal)
         local prevDate = cup.roundDates[#cup.roundDates]
         roundDate = League._addDays(prevDate, config.roundIntervalDays)
         roundDate = League._alignToWeekday(roundDate, 2) -- 对齐到周二
-        -- 避让欧冠周
-        roundDate = DomesticCup._avoidUCLWeek(gameState, roundDate)
+        -- 避让洲际赛事周
+        roundDate = DomesticCup._avoidContinentalWeek(gameState, roundDate)
     end
     table.insert(cup.roundDates, roundDate)
 
@@ -526,7 +580,6 @@ function DomesticCup.isPlayerInCup(gameState)
     local cups = gameState.domesticCups
     if not cups or not gameState.playerTeamId then return false end
 
-    -- 找到玩家所在联赛的杯赛
     local playerLeagueKey = nil
     for leagueKey, lg in pairs(gameState.leagues or {}) do
         for _, tid in ipairs(lg.teamIds or {}) do
@@ -539,7 +592,9 @@ function DomesticCup.isPlayerInCup(gameState)
     end
 
     if not playerLeagueKey then return false end
-    local cup = cups[playerLeagueKey]
+
+    local cupKey = DomesticCup._resolveParentCupKey(gameState, playerLeagueKey)
+    local cup = cups[cupKey]
     if not cup or cup.phase == "completed" then return false end
 
     -- 检查玩家是否还在当前轮次或轮空队中

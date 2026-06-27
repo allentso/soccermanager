@@ -2,6 +2,7 @@
 -- 位置适性系数与适配得分（比赛 + UI 统一）
 
 local FormationShape = require("scripts/match/formation_shape")
+local Constants = require("scripts/app/constants")
 
 local PositionFit = {}
 
@@ -19,13 +20,17 @@ end
 
 function PositionFit.hasNaturalPosition(player, slotPos)
     if not player or not slotPos then return false end
+    slotPos = Constants.normalizePosition(slotPos)
+    if not slotPos then return false end
     for _, pos in ipairs(player.naturalPositions or {}) do
-        if pos == slotPos then return true end
+        if Constants.normalizePosition(pos) == slotPos then return true end
     end
     return false
 end
 
 function PositionFit.getCompatMul(slotPos, playerPos)
+    slotPos = Constants.normalizePosition(slotPos)
+    playerPos = Constants.normalizePosition(playerPos)
     if not slotPos or not playerPos then return PositionFit.MISMATCH_FLOOR end
     if slotPos == playerPos then return 1.0 end
     local row = compatMatrix()[slotPos]
@@ -39,13 +44,15 @@ end
 --- 优先级：主位置 > 学习目标 > 副位置 > 错位
 function PositionFit.getFitMul(player, slotPos)
     if not player or not slotPos then return 1.0 end
+    slotPos = Constants.normalizePosition(slotPos)
+    if not slotPos then return PositionFit.MISMATCH_FLOOR end
 
-    local primary = player.position
+    local primary = Constants.normalizePosition(player.position)
     if slotPos == primary then
         return PositionFit.PRIMARY_MUL
     end
 
-    local target = player.positionTrainingTarget
+    local target = Constants.normalizePosition(player.positionTrainingTarget)
     if target and slotPos == target then
         local progress = player.positionTrainingProgress or 0
         local t = math.max(0, math.min(100, progress)) / 100
@@ -69,11 +76,11 @@ end
 
 function PositionFit.canLearnPosition(player, slotPos)
     if not player or not slotPos then return false end
-    if player.position == "GK" or slotPos == "GK" then
-        return player.position == "GK" and slotPos == "GK"
-    end
-    if player.position == "GK" or slotPos == "GK" then
-        return false
+    slotPos = Constants.normalizePosition(slotPos)
+    if not slotPos then return false end
+    local primary = Constants.normalizePosition(player.position)
+    if primary == "GK" or slotPos == "GK" then
+        return primary == "GK" and slotPos == "GK"
     end
     if PositionFit.hasNaturalPosition(player, slotPos) then
         return false
@@ -81,7 +88,7 @@ function PositionFit.canLearnPosition(player, slotPos)
     if #(player.naturalPositions or {}) >= PositionFit.MAX_NATURAL_POSITIONS then
         return false
     end
-    local row = compatMatrix()[player.position]
+    local row = compatMatrix()[primary]
     if not row then return false end
     return (row[slotPos] or 0) >= PositionFit.LEARN_COMPAT_MIN
 end
@@ -89,13 +96,15 @@ end
 function PositionFit.getLearnablePositions(player)
     local out = {}
     if not player then return out end
-    local row = compatMatrix()[player.position]
+    local primary = Constants.normalizePosition(player.position)
+    local row = compatMatrix()[primary]
     if not row then return out end
 
     local seen = {}
     for pos, compat in pairs(row) do
         if compat >= PositionFit.LEARN_COMPAT_MIN
             and pos ~= player.position
+            and pos ~= primary
             and not PositionFit.hasNaturalPosition(player, pos)
             and not seen[pos]
         then
@@ -114,10 +123,11 @@ function PositionFit.formatNaturalPositions(player, nameMap)
     local parts = {}
     local seen = {}
     for _, pos in ipairs(player.naturalPositions or { player.position }) do
-        if not seen[pos] then
-            seen[pos] = true
-            local label = nameMap[pos] or pos
-            if pos == player.position then
+        local normalized = Constants.normalizePosition(pos)
+        if normalized and not seen[normalized] then
+            seen[normalized] = true
+            local label = nameMap[normalized] or normalized
+            if normalized == Constants.normalizePosition(player.position) then
                 table.insert(parts, label)
             else
                 table.insert(parts, label)

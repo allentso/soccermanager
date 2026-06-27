@@ -195,6 +195,20 @@ function Market.create(params)
         })
     end
 
+    if params and params.batchConfirm then
+        local batchKind = params.batchConfirm
+        SubscribeToEvent("PostUpdate", function()
+            UnsubscribeFromEvent("PostUpdate")
+            if batchKind == "sign" then
+                Market._showBatchTransferSignConfirmSheet(gameState)
+            elseif batchKind == "sale" then
+                Market._showBatchSaleConfirmSheet(gameState)
+            elseif batchKind == "free" then
+                Market._showBatchFreeAgentConfirmSheet(gameState)
+            end
+        end)
+    end
+
     if params and params.highlightBidId then
         local bidId = params.highlightBidId
         local deeplinkTab = params.tab or currentTab
@@ -203,6 +217,11 @@ function Market.create(params)
             local bid = TransferManager.getBidById(gameState, bidId)
             if not bid then return end
             if deeplinkTab == "my_bids" and bid.status == "awaiting_confirmation" then
+                local pending = TransferManager.getPendingTransferSignConfirmations(gameState)
+                if #pending > 1 then
+                    Market._showBatchTransferSignConfirmSheet(gameState, pending)
+                    return
+                end
                 local player = gameState.players[bid.playerId]
                 if player then
                     Market._showTransferSignConfirmSheet(gameState, bid)
@@ -219,6 +238,13 @@ function Market.create(params)
                     })
                 end
                 return
+            end
+            if deeplinkTab == "listed" and bid.status == "awaiting_sale_confirmation" then
+                local pendingSales = TransferManager.getPendingSaleConfirmations(gameState)
+                if #pendingSales > 1 then
+                    Market._showBatchSaleConfirmSheet(gameState, pendingSales)
+                    return
+                end
             end
             local player = gameState.players[bid.playerId]
             if player then
@@ -242,6 +268,11 @@ function Market.create(params)
         local negoId = params.highlightNegoId
         SubscribeToEvent("PostUpdate", function()
             UnsubscribeFromEvent("PostUpdate")
+            local pendingFree = TransferManager.getPendingFreeAgentSignConfirmations(gameState)
+            if #pendingFree > 1 then
+                Market._showBatchFreeAgentConfirmSheet(gameState, pendingFree)
+                return
+            end
             local nego = TransferManager.getFreeAgentNegoById(gameState, negoId)
             if nego and nego.status == "awaiting_confirmation" then
                 local player = gameState.players[nego.playerId]
@@ -989,6 +1020,56 @@ function Market._buildMyBidsContent(gameState)
         return children
     end
 
+    local pendingSign = TransferManager.getPendingTransferSignConfirmations(gameState)
+    if #pendingSign > 1 then
+        table.insert(children, UI.Panel {
+            width = "100%", padding = 12, marginBottom = 8,
+            backgroundColor = {0, 200, 83, 25}, borderRadius = 8,
+            borderWidth = 1, borderColor = {0, 200, 83, 80},
+            children = {
+                UI.Label {
+                    text = string.format("%d 笔转会待最终确认签入", #pendingSign),
+                    fontSize = 13, color = {0, 200, 83, 255}, fontWeight = "bold", marginBottom = 8,
+                },
+                UI.Panel {
+                    width = "100%", flexDirection = "row",
+                    children = {
+                        UI.Button {
+                            text = "查看全部",
+                            flexGrow = 1, height = 36, marginRight = 8,
+                            backgroundColor = {38, 46, 71, 255},
+                            borderRadius = 6, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY,
+                            onClick = function()
+                                Market._showBatchTransferSignConfirmSheet(gameState, pendingSign)
+                            end,
+                        },
+                        UI.Button {
+                            text = string.format("全部签入 (%d人)", #pendingSign),
+                            flexGrow = 1, height = 36,
+                            backgroundColor = {0, 200, 83, 255},
+                            borderRadius = 6, fontSize = 13, fontWeight = "bold",
+                            color = {255, 255, 255, 255},
+                            onClick = function()
+                                local okCount, failCount, lastErr = TransferManager.confirmAllPendingTransfers(gameState)
+                                if okCount > 0 then
+                                    UI.Toast.Show({
+                                        message = string.format("已签入 %d 名球员", okCount),
+                                        variant = failCount > 0 and "warning" or "success",
+                                    })
+                                end
+                                if failCount > 0 then
+                                    AudioManager.deny()
+                                    UI.Toast.Show({ message = lastErr or "部分签入失败", variant = "error" })
+                                end
+                                Router.replaceWith("market", { tab = "my_bids" })
+                            end,
+                        },
+                    },
+                },
+            },
+        })
+    end
+
     for _, bid in ipairs(bids) do
         local player = gameState.players[bid.playerId]
         local sellerTeam = player and gameState.teams[bid.sellerTeamId] or nil
@@ -1010,8 +1091,14 @@ function Market._buildMyBidsContent(gameState)
             statusText = isLoan and "球员考虑外租" or "球员考虑中"
             statusColor = {255, 183, 77, 255}  -- 橙色
         elseif bid.status == "awaiting_confirmation" then
-            statusText = isLoan and "待确认租入" or "待确认签入"
-            statusColor = {0, 200, 83, 255}  -- 绿色
+            if TransferManager.isSignConfirmDeferred(bid, gameState) then
+                local daysLeft = TransferManager.getSignConfirmDeferDaysLeft(bid, gameState)
+                statusText = string.format("已推迟 · %d天后决定", daysLeft)
+                statusColor = Theme.COLORS.WARNING
+            else
+                statusText = isLoan and "待确认租入" or "待确认签入"
+                statusColor = {0, 200, 83, 255}  -- 绿色
+            end
         elseif bid.status == "fee_agreed" then
             statusText = isLoan and "待协商租借条款" or "待协商个人条款"
             statusColor = Theme.COLORS.WARNING
@@ -1209,15 +1296,22 @@ function Market._buildMyBidsContent(gameState)
 
         -- awaiting_confirmation：球员已同意，等待玩家最终确认签入
         if bid.status == "awaiting_confirmation" then
+            local deferred = TransferManager.isSignConfirmDeferred(bid, gameState)
+            local deferDaysLeft = TransferManager.getSignConfirmDeferDaysLeft(bid, gameState)
             table.insert(cardChildren, UI.Panel {
                 width = "100%", marginTop = 8, padding = 10,
-                backgroundColor = {0, 200, 83, 20},
+                backgroundColor = deferred and {255, 183, 77, 20} or {0, 200, 83, 20},
                 borderRadius = 6,
-                borderWidth = 1, borderColor = {0, 200, 83, 80},
+                borderWidth = 1,
+                borderColor = deferred and {255, 183, 77, 80} or {0, 200, 83, 80},
                 children = {
                     UI.Label {
-                        text = isLoan and "球员已同意外租！等待你确认租入" or "球员已同意加盟！等待你确认签入",
-                        fontSize = 12, color = {0, 200, 83, 255}, fontWeight = "bold",
+                        text = deferred
+                            and string.format("已推迟签入决定 · 还剩 %d 天可继续筹钱", deferDaysLeft)
+                            or (isLoan and "球员已同意外租！等待你确认租入" or "球员已同意加盟！等待你确认签入"),
+                        fontSize = 12,
+                        color = deferred and Theme.COLORS.WARNING or {0, 200, 83, 255},
+                        fontWeight = "bold",
                     },
                     UI.Label {
                         text = isLoan
@@ -1234,47 +1328,53 @@ function Market._buildMyBidsContent(gameState)
             })
 
             local bidId = bid.id
+            local playerName = player and player.displayName or "球员"
+            local actionRow = {
+                UI.Button {
+                    text = isLoan and "确认租入" or "确认签入",
+                    flexGrow = 1, height = 40, marginRight = 8,
+                    backgroundColor = {0, 200, 83, 255},
+                    borderRadius = 6, fontSize = 14, fontWeight = "bold",
+                    color = {255, 255, 255, 255},
+                    onClick = function()
+                        if isLoan then
+                            local confirmed, err = TransferManager.confirmLoan(gameState, bidId)
+                            if confirmed then
+                                UI.Toast.Show({ message = "租借完成！球员已租入", variant = "success" })
+                            else
+                                UI.Toast.Show({ message = err or "租借失败", variant = "error" })
+                            end
+                        else
+                            TransferManager.confirmTransfer(gameState, bidId)
+                            UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
+                        end
+                        Router.replaceWith("market", { tab = "my_bids" })
+                    end,
+                },
+                UI.Button {
+                    text = "放弃",
+                    width = 60, height = 40,
+                    backgroundColor = {60, 40, 40, 255},
+                    borderRadius = 6, fontSize = 13,
+                    color = Theme.COLORS.DANGER,
+                    onClick = function()
+                        if isLoan then
+                            TransferManager.cancelLoanConfirmation(gameState, bidId)
+                        else
+                            TransferManager.cancelTransferConfirmation(gameState, bidId)
+                        end
+                        UI.Toast.Show({ message = isLoan and "已放弃租借" or "已放弃签约", variant = "info" })
+                        Router.replaceWith("market", { tab = "my_bids" })
+                    end,
+                },
+            }
+            local deferBtn = _buildDeferTransferButton(gameState, bidId, playerName, "my_bids", nil, true)
+            if deferBtn then
+                table.insert(actionRow, 1, deferBtn)
+            end
             table.insert(cardChildren, UI.Panel {
                 width = "100%", flexDirection = "row", marginTop = 8,
-                children = {
-                    UI.Button {
-                        text = isLoan and "确认租入" or "确认签入",
-                        flexGrow = 1, height = 40, marginRight = 8,
-                        backgroundColor = {0, 200, 83, 255},
-                        borderRadius = 6, fontSize = 14, fontWeight = "bold",
-                        color = {255, 255, 255, 255},
-                        onClick = function()
-                            if isLoan then
-                                local confirmed, err = TransferManager.confirmLoan(gameState, bidId)
-                                if confirmed then
-                                    UI.Toast.Show({ message = "租借完成！球员已租入", variant = "success" })
-                                else
-                                    UI.Toast.Show({ message = err or "租借失败", variant = "error" })
-                                end
-                            else
-                                TransferManager.confirmTransfer(gameState, bidId)
-                                UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
-                            end
-                            Router.replaceWith("market", { tab = "my_bids" })
-                        end,
-                    },
-                    UI.Button {
-                        text = "放弃",
-                        width = 60, height = 40,
-                        backgroundColor = {60, 40, 40, 255},
-                        borderRadius = 6, fontSize = 13,
-                        color = Theme.COLORS.DANGER,
-                        onClick = function()
-                            if isLoan then
-                                TransferManager.cancelLoanConfirmation(gameState, bidId)
-                            else
-                                TransferManager.cancelTransferConfirmation(gameState, bidId)
-                            end
-                            UI.Toast.Show({ message = isLoan and "已放弃租借" or "已放弃签约", variant = "info" })
-                            Router.replaceWith("market", { tab = "my_bids" })
-                        end,
-                    },
-                },
+                children = actionRow,
             })
         end
 
@@ -1543,6 +1643,69 @@ function Market._buildListedContent(gameState)
     end
 
     -- === 已挂牌球员区 ===
+    local pendingSales = TransferManager.getPendingSaleConfirmations(gameState, team.id)
+    if #pendingSales > 1 then
+        table.insert(children, UI.Panel {
+            width = "100%", padding = 12, marginLeft = 12, marginRight = 12, marginBottom = 8,
+            backgroundColor = {Theme.COLORS.SECONDARY[1], Theme.COLORS.SECONDARY[2], Theme.COLORS.SECONDARY[3], 25},
+            borderRadius = 8, borderWidth = 1,
+            borderColor = {Theme.COLORS.SECONDARY[1], Theme.COLORS.SECONDARY[2], Theme.COLORS.SECONDARY[3], 80},
+            children = {
+                UI.Label {
+                    text = string.format("%d 笔出售待最终确认", #pendingSales),
+                    fontSize = 13, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginBottom = 8,
+                },
+                UI.Panel {
+                    width = "100%", flexDirection = "row",
+                    children = {
+                        UI.Button {
+                            text = "查看全部",
+                            flexGrow = 1, height = 36, marginRight = 8,
+                            backgroundColor = {38, 46, 71, 255},
+                            borderRadius = 6, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY,
+                            onClick = function()
+                                Market._showBatchSaleConfirmSheet(gameState, pendingSales)
+                            end,
+                        },
+                        UI.Button {
+                            text = string.format("全部卖出 (%d人)", #pendingSales),
+                            flexGrow = 1, height = 36,
+                            backgroundColor = Theme.COLORS.SECONDARY,
+                            borderRadius = 6, fontSize = 13, fontWeight = "bold",
+                            color = {255, 255, 255, 255},
+                            onClick = function()
+                                local totalAmount = 0
+                                for _, item in ipairs(pendingSales) do
+                                    totalAmount = totalAmount + (item.amount or 0)
+                                end
+                                ConfirmDialog.show({
+                                    title = "全部确认出售",
+                                    message = string.format("确认出售 %d 名球员，合计 %s？\n此操作不可撤销。",
+                                        #pendingSales, Market._formatValue(totalAmount)),
+                                    confirmText = "全部卖出",
+                                    onConfirm = function()
+                                        local okCount, failCount, lastErr = TransferManager.confirmAllPendingSales(gameState, team.id)
+                                        if okCount > 0 then
+                                            UI.Toast.Show({
+                                                message = string.format("已出售 %d 名球员", okCount),
+                                                variant = failCount > 0 and "warning" or "success",
+                                            })
+                                        end
+                                        if failCount > 0 then
+                                            AudioManager.deny()
+                                            UI.Toast.Show({ message = lastErr or "部分出售失败", variant = "error" })
+                                        end
+                                        Router.replaceWith("market", { tab = "listed" })
+                                    end,
+                                })
+                            end,
+                        },
+                    },
+                },
+            },
+        })
+    end
+
     table.insert(children, UI.Panel {
         width = "100%", paddingLeft = 12, paddingRight = 12, paddingTop = 10, paddingBottom = 6,
         children = {
@@ -1627,6 +1790,13 @@ function Market._buildListedContent(gameState)
                                 borderRadius = 6, fontSize = 12,
                                 color = {255, 255, 255, 255},
                                 onClick = function()
+                                    if primaryBid and primaryBid.status == "awaiting_sale_confirmation" then
+                                        local batchSales = TransferManager.getPendingSaleConfirmations(gameState, team.id)
+                                        if #batchSales > 1 then
+                                            Market._showBatchSaleConfirmSheet(gameState, batchSales)
+                                            return
+                                        end
+                                    end
                                     Market._showOfferSheet(gameState, p, primaryBid)
                                 end,
                             } or UI.Button {
@@ -1752,6 +1922,486 @@ function Market._buildListedContent(gameState)
 end
 
 ------------------------------------------------------
+-- 批量确认弹窗（多人待确认合并一页）
+------------------------------------------------------
+local function _finishBatchSheet(opts, tabKey)
+    if opts and opts.onComplete then
+        opts.onComplete()
+    elseif tabKey then
+        Router.replaceWith("market", { tab = tabKey })
+    end
+end
+
+local function _deferDaysLabel()
+    return string.format("推迟%d天", TransferManager.getSignConfirmDeferDays())
+end
+
+local function _onDeferSignSuccess(gameState, playerName, tabKey, opts)
+    UI.Toast.Show({
+        message = string.format("已将 %s 的签入推迟 %d 天，可先推进时间筹钱",
+            playerName, TransferManager.getSignConfirmDeferDays()),
+        variant = "info",
+    })
+    if tabKey == "my_bids" then
+        local remaining = TransferManager.getPendingTransferSignConfirmations(gameState)
+        if remaining and #remaining > 0 then
+            Market._showBatchTransferSignConfirmSheet(gameState, remaining, opts)
+            return
+        end
+    elseif tabKey == "free" then
+        local remaining = TransferManager.getPendingFreeAgentSignConfirmations(gameState)
+        if remaining and #remaining > 0 then
+            Market._showBatchFreeAgentConfirmSheet(gameState, remaining, opts)
+            return
+        end
+    end
+    _finishBatchSheet(opts, tabKey)
+end
+
+local function _buildDeferTransferButton(gameState, bidId, playerName, tabKey, opts, compact)
+    if not TransferManager.canDeferTransferSignConfirmation(gameState, bidId) then return nil end
+    return UI.Button {
+        text = _deferDaysLabel(),
+        width = compact and 72 or "100%",
+        flexGrow = compact and nil or 1,
+        height = compact and 34 or 40,
+        marginRight = compact and 4 or 0,
+        marginBottom = compact and 0 or 8,
+        backgroundColor = {38, 46, 71, 255},
+        borderRadius = compact and 6 or 8,
+        fontSize = compact and 11 or 14,
+        color = Theme.COLORS.TEXT_PRIMARY,
+        onClick = function()
+            local ok, err = TransferManager.deferTransferSignConfirmation(gameState, bidId)
+            if ok then
+                BottomSheet.close()
+                _onDeferSignSuccess(gameState, playerName, tabKey, opts)
+            else
+                AudioManager.deny()
+                UI.Toast.Show({ message = err or "无法推迟", variant = "error" })
+            end
+        end,
+    }
+end
+
+local function _buildDeferFreeAgentButton(gameState, negoId, playerName, tabKey, opts, compact)
+    if not TransferManager.canDeferFreeAgentSignConfirmation(gameState, negoId) then return nil end
+    return UI.Button {
+        text = _deferDaysLabel(),
+        width = compact and 72 or "100%",
+        flexGrow = compact and nil or 1,
+        height = compact and 34 or 40,
+        marginRight = compact and 4 or 0,
+        marginBottom = compact and 0 or 8,
+        backgroundColor = {38, 46, 71, 255},
+        borderRadius = compact and 6 or 8,
+        fontSize = compact and 11 or 14,
+        color = Theme.COLORS.TEXT_PRIMARY,
+        onClick = function()
+            local ok, err = TransferManager.deferFreeAgentSignConfirmation(gameState, negoId)
+            if ok then
+                BottomSheet.close()
+                _onDeferSignSuccess(gameState, playerName, tabKey, opts)
+            else
+                AudioManager.deny()
+                UI.Toast.Show({ message = err or "无法推迟", variant = "error" })
+            end
+        end,
+    }
+end
+
+function Market._showBatchTransferSignConfirmSheet(gameState, pendingList, opts)
+    opts = opts or {}
+    pendingList = pendingList or TransferManager.getPendingTransferSignConfirmations(gameState)
+    if #pendingList == 0 then return end
+
+    local rows = {}
+    for _, item in ipairs(pendingList) do
+        local bid = TransferManager.getBidById(gameState, item.bidId)
+        if bid then
+            local isLoan = bid.type == "loan"
+            local detail = isLoan
+                and string.format("租借费 %s · %d周 · 你方 %.0f%% 工资",
+                    Market._formatValue(bid.amount or 0), bid.loanDuration or 26, (bid.wageShare or 0.5) * 100)
+                or string.format("转会费 %s · 周薪 %s · %d年",
+                    Market._formatValue(bid.amount or 0),
+                    Market._formatValue(bid.wageOffer or 0),
+                    bid.contractYears or 3)
+            local bidId = item.bidId
+            local rowActions = {
+                UI.Button {
+                    text = isLoan and "确认租入" or "确认签入",
+                    flexGrow = 1, height = 34, marginRight = 6,
+                    backgroundColor = {0, 200, 83, 255},
+                    borderRadius = 6, fontSize = 12, fontWeight = "bold",
+                    color = {255, 255, 255, 255},
+                    onClick = function()
+                        if isLoan then
+                            local confirmed, err = TransferManager.confirmLoan(gameState, bidId)
+                            if confirmed then
+                                UI.Toast.Show({ message = item.playerName .. " 租借完成", variant = "success" })
+                            else
+                                UI.Toast.Show({ message = err or "租借失败", variant = "error" })
+                            end
+                        else
+                            TransferManager.confirmTransfer(gameState, bidId)
+                            UI.Toast.Show({ message = item.playerName .. " 签约完成", variant = "success" })
+                        end
+                        BottomSheet.close()
+                        local remaining = TransferManager.getPendingTransferSignConfirmations(gameState)
+                        if #remaining > 0 then
+                            Market._showBatchTransferSignConfirmSheet(gameState, remaining, opts)
+                        else
+                            _finishBatchSheet(opts, "my_bids")
+                        end
+                    end,
+                },
+                UI.Button {
+                    text = "放弃", width = 56, height = 34,
+                    backgroundColor = {60, 40, 40, 255},
+                    borderRadius = 6, fontSize = 12, color = Theme.COLORS.DANGER,
+                    onClick = function()
+                        if isLoan then
+                            TransferManager.cancelLoanConfirmation(gameState, bidId)
+                        else
+                            TransferManager.cancelTransferConfirmation(gameState, bidId)
+                        end
+                        UI.Toast.Show({ message = "已放弃 " .. item.playerName, variant = "info" })
+                        BottomSheet.close()
+                        local remaining = TransferManager.getPendingTransferSignConfirmations(gameState)
+                        if #remaining > 0 then
+                            Market._showBatchTransferSignConfirmSheet(gameState, remaining, opts)
+                        else
+                            _finishBatchSheet(opts, "my_bids")
+                        end
+                    end,
+                },
+            }
+            local deferBtn = _buildDeferTransferButton(gameState, bidId, item.playerName, "my_bids", opts, true)
+            if deferBtn then
+                table.insert(rowActions, 1, deferBtn)
+            end
+            table.insert(rows, UI.Panel {
+                width = "100%", padding = 10, marginBottom = 8,
+                backgroundColor = {30, 38, 55, 255}, borderRadius = 8,
+                borderWidth = 1, borderColor = {0, 200, 83, 60},
+                children = {
+                    UI.Label {
+                        text = item.playerName .. (isLoan and " [租借]" or ""),
+                        fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                    },
+                    UI.Label {
+                        text = (item.sellerName or "卖方") .. " · " .. detail,
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                    },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", marginTop = 8,
+                        children = rowActions,
+                    },
+                },
+            })
+        end
+    end
+
+    local footer = UI.Panel {
+        width = "100%", flexDirection = "row", marginTop = 4,
+        children = {
+            UI.Button {
+                text = string.format("全部签入 (%d人)", #pendingList),
+                flexGrow = 1, height = 44,
+                backgroundColor = {0, 200, 83, 255},
+                borderRadius = 8, fontSize = 15, fontWeight = "bold",
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    BottomSheet.close()
+                    local okCount, failCount, lastErr = TransferManager.confirmAllPendingTransfers(gameState)
+                    if okCount > 0 then
+                        UI.Toast.Show({
+                            message = string.format("已签入 %d 名球员", okCount),
+                            variant = failCount > 0 and "warning" or "success",
+                        })
+                    end
+                    if failCount > 0 then
+                        AudioManager.deny()
+                        UI.Toast.Show({ message = lastErr or string.format("%d 笔签入失败", failCount), variant = "error" })
+                        local remaining = TransferManager.getPendingTransferSignConfirmations(gameState)
+                        if #remaining > 0 then
+                            Market._showBatchTransferSignConfirmSheet(gameState, remaining, opts)
+                            return
+                        end
+                    end
+                    _finishBatchSheet(opts, "my_bids")
+                end,
+            },
+        },
+    }
+
+    BottomSheet.showCustom({
+        title = string.format("待确认签入 (%d人)", #pendingList),
+        height = math.min(560, 200 + #pendingList * 110),
+        showCancel = true,
+        children = rows,
+        footer = footer,
+        onClose = function()
+            if opts.onComplete then opts.onComplete() end
+        end,
+    })
+end
+
+function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
+    opts = opts or {}
+    pendingList = pendingList or TransferManager.getPendingSaleConfirmations(gameState)
+    if #pendingList == 0 then return end
+
+    local totalAmount = 0
+    local rows = {}
+    for _, item in ipairs(pendingList) do
+        totalAmount = totalAmount + (item.amount or 0)
+        local bidId = item.bidId
+        table.insert(rows, UI.Panel {
+            width = "100%", padding = 10, marginBottom = 8,
+            backgroundColor = {30, 38, 55, 255}, borderRadius = 8,
+            borderWidth = 1, borderColor = {Theme.COLORS.SECONDARY[1], Theme.COLORS.SECONDARY[2], Theme.COLORS.SECONDARY[3], 60},
+            children = {
+                UI.Label {
+                    text = item.playerName,
+                    fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                },
+                UI.Label {
+                    text = string.format("买方: %s · 金额 %s",
+                        item.buyerName or "买方", Market._formatValue(item.amount or 0)),
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                },
+                UI.Panel {
+                    width = "100%", flexDirection = "row", marginTop = 8,
+                    children = {
+                        UI.Button {
+                            text = "确认出售",
+                            flexGrow = 1, height = 34, marginRight = 6,
+                            backgroundColor = Theme.COLORS.SECONDARY,
+                            borderRadius = 6, fontSize = 12, fontWeight = "bold",
+                            color = {255, 255, 255, 255},
+                            onClick = function()
+                                ConfirmDialog.show({
+                                    title = "确认出售",
+                                    message = string.format("确认以 %s 将 %s 出售给 %s？",
+                                        Market._formatValue(item.amount or 0), item.playerName, item.buyerName or "买方"),
+                                    confirmText = "确认出售",
+                                    onConfirm = function()
+                                        local ok, err = TransferManager.confirmSale(gameState, bidId)
+                                        if ok then
+                                            UI.Toast.Show({ message = item.playerName .. " 已出售", variant = "success" })
+                                        else
+                                            AudioManager.deny()
+                                            UI.Toast.Show({ message = err or "出售失败", variant = "error" })
+                                        end
+                                        BottomSheet.close()
+                                        local remaining = TransferManager.getPendingSaleConfirmations(gameState)
+                                        if #remaining > 0 then
+                                            Market._showBatchSaleConfirmSheet(gameState, remaining, opts)
+                                        else
+                                            _finishBatchSheet(opts, "listed")
+                                        end
+                                    end,
+                                })
+                            end,
+                        },
+                        UI.Button {
+                            text = "取消", width = 56, height = 34,
+                            backgroundColor = {60, 40, 40, 255},
+                            borderRadius = 6, fontSize = 12, color = Theme.COLORS.DANGER,
+                            onClick = function()
+                                TransferManager.cancelSale(gameState, bidId)
+                                UI.Toast.Show({ message = "已取消 " .. item.playerName .. " 的交易", variant = "info" })
+                                BottomSheet.close()
+                                local remaining = TransferManager.getPendingSaleConfirmations(gameState)
+                                if #remaining > 0 then
+                                    Market._showBatchSaleConfirmSheet(gameState, remaining, opts)
+                                else
+                                    _finishBatchSheet(opts, "listed")
+                                end
+                            end,
+                        },
+                    },
+                },
+            },
+        })
+    end
+
+    local footer = UI.Panel {
+        width = "100%", flexDirection = "row", marginTop = 4,
+        children = {
+            UI.Button {
+                text = string.format("全部卖出 (%d人)", #pendingList),
+                flexGrow = 1, height = 44,
+                backgroundColor = Theme.COLORS.SECONDARY,
+                borderRadius = 8, fontSize = 15, fontWeight = "bold",
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    ConfirmDialog.show({
+                        title = "全部确认出售",
+                        message = string.format("确认出售 %d 名球员，合计 %s？\n此操作不可撤销。",
+                            #pendingList, Market._formatValue(totalAmount)),
+                        confirmText = "全部卖出",
+                        onConfirm = function()
+                            BottomSheet.close()
+                            local okCount, failCount, lastErr = TransferManager.confirmAllPendingSales(gameState)
+                            if okCount > 0 then
+                                UI.Toast.Show({
+                                    message = string.format("已出售 %d 名球员", okCount),
+                                    variant = failCount > 0 and "warning" or "success",
+                                })
+                            end
+                            if failCount > 0 then
+                                AudioManager.deny()
+                                UI.Toast.Show({ message = lastErr or string.format("%d 笔出售失败", failCount), variant = "error" })
+                                local remaining = TransferManager.getPendingSaleConfirmations(gameState)
+                                if #remaining > 0 then
+                                    Market._showBatchSaleConfirmSheet(gameState, remaining, opts)
+                                    return
+                                end
+                            end
+                            _finishBatchSheet(opts, "listed")
+                        end,
+                    })
+                end,
+            },
+        },
+    }
+
+    BottomSheet.showCustom({
+        title = string.format("待确认出售 (%d人)", #pendingList),
+        height = math.min(560, 200 + #pendingList * 110),
+        showCancel = true,
+        children = rows,
+        footer = footer,
+        onClose = function()
+            if opts.onComplete then opts.onComplete() end
+        end,
+    })
+end
+
+function Market._showBatchFreeAgentConfirmSheet(gameState, pendingList, opts)
+    opts = opts or {}
+    pendingList = pendingList or TransferManager.getPendingFreeAgentSignConfirmations(gameState)
+    if #pendingList == 0 then return end
+
+    local rows = {}
+    for _, item in ipairs(pendingList) do
+        local negoId = item.negoId
+        local rowActions = {
+            UI.Button {
+                text = "确认签入",
+                flexGrow = 1, height = 34, marginRight = 6,
+                backgroundColor = {0, 200, 83, 255},
+                borderRadius = 6, fontSize = 12, fontWeight = "bold",
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    local _, err = TransferManager.confirmFreeAgent(gameState, negoId)
+                    if err then
+                        AudioManager.deny()
+                        UI.Toast.Show({ message = err, variant = "error" })
+                    else
+                        UI.Toast.Show({ message = item.playerName .. " 签约完成", variant = "success" })
+                    end
+                    BottomSheet.close()
+                    local remaining = TransferManager.getPendingFreeAgentSignConfirmations(gameState)
+                    if #remaining > 0 then
+                        Market._showBatchFreeAgentConfirmSheet(gameState, remaining, opts)
+                    else
+                        _finishBatchSheet(opts, "free")
+                    end
+                end,
+            },
+            UI.Button {
+                text = "放弃", width = 56, height = 34,
+                backgroundColor = {60, 40, 40, 255},
+                borderRadius = 6, fontSize = 12, color = Theme.COLORS.DANGER,
+                onClick = function()
+                    TransferManager.cancelFreeAgentConfirmation(gameState, negoId)
+                    UI.Toast.Show({ message = "已放弃 " .. item.playerName, variant = "info" })
+                    BottomSheet.close()
+                    local remaining = TransferManager.getPendingFreeAgentSignConfirmations(gameState)
+                    if #remaining > 0 then
+                        Market._showBatchFreeAgentConfirmSheet(gameState, remaining, opts)
+                    else
+                        _finishBatchSheet(opts, "free")
+                    end
+                end,
+            },
+        }
+        local deferBtn = _buildDeferFreeAgentButton(gameState, negoId, item.playerName, "free", opts, true)
+        if deferBtn then
+            table.insert(rowActions, 1, deferBtn)
+        end
+        table.insert(rows, UI.Panel {
+            width = "100%", padding = 10, marginBottom = 8,
+            backgroundColor = {30, 38, 55, 255}, borderRadius = 8,
+            borderWidth = 1, borderColor = {0, 200, 83, 60},
+            children = {
+                UI.Label {
+                    text = item.playerName,
+                    fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                },
+                UI.Label {
+                    text = string.format("周薪 %s · 合同 %d年",
+                        Market._formatValue(item.wageOffer or 0), item.yearsOffer or 3),
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                },
+                UI.Panel {
+                    width = "100%", flexDirection = "row", marginTop = 8,
+                    children = rowActions,
+                },
+            },
+        })
+    end
+
+    local footer = UI.Panel {
+        width = "100%", flexDirection = "row", marginTop = 4,
+        children = {
+            UI.Button {
+                text = string.format("全部签入 (%d人)", #pendingList),
+                flexGrow = 1, height = 44,
+                backgroundColor = {0, 200, 83, 255},
+                borderRadius = 8, fontSize = 15, fontWeight = "bold",
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    BottomSheet.close()
+                    local okCount, failCount, lastErr = TransferManager.confirmAllPendingFreeAgents(gameState)
+                    if okCount > 0 then
+                        UI.Toast.Show({
+                            message = string.format("已签入 %d 名自由球员", okCount),
+                            variant = failCount > 0 and "warning" or "success",
+                        })
+                    end
+                    if failCount > 0 then
+                        AudioManager.deny()
+                        UI.Toast.Show({ message = lastErr or string.format("%d 笔签入失败", failCount), variant = "error" })
+                        local remaining = TransferManager.getPendingFreeAgentSignConfirmations(gameState)
+                        if #remaining > 0 then
+                            Market._showBatchFreeAgentConfirmSheet(gameState, remaining, opts)
+                            return
+                        end
+                    end
+                    _finishBatchSheet(opts, "free")
+                end,
+            },
+        },
+    }
+
+    BottomSheet.showCustom({
+        title = string.format("待确认签入自由球员 (%d人)", #pendingList),
+        height = math.min(560, 200 + #pendingList * 100),
+        showCancel = true,
+        children = rows,
+        footer = footer,
+        onClose = function()
+            if opts.onComplete then opts.onComplete() end
+        end,
+    })
+end
+
+------------------------------------------------------
 -- 报价处理弹窗
 ------------------------------------------------------
 function Market._showTransferSignConfirmSheet(gameState, bid)
@@ -1761,12 +2411,7 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
     local sellerName = sellerTeam and sellerTeam.name or "卖方"
     local bidId = bid.id
     local isLoan = bid.type == "loan"
-
-    BottomSheet.showCustom({
-        title = (isLoan and "确认租入 - " or "确认签入 - ") .. player.displayName,
-        height = isLoan and 320 or 300,
-        showCancel = true,
-        children = {
+    local sheetChildren = {
             UI.Panel {
                 width = "100%", backgroundColor = {30, 38, 55, 255},
                 borderRadius = 8, padding = 12, marginBottom = 12,
@@ -1832,7 +2477,12 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
                     Router.replaceWith("market", { tab = "my_bids" })
                 end,
             },
-            UI.Button {
+    }
+    local deferBtn = _buildDeferTransferButton(gameState, bidId, player.displayName, "my_bids", nil, false)
+    if deferBtn then
+        table.insert(sheetChildren, deferBtn)
+    end
+    table.insert(sheetChildren, UI.Button {
                 text = "放弃",
                 width = "100%", height = 42,
                 backgroundColor = {60, 40, 40, 255},
@@ -1848,8 +2498,13 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
                     UI.Toast.Show({ message = isLoan and "已放弃租借" or "已放弃签约", variant = "info" })
                     Router.replaceWith("market", { tab = "my_bids" })
                 end,
-            },
-        },
+            })
+
+    BottomSheet.showCustom({
+        title = (isLoan and "确认租入 - " or "确认签入 - ") .. player.displayName,
+        height = isLoan and (deferBtn and 380 or 320) or (deferBtn and 360 or 300),
+        showCancel = true,
+        children = sheetChildren,
     })
 end
 
@@ -1858,11 +2513,7 @@ function Market._showFreeAgentConfirmSheet(gameState, nego)
     if not player then return end
     local negoId = nego.id
 
-    BottomSheet.showCustom({
-        title = "确认签入 - " .. player.displayName,
-        height = 280,
-        showCancel = true,
-        children = {
+    local sheetChildren = {
             UI.Panel {
                 width = "100%", backgroundColor = {30, 38, 55, 255},
                 borderRadius = 8, padding = 12, marginBottom = 12,
@@ -1898,7 +2549,12 @@ function Market._showFreeAgentConfirmSheet(gameState, nego)
                     Router.replaceWith("market", { tab = "free" })
                 end,
             },
-            UI.Button {
+    }
+    local deferBtn = _buildDeferFreeAgentButton(gameState, negoId, player.displayName, "free", nil, false)
+    if deferBtn then
+        table.insert(sheetChildren, deferBtn)
+    end
+    table.insert(sheetChildren, UI.Button {
                 text = "放弃",
                 width = "100%", height = 42,
                 backgroundColor = {60, 40, 40, 255},
@@ -1910,8 +2566,13 @@ function Market._showFreeAgentConfirmSheet(gameState, nego)
                     UI.Toast.Show({ message = "已放弃签约", variant = "info" })
                     Router.replaceWith("market", { tab = "free" })
                 end,
-            },
-        },
+            })
+
+    BottomSheet.showCustom({
+        title = "确认签入 - " .. player.displayName,
+        height = deferBtn and 340 or 280,
+        showCancel = true,
+        children = sheetChildren,
     })
 end
 
@@ -2430,7 +3091,7 @@ Market._exploreContainerRef = nil
 Market._exploreGameState = nil
 Market._exploreScouts = nil
 
-local SCOUT_POSITIONS = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"}
+local SCOUT_POSITIONS = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"}
 local AGE_RANGES = {
     { key = "any",   label = "不限",       min = nil, max = nil },
     { key = "u21",   label = "U21",        min = 16,  max = 21 },
@@ -2904,6 +3565,182 @@ end
 -- 自由球员
 function Market._buildFreeAgentsContent(gameState, posFilter)
     local children = {}
+
+    -- 待确认签入的自由球员
+    local pendingFreeSign = TransferManager.getPendingFreeAgentSignConfirmations(gameState)
+    if #pendingFreeSign > 0 then
+        local panelChildren = {
+            UI.Label {
+                text = string.format("待确认签入 (%d人)", #pendingFreeSign),
+                fontSize = 13, fontWeight = "bold", color = {0, 200, 83, 255}, marginBottom = 8,
+            },
+        }
+        if #pendingFreeSign > 1 then
+            table.insert(panelChildren, UI.Panel {
+                width = "100%", flexDirection = "row", marginBottom = 8,
+                children = {
+                    UI.Button {
+                        text = "查看全部",
+                        flexGrow = 1, height = 36, marginRight = 8,
+                        backgroundColor = {38, 46, 71, 255},
+                        borderRadius = 6, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY,
+                        onClick = function()
+                            Market._showBatchFreeAgentConfirmSheet(gameState, pendingFreeSign)
+                        end,
+                    },
+                    UI.Button {
+                        text = string.format("全部签入 (%d人)", #pendingFreeSign),
+                        flexGrow = 1, height = 36,
+                        backgroundColor = {0, 200, 83, 255},
+                        borderRadius = 6, fontSize = 13, fontWeight = "bold",
+                        color = {255, 255, 255, 255},
+                        onClick = function()
+                            local okCount, failCount, lastErr = TransferManager.confirmAllPendingFreeAgents(gameState)
+                            if okCount > 0 then
+                                UI.Toast.Show({
+                                    message = string.format("已签入 %d 名自由球员", okCount),
+                                    variant = failCount > 0 and "warning" or "success",
+                                })
+                            end
+                            if failCount > 0 then
+                                AudioManager.deny()
+                                UI.Toast.Show({ message = lastErr or "部分签入失败", variant = "error" })
+                            end
+                            Router.replaceWith("market", { tab = "free", posFilter = posFilter })
+                        end,
+                    },
+                },
+            })
+        end
+        for _, item in ipairs(pendingFreeSign) do
+            local negoId = item.negoId
+            local rowChildren = {
+                UI.Panel {
+                    flexGrow = 1,
+                    children = {
+                        UI.Label { text = item.playerName, fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY },
+                        UI.Label {
+                            text = string.format("周薪 %s · %d年",
+                                Market._formatValue(item.wageOffer or 0), item.yearsOffer or 3),
+                            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
+                        },
+                    },
+                },
+            }
+            local deferBtn = _buildDeferFreeAgentButton(gameState, negoId, item.playerName, "free", nil, true)
+            if deferBtn then
+                table.insert(rowChildren, deferBtn)
+            end
+            table.insert(rowChildren, UI.Button {
+                text = "确认签入", width = 72, height = 28, marginRight = 4,
+                backgroundColor = {0, 200, 83, 255}, borderRadius = 4, fontSize = 11,
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    local _, err = TransferManager.confirmFreeAgent(gameState, negoId)
+                    if err then
+                        AudioManager.deny()
+                        UI.Toast.Show({ message = err, variant = "error" })
+                    else
+                        UI.Toast.Show({ message = item.playerName .. " 签约完成", variant = "success" })
+                    end
+                    Router.replaceWith("market", { tab = "free", posFilter = posFilter })
+                end,
+            })
+            table.insert(rowChildren, UI.Button {
+                text = "放弃", width = 44, height = 28,
+                backgroundColor = Theme.COLORS.DANGER, borderRadius = 4, fontSize = 11,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                onClick = function()
+                    TransferManager.cancelFreeAgentConfirmation(gameState, negoId)
+                    UI.Toast.Show({ message = "已放弃签约", variant = "info" })
+                    Router.replaceWith("market", { tab = "free", posFilter = posFilter })
+                end,
+            })
+            table.insert(panelChildren, UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 6,
+                children = rowChildren,
+            })
+        end
+        table.insert(children, UI.Panel {
+            width = "100%", padding = 10, marginLeft = 8, marginRight = 8, marginBottom = 8,
+            backgroundColor = {0, 200, 83, 20}, borderRadius = 8,
+            borderWidth = 1, borderColor = {0, 200, 83, 80},
+            children = panelChildren,
+        })
+    end
+
+    local deferredFreeNegos = {}
+    for _, nego in ipairs(TransferManager.getFreeAgentNegos(gameState)) do
+        if nego.status == "awaiting_confirmation"
+            and TransferManager.isFreeAgentSignDeferred(nego, gameState) then
+            table.insert(deferredFreeNegos, nego)
+        end
+    end
+    if #deferredFreeNegos > 0 then
+        local deferredChildren = {
+            UI.Label {
+                text = string.format("已推迟签入 (%d人)", #deferredFreeNegos),
+                fontSize = 13, fontWeight = "bold", color = Theme.COLORS.WARNING, marginBottom = 8,
+            },
+        }
+        for _, nego in ipairs(deferredFreeNegos) do
+            local player = gameState.players[nego.playerId]
+            local daysLeft = TransferManager.getFreeAgentSignDeferDaysLeft(nego, gameState)
+            local negoId = nego.id
+            table.insert(deferredChildren, UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 6,
+                children = {
+                    UI.Panel {
+                        flexGrow = 1,
+                        children = {
+                            UI.Label {
+                                text = player and player.displayName or "球员",
+                                fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY,
+                            },
+                            UI.Label {
+                                text = string.format("还剩 %d 天 · 周薪 %s · %d年",
+                                    daysLeft,
+                                    Market._formatValue(nego.wageOffer or 0),
+                                    nego.yearsOffer or 3),
+                                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
+                            },
+                        },
+                    },
+                    UI.Button {
+                        text = "确认", width = 52, height = 28, marginRight = 4,
+                        backgroundColor = {0, 200, 83, 255}, borderRadius = 4, fontSize = 11,
+                        color = {255, 255, 255, 255},
+                        onClick = function()
+                            local _, err = TransferManager.confirmFreeAgent(gameState, negoId)
+                            if err then
+                                AudioManager.deny()
+                                UI.Toast.Show({ message = err, variant = "error" })
+                            else
+                                UI.Toast.Show({ message = "签约完成", variant = "success" })
+                            end
+                            Router.replaceWith("market", { tab = "free", posFilter = posFilter })
+                        end,
+                    },
+                    UI.Button {
+                        text = "放弃", width = 44, height = 28,
+                        backgroundColor = Theme.COLORS.DANGER, borderRadius = 4, fontSize = 11,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        onClick = function()
+                            TransferManager.cancelFreeAgentConfirmation(gameState, negoId)
+                            UI.Toast.Show({ message = "已放弃签约", variant = "info" })
+                            Router.replaceWith("market", { tab = "free", posFilter = posFilter })
+                        end,
+                    },
+                },
+            })
+        end
+        table.insert(children, UI.Panel {
+            width = "100%", padding = 10, marginLeft = 8, marginRight = 8, marginBottom = 8,
+            backgroundColor = {255, 183, 77, 20}, borderRadius = 8,
+            borderWidth = 1, borderColor = {255, 183, 77, 80},
+            children = deferredChildren,
+        })
+    end
 
     -- 活跃谈判面板
     local negos = TransferManager.getFreeAgentNegos(gameState)

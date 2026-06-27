@@ -50,6 +50,7 @@ function RecordsManager._ensureData(gameState)
             totalSeasons = 0,
             leagueTitles = 0,
             uclTitles = 0,
+            uelTitles = 0,
             cupTitles = 0,
             worldCupTitles = 0,
             euroTitles = 0,
@@ -525,6 +526,41 @@ function RecordsManager.onUCLChampionship(gameState, winnerTeamId)
 end
 
 ------------------------------------------------------
+-- UEL 夺冠（由 europa_league 调用）
+------------------------------------------------------
+
+function RecordsManager.onUELChampionship(gameState, winnerTeamId)
+    RecordsManager._ensureData(gameState)
+
+    local playerTeamId = gameState.playerTeamId
+    if winnerTeamId ~= playerTeamId then return end
+
+    local team = gameState:getPlayerTeam()
+    local teamName = team and team.name or "?"
+    local season = gameState.season
+
+    table.insert(gameState.records.trophies, {
+        season = season,
+        year = gameState.date.year,
+        competition = "uel",
+        competitionName = "欧洲联赛",
+        teamId = playerTeamId,
+        teamName = teamName,
+    })
+
+    gameState.records.managerRecords.uelTitles = (gameState.records.managerRecords.uelTitles or 0) + 1
+    _incrementManagerTrophyStat(gameState)
+
+    EventBus.emit("championship_won", {
+        competition = "uel",
+        competitionName = "欧洲联赛",
+        teamId = playerTeamId,
+        teamName = teamName,
+        season = season,
+    })
+end
+
+------------------------------------------------------
 -- 国内杯赛夺冠（由 domestic_cup 调用）
 ------------------------------------------------------
 
@@ -668,7 +704,7 @@ end
 
 function RecordsManager.getTrophyCount(gameState)
     RecordsManager._ensureData(gameState)
-    local counts = { league = 0, ucl = 0, cup = 0, euro = 0, worldcup = 0, total = 0 }
+    local counts = { league = 0, ucl = 0, uel = 0, cup = 0, euro = 0, worldcup = 0, total = 0 }
     for _, trophy in ipairs(gameState.records.trophies) do
         local comp = trophy.competition or "league"
         counts[comp] = (counts[comp] or 0) + 1
@@ -708,16 +744,18 @@ end
 function RecordsManager._reconcileTitleCounts(gameState)
     RecordsManager._ensureData(gameState)
     local mr = gameState.records.managerRecords
-    local league, ucl, cup, wc, euro = 0, 0, 0, 0, 0
+    local league, ucl, uel, cup, wc, euro = 0, 0, 0, 0, 0, 0
     for _, trophy in ipairs(gameState.records.trophies) do
         if trophy.competition == "league" then league = league + 1
         elseif trophy.competition == "ucl" then ucl = ucl + 1
+        elseif trophy.competition == "uel" then uel = uel + 1
         elseif trophy.competition == "cup" then cup = cup + 1
         elseif trophy.competition == "worldcup" then wc = wc + 1
         elseif trophy.competition == "euro" then euro = euro + 1 end
     end
     mr.leagueTitles = math.max(mr.leagueTitles or 0, league)
     mr.uclTitles = math.max(mr.uclTitles or 0, ucl)
+    mr.uelTitles = math.max(mr.uelTitles or 0, uel)
     mr.cupTitles = math.max(mr.cupTitles or 0, cup)
     mr.worldCupTitles = math.max(mr.worldCupTitles or 0, wc)
     mr.euroTitles = math.max(mr.euroTitles or 0, euro)
@@ -786,6 +824,18 @@ function RecordsManager.migrateFromHistory(gameState)
                     end
                 end
             end
+            if record.uelChampion and record.uelChampion.teamId == playerTeamId then
+                if not _hasTrophy(r, "uel", record.season) then
+                    table.insert(r.trophies, {
+                        season = record.season,
+                        year = record.year,
+                        competition = "uel",
+                        competitionName = "欧洲联赛",
+                        teamId = playerTeamId,
+                        teamName = record.uelChampion.teamName,
+                    })
+                end
+            end
         end
     end
 
@@ -801,6 +851,26 @@ function RecordsManager.migrateFromHistory(gameState)
                         year = season,
                         competition = "ucl",
                         competitionName = "欧洲冠军联赛",
+                        teamId = playerTeamId,
+                        teamName = team and team.name or "?",
+                    })
+                end
+            end
+        end
+    end
+
+    -- 从 UEL 完成记录回溯欧联冠军
+    if playerTeamId and gameState._uelCompletedSeasons then
+        for seasonKey, winnerId in pairs(gameState._uelCompletedSeasons) do
+            if winnerId == playerTeamId then
+                local season = tonumber(seasonKey) or seasonKey
+                if not _hasTrophy(r, "uel", season) then
+                    local team = gameState.teams[playerTeamId]
+                    table.insert(r.trophies, {
+                        season = season,
+                        year = season,
+                        competition = "uel",
+                        competitionName = "欧洲联赛",
                         teamId = playerTeamId,
                         teamName = team and team.name or "?",
                     })

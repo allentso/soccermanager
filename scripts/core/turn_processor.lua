@@ -9,6 +9,7 @@ local Constants = require("scripts/app/constants")
 local League = require("scripts/domain/league")
 local TransferManager = require("scripts/systems/transfer_manager")
 local ChampionsLeague = require("scripts/systems/champions_league")
+local EuropaLeague = require("scripts/systems/europa_league")
 local WorldCup = require("scripts/systems/world_cup")
 local EuroCup = require("scripts/systems/euro_cup")
 local FinanceManager = require("scripts/systems/finance_manager")
@@ -81,6 +82,9 @@ function TurnProcessor.advanceDay(gameState)
     -- 存档迁移：旧格式欧冠 → 新瑞士制（仅首次触发）
     ChampionsLeague.migrateIfNeeded(gameState)
 
+    -- 存档迁移：旧存档无欧联杯数据时，延迟初始化
+    EuropaLeague.migrateIfNeeded(gameState)
+
     -- 存档迁移：旧存档无国内杯赛数据时，延迟初始化
     DomesticCup.migrateIfNeeded(gameState)
 
@@ -108,9 +112,21 @@ function TurnProcessor.advanceDay(gameState)
         table.insert(todayFixtures, f)
     end
 
+    -- 补救：模拟已过期但未完成的欧联杯比赛
+    local overduePlayerUEL = TurnProcessor._catchUpOverdueUELFixtures(gameState, newDate)
+    for _, f in ipairs(overduePlayerUEL) do
+        table.insert(todayFixtures, f)
+    end
+
     -- 检查欧冠当天是否有比赛
     local uclFixtures = TurnProcessor.getUCLFixturesForDate(gameState, newDate)
     for _, f in ipairs(uclFixtures) do
+        table.insert(todayFixtures, f)
+    end
+
+    -- 检查欧联杯当天是否有比赛
+    local uelFixtures = TurnProcessor.getUELFixturesForDate(gameState, newDate)
+    for _, f in ipairs(uelFixtures) do
         table.insert(todayFixtures, f)
     end
 
@@ -169,6 +185,9 @@ function TurnProcessor.advanceDay(gameState)
     -- 检查欧冠阶段推进
     ChampionsLeague.checkPhaseAdvance(gameState)
 
+    -- 检查欧联杯阶段推进
+    EuropaLeague.checkPhaseAdvance(gameState)
+
     -- 检查世界杯/欧洲杯阶段推进
     EuroCup.checkPhaseAdvance(gameState)
     WorldCup.checkPhaseAdvance(gameState)
@@ -181,13 +200,15 @@ function TurnProcessor.advanceDay(gameState)
     -- 否则 _startNewSeason 会覆盖进行中的欧洲杯/世界杯（异常存档或快进时可能联赛已完但大赛未完）
     local uclDone = (not gameState.championsLeague)
         or (gameState.championsLeague.phase == "completed")
+    local uelDone = (not gameState.europaLeague)
+        or (gameState.europaLeague.phase == "completed")
     local cupsDone = DomesticCup.allCompleted(gameState)
     local euroDone = (not gameState.euroCup)
         or (gameState.euroCup.phase == "completed")
     local wcDone = (not gameState.worldCup)
         or (gameState.worldCup.phase == "completed")
     if gameState.league and gameState.league:isSeasonComplete()
-        and uclDone and cupsDone and euroDone and wcDone
+        and uclDone and uelDone and cupsDone and euroDone and wcDone
         and not gameState._seasonEndProcessing then
         gameState._seasonEndProcessing = true
         EventBus.emit("season_end")
@@ -225,6 +246,51 @@ function TurnProcessor.getUCLFixturesForDate(gameState, date)
         f._isUCL = true
     end
     return fixtures
+end
+
+-- 获取当天欧联杯比赛
+function TurnProcessor.getUELFixturesForDate(gameState, date)
+    local uel = gameState.europaLeague
+    if not uel then return {} end
+    local fixtures = uel:getFixturesForDate(date)
+    for _, f in ipairs(fixtures) do
+        f._isUEL = true
+    end
+    return fixtures
+end
+
+--- 收集洲际赛事（欧冠/欧联）所有逾期比赛
+function TurnProcessor._collectOverdueContinentalFixtures(tournament, currentDate)
+    local overdueFixtures = {}
+    if not tournament or tournament.phase == "completed" then return overdueFixtures end
+
+    if tournament.leaguePhase and tournament.leaguePhase.fixtures then
+        for _, f in ipairs(tournament.leaguePhase.fixtures) do
+            if f.status == "scheduled" and f.date then
+                if TurnProcessor._isDateBefore(f.date, currentDate) then
+                    table.insert(overdueFixtures, f)
+                end
+            end
+        end
+    end
+
+    if tournament.knockout then
+        for _, phase in ipairs({"playoff", "r16", "qf", "sf", "final"}) do
+            local fixtures = tournament.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.status == "scheduled" and f.date then
+                        if TurnProcessor._isDateBefore(f.date, currentDate) then
+                            f.tournamentPhase = phase
+                            table.insert(overdueFixtures, f)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return overdueFixtures
 end
 
 -- 获取当天欧洲杯比赛
@@ -343,6 +409,8 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
                 TurnProcessor._applyWCResult(gameState, fixture, report)
             elseif fixture._isUCL then
                 TurnProcessor._applyUCLResult(gameState, fixture, report)
+            elseif fixture._isUEL then
+                TurnProcessor._applyUELResult(gameState, fixture, report)
             elseif fixture._isDomesticCup then
                 DomesticCup.applyResult(gameState, fixture, report)
             else
@@ -363,6 +431,7 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
                     awayName = awayTeam and awayTeam.name or "客队"
                 end
                 local prefix = fixture._isUCL and "[欧冠] "
+                    or (fixture._isUEL and "[欧联杯] ")
                     or (fixture._isEuro and "[欧洲杯] ")
                     or (fixture._isWC and "[世界杯] ")
                     or ""
@@ -486,36 +555,7 @@ function TurnProcessor._catchUpOverdueUCLFixtures(gameState, currentDate)
     if ucl.phase == "completed" then return {} end
 
     local playerTeamId = gameState.playerTeamId
-    local overdueFixtures = {}
-
-    -- 联赛阶段过期比赛
-    if ucl.leaguePhase and ucl.leaguePhase.fixtures then
-        for _, f in ipairs(ucl.leaguePhase.fixtures) do
-            if f.status == "scheduled" and f.date then
-                if TurnProcessor._isDateBefore(f.date, currentDate) then
-                    table.insert(overdueFixtures, f)
-                end
-            end
-        end
-    end
-
-    -- 淘汰赛阶段过期比赛（附加赛、R16、QF、SF、决赛）
-    if ucl.knockout then
-        local knockoutPhases = {"playoff", "r16", "qf", "sf", "final"}
-        for _, phase in ipairs(knockoutPhases) do
-            local fixtures = ucl.knockout[phase]
-            if fixtures then
-                for _, f in ipairs(fixtures) do
-                    if f.status == "scheduled" and f.date then
-                        if TurnProcessor._isDateBefore(f.date, currentDate) then
-                            f.tournamentPhase = phase
-                            table.insert(overdueFixtures, f)
-                        end
-                    end
-                end
-            end
-        end
-    end
+    local overdueFixtures = TurnProcessor._collectOverdueContinentalFixtures(ucl, currentDate)
 
     if #overdueFixtures == 0 then return {} end
 
@@ -525,20 +565,16 @@ function TurnProcessor._catchUpOverdueUCLFixtures(gameState, currentDate)
         local isPlayerMatch = (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
 
         if isPlayerMatch then
-            -- 玩家的过期比赛：标记为待处理，让玩家可以打
             fixture._pendingPlayerMatch = true
             table.insert(playerOverdue, fixture)
             goto continue_ucl_overdue
         end
 
-        -- 非玩家比赛：自动模拟
         local report = MatchEngine.simulate(gameState, fixture)
         if report then
             if fixture.tournamentPhase then
-                -- 淘汰赛：用 _applyUCLResult 处理（含两回合制逻辑）
                 TurnProcessor._applyUCLResult(gameState, fixture, report)
             else
-                -- 联赛阶段：直接更新积分
                 fixture.status = "finished"
                 fixture.homeGoals = report.homeGoals or 0
                 fixture.awayGoals = report.awayGoals or 0
@@ -549,9 +585,44 @@ function TurnProcessor._catchUpOverdueUCLFixtures(gameState, currentDate)
         ::continue_ucl_overdue::
     end
 
-    -- 补救模拟后检查阶段推进（可能有整轮比赛被补齐）
     if #overdueFixtures > 0 then
         ChampionsLeague.checkPhaseAdvance(gameState)
+    end
+
+    return playerOverdue
+end
+
+--- 补救过期欧联杯比赛
+function TurnProcessor._catchUpOverdueUELFixtures(gameState, currentDate)
+    local uel = gameState.europaLeague
+    if not uel then return {} end
+    if uel.phase == "completed" then return {} end
+
+    local playerTeamId = gameState.playerTeamId
+    local overdueFixtures = TurnProcessor._collectOverdueContinentalFixtures(uel, currentDate)
+
+    if #overdueFixtures == 0 then return {} end
+
+    local playerOverdue = {}
+    for _, fixture in ipairs(overdueFixtures) do
+        fixture._isUEL = true
+        local isPlayerMatch = (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
+
+        if isPlayerMatch then
+            fixture._pendingPlayerMatch = true
+            table.insert(playerOverdue, fixture)
+            goto continue_uel_overdue
+        end
+
+        local report = MatchEngine.simulate(gameState, fixture)
+        if report then
+            TurnProcessor._applyContinentalResult(gameState, uel, fixture, report)
+        end
+        ::continue_uel_overdue::
+    end
+
+    if #overdueFixtures > 0 then
+        EuropaLeague.checkPhaseAdvance(gameState)
     end
 
     return playerOverdue
@@ -711,6 +782,18 @@ function TurnProcessor.peekOverduePlayerFixture(gameState)
                         end
                     end
                 end
+            end
+        end
+    end
+
+    -- 检查欧联杯逾期比赛
+    local uel = gameState.europaLeague
+    if uel and uel.phase ~= "completed" then
+        local overdue = TurnProcessor._collectOverdueContinentalFixtures(uel, currentDate)
+        for _, f in ipairs(overdue) do
+            if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                f._isUEL = true
+                return f
             end
         end
     end
@@ -878,26 +961,21 @@ function TurnProcessor._applyWCResult(gameState, fixture, report)
     PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
 end
 
--- 应用欧冠比赛结果
-function TurnProcessor._applyUCLResult(gameState, fixture, report)
-    local ucl = gameState.championsLeague
-    if not ucl then return end
+-- 应用洲际俱乐部赛事比赛结果（欧冠/欧联共用）
+function TurnProcessor._applyContinentalResult(gameState, tournament, fixture, report)
+    if not tournament then return end
 
-    -- 更新比分和状态
     fixture.homeGoals = report.homeGoals
     fixture.awayGoals = report.awayGoals
     fixture.status = "finished"
 
-    -- 存储加时赛/点球数据（来自 MatchEngine 单场淘汰逻辑，如决赛）
     _storeKnockoutExtras(fixture, report.extraTime)
 
-    -- 两回合制第二回合：总比分平局 → 加时 + 点球
-    -- 如果 report 已包含 extraTime（玩家亲自踢了加时），直接使用其结果，不再重复模拟
     if fixture.leg == 2 and not fixture._penaltyWinner then
         local knockoutPhases = {playoff = true, r16 = true, qf = true, sf = true}
-        local currentPhase = ucl.phase
+        local currentPhase = tournament.phase
         if knockoutPhases[currentPhase] then
-            local fixtures = ucl.knockout[currentPhase]
+            local fixtures = tournament.knockout[currentPhase]
             local leg1 = nil
             if fixtures then
                 for _, f in ipairs(fixtures) do
@@ -912,10 +990,8 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
                 local agg2 = leg1.awayGoals + fixture.homeGoals
                 if agg1 == agg2 then
                     if report.extraTime then
-                        -- 玩家已经踢了加时+点球，直接使用 report 中的结果
                         _storeKnockoutExtras(fixture, report.extraTime)
                     else
-                        -- AI 模拟的比赛，需要外部模拟加时+点球
                         local homeTeam = gameState.teams[fixture.homeTeamId]
                         local awayTeam = gameState.teams[fixture.awayTeamId]
                         if homeTeam and awayTeam then
@@ -934,17 +1010,14 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
         end
     end
 
-    -- 如果是联赛阶段（瑞士制），更新联赛积分
-    if ucl.phase == "league" then
-        ucl:updateLeagueStanding(fixture)
+    if tournament.phase == "league" then
+        tournament:updateLeagueStanding(fixture)
     end
 
-    -- 如果是小组赛（传统模式），更新小组积分
-    if ucl.phase == "group" and fixture.groupName then
-        ucl:updateGroupStanding(fixture.groupName, fixture)
+    if tournament.phase == "group" and fixture.groupName then
+        tournament:updateGroupStanding(fixture.groupName, fixture)
     end
 
-    -- 更新球队近期状态（form）
     local homeTeam = gameState.teams[fixture.homeTeamId]
     local awayTeam = gameState.teams[fixture.awayTeamId]
     if homeTeam then
@@ -974,8 +1047,21 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
     ObjectivesManager.recordMatchResult(gameState, fixture.homeTeamId, report.homeGoals or 0, report.awayGoals or 0, report.events)
     ObjectivesManager.recordMatchResult(gameState, fixture.awayTeamId, report.awayGoals or 0, report.homeGoals or 0, report.events)
 
-    -- 更新球员出场/进球/助攻/红黄牌/评分（UCL专用，联赛由applyResult处理）
     PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
+end
+
+-- 应用欧冠比赛结果
+function TurnProcessor._applyUCLResult(gameState, fixture, report)
+    local ucl = gameState.championsLeague
+    if not ucl then return end
+    TurnProcessor._applyContinentalResult(gameState, ucl, fixture, report)
+end
+
+-- 应用欧联杯比赛结果
+function TurnProcessor._applyUELResult(gameState, fixture, report)
+    local uel = gameState.europaLeague
+    if not uel then return end
+    TurnProcessor._applyContinentalResult(gameState, uel, fixture, report)
 end
 
 -- 处理非比赛日
@@ -1209,6 +1295,23 @@ function TurnProcessor._getPlayersWhoPlayedOnDate(gameState, date)
         end
     end
 
+    local uel = gameState.europaLeague
+    if uel and uel.leaguePhase and uel.leaguePhase.fixtures then
+        for _, f in ipairs(uel.leaguePhase.fixtures) do
+            markFixture(f)
+        end
+    end
+    if uel and uel.knockout then
+        for _, phase in ipairs(UCL_KNOCKOUT_PHASES) do
+            local fixtures = uel.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    markFixture(f)
+                end
+            end
+        end
+    end
+
     local euro = gameState.euroCup
     if euro and euro.groups then
         for _, group in pairs(euro.groups) do
@@ -1361,6 +1464,7 @@ function TurnProcessor.generateMatchNews(gameState, fixtures)
         end
 
         if f._isUCL then score = score + 90 end
+        if f._isUEL then score = score + 85 end
         if f._isDomesticCup then score = score + 70 end
 
         local homeGoals = f.homeGoals or 0

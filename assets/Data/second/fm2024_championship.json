@@ -45,7 +45,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "布莱克本流浪者"
     },
     {
       "id": "bristol-city",
@@ -90,7 +91,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "布里斯托尔城"
     },
     {
       "id": "cardiff-city",
@@ -135,7 +137,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "卡迪夫城"
     },
     {
       "id": "coventry-city",
@@ -180,7 +183,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "考文垂城"
     },
     {
       "id": "derby-county",
@@ -225,7 +229,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "德比郡"
     },
     {
       "id": "hull-city-afc",
@@ -270,7 +275,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "赫尔城"
     },
     {
       "id": "leeds-united",
@@ -315,7 +321,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "利兹联"
     },
     {
       "id": "middlesbrough",
@@ -360,7 +367,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "米德尔斯堡"
     },
     {
       "id": "millwall",
@@ -405,7 +413,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "米尔沃尔"
     },
     {
       "id": "norwich-city",
@@ -450,12 +459,13 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "诺维奇城"
     },
     {
-      "id": "plymouth-argyle",
-      "name": "Plymouth Argyle",
-      "short_name": "PA",
+      "id": "birmingham-city",
+      "name": "Birmingham City",
+      "short_name": "BIR",
       "country": "ENG",
       "football_nation": "ENG",
       "city": "Argyle",
@@ -495,7 +505,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "伯明翰城"
     },
     {
       "id": "preston-north-end",
@@ -540,7 +551,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "普雷斯顿北区"
     },
     {
       "id": "queens-park-rangers",
@@ -585,7 +597,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "女王公园巡游者"
     },
     {
       "id": "stoke-city",
@@ -630,7 +643,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "斯托克城"
     },
     {
       "id": "sunderland-afc",
@@ -675,7 +689,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "桑德兰"
     },
     {
       "id": "swansea-city-afc",
@@ -720,7 +735,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "斯旺西城"
     },
     {
       "id": "watford",
@@ -765,7 +781,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "沃特福德"
     },
     {
       "id": "west-bromwich-albion",
@@ -810,7 +827,8 @@
         "corner_taker": null
       },
       "form": [],
-      "history": []
+      "history": [],
+      "name_cn": "西布罗姆维奇"
     }
   ],
   "players": [
@@ -890,7 +908,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "利奥波德·瓦尔施泰特"
     },
     {
       "id": "fm-28086114",
@@ -968,7 +987,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "多米尼克·海姆"
     },
     {
       "id": "fm-29156100",
@@ -1048,7 +1068,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "刘易斯·特拉维斯"
     },
     {
       "id": "fm-29157673",
@@ -1128,7 +1149,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "哈里·皮克林"
     },
     {
       "id": "fm-28116488",
@@ -1206,7 +1228,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "迪拉恩·马尔卡恩达"
     },
     {
       "id": "fm-292380011",
@@ -1286,7 +1309,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·加尔雷特"
     },
     {
       "id": "fm-29158533",
@@ -1367,7 +1391,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卡勒姆·布里特塔恩"
     },
     {
       "id": "fm-29175406",
@@ -1445,7 +1470,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "海登·卡特"
     },
     {
       "id": "fm-29106999",
@@ -1525,7 +1551,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "萨米·斯莫迪奇"
     },
     {
       "id": "fm-29156098",
@@ -1606,7 +1633,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔·兰金-科斯特洛"
     },
     {
       "id": "fm-29218322",
@@ -1686,7 +1714,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "特尔赫斯·多兰"
     },
     {
       "id": "fm-29175403",
@@ -1766,7 +1795,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "约翰·巴克利"
     },
     {
       "id": "fm-2000053511",
@@ -1844,7 +1874,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "哈里·莱纳尔德"
     },
     {
       "id": "fm-29191224",
@@ -1922,7 +1953,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·维尔"
     },
     {
       "id": "fm-29191219",
@@ -2000,7 +2032,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "萨姆·巴尔内斯"
     },
     {
       "id": "fm-2000137630",
@@ -2080,7 +2113,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·巴特"
     },
     {
       "id": "fm-2000053516",
@@ -2160,7 +2194,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "亚当·沃顿"
     },
     {
       "id": "fm-2000191720",
@@ -2241,7 +2276,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "儒尼奥尔·恩萨恩戈"
     },
     {
       "id": "fm-49048342",
@@ -2319,7 +2355,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "斯特凡·巴伊奇"
     },
     {
       "id": "fm-29191596",
@@ -2401,7 +2438,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰森·奈特"
     },
     {
       "id": "fm-95034355",
@@ -2482,7 +2520,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卡梅罗恩·普里恩格"
     },
     {
       "id": "fm-28000909",
@@ -2560,7 +2599,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马特·雅梅斯"
     },
     {
       "id": "fm-29226253",
@@ -2638,7 +2678,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "托姆姆·科恩瓦"
     },
     {
       "id": "fm-29226251",
@@ -2718,7 +2759,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "萨姆·贝尔"
     },
     {
       "id": "fm-29193606",
@@ -2798,7 +2840,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "安斯·梅赫梅蒂"
     },
     {
       "id": "fm-61006548",
@@ -2879,7 +2922,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卡尔·纳斯米特"
     },
     {
       "id": "fm-29235467",
@@ -2957,7 +3001,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "曼·贝纳罗斯"
     },
     {
       "id": "fm-28121308",
@@ -3037,7 +3082,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "哈多恩·罗贝尔特斯"
     },
     {
       "id": "fm-2000222669",
@@ -3115,7 +3161,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "夫拉姆·耶博赫"
     },
     {
       "id": "fm-29000737",
@@ -3195,7 +3242,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "阿尔恩·拉姆塞"
     },
     {
       "id": "fm-36057480",
@@ -3275,7 +3323,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "迪米特里斯·戈塔斯"
     },
     {
       "id": "fm-36045569",
@@ -3353,7 +3402,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "曼利斯·西皮斯"
     },
     {
       "id": "fm-24040636",
@@ -3433,7 +3483,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雅米卢·科尔利恩斯"
     },
     {
       "id": "fm-28116312",
@@ -3511,7 +3562,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马克·姆克古恩内斯"
     },
     {
       "id": "fm-28122158",
@@ -3589,7 +3641,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "鲁比恩·科尔维尔"
     },
     {
       "id": "fm-28028347",
@@ -3667,7 +3720,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "贝恩·维尔森"
     },
     {
       "id": "fm-29177676",
@@ -3748,7 +3802,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔什·克莱斯"
     },
     {
       "id": "fm-28100016",
@@ -3828,7 +3883,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卡勒姆·哈雷"
     },
     {
       "id": "fm-28099986",
@@ -3908,7 +3964,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "贝恩·什夫"
     },
     {
       "id": "fm-37075765",
@@ -3989,7 +4046,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "米拉恩·维杰克"
     },
     {
       "id": "fm-20034959",
@@ -4069,7 +4127,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "哈吉·夫里格赫特"
     },
     {
       "id": "fm-28116394",
@@ -4147,7 +4206,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "尔利斯·西姆姆斯"
     },
     {
       "id": "fm-29174737",
@@ -4225,7 +4285,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "利姆·基特奇恩格"
     },
     {
       "id": "fm-2000218864",
@@ -4305,7 +4366,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "达恩·达施"
     },
     {
       "id": "fm-2000256577",
@@ -4383,7 +4445,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·特姆普森"
     },
     {
       "id": "fm-29217605",
@@ -4461,7 +4524,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "拉恩·卡什恩"
     },
     {
       "id": "fm-29191593",
@@ -4541,7 +4605,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马·比尔德"
     },
     {
       "id": "fm-29216803",
@@ -4621,7 +4686,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "洛·西布莱"
     },
     {
       "id": "fm-48031396",
@@ -4701,7 +4767,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "达马·特拉尔"
     },
     {
       "id": "fm-70076282",
@@ -4782,7 +4849,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "扎恩·图法恩"
     },
     {
       "id": "fm-28127066",
@@ -4863,7 +4931,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雅德恩·夫洛热内"
     },
     {
       "id": "fm-29180952",
@@ -4943,7 +5012,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雷加恩·斯拉特尔"
     },
     {
       "id": "fm-76040881",
@@ -5021,7 +5091,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "斯卡尔·斯图皮恩"
     },
     {
       "id": "fm-28113416",
@@ -5101,7 +5172,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雅各布·格雷韦斯"
     },
     {
       "id": "fm-95037868",
@@ -5179,7 +5251,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "阿尔恩·科恩诺尔"
     },
     {
       "id": "fm-12021720",
@@ -5262,7 +5335,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰安·米奇尔·斯里"
     },
     {
       "id": "fm-29223444",
@@ -5343,7 +5417,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "阿尔拉赫亚尔·萨亚德曼什"
     },
     {
       "id": "fm-28124574",
@@ -5423,7 +5498,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "哈维尔·西莫恩斯"
     },
     {
       "id": "fm-28115642",
@@ -5504,7 +5580,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "尔亚恩·洛恩格曼"
     },
     {
       "id": "fm-49040115",
@@ -5584,7 +5661,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "尔拉恩·梅利耶"
     },
     {
       "id": "fm-53131627",
@@ -5662,7 +5740,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "克里斯托夫费尔·克拉斯森"
     },
     {
       "id": "fm-2000299860",
@@ -5740,7 +5819,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "亚历克斯·巴尔德"
     },
     {
       "id": "fm-67211094",
@@ -5820,7 +5900,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马尔克·罗卡"
     },
     {
       "id": "fm-76047347",
@@ -5901,7 +5982,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卢斯·西尼斯特拉"
     },
     {
       "id": "fm-28084932",
@@ -5981,7 +6063,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "格莱恩·卡马拉"
     },
     {
       "id": "fm-67011217",
@@ -6059,7 +6142,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "迪戈·略伦特"
     },
     {
       "id": "fm-16147700",
@@ -6139,7 +6223,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马米利安·沃贝尔"
     },
     {
       "id": "fm-37054408",
@@ -6219,7 +6304,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔尔·皮罗"
     },
     {
       "id": "fm-37065567",
@@ -6302,7 +6388,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "克尔森奇·萨默维尔"
     },
     {
       "id": "fm-28020241",
@@ -6382,7 +6469,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "利姆·库珀"
     },
     {
       "id": "fm-28011526",
@@ -6460,7 +6548,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卢克·艾林"
     },
     {
       "id": "fm-2000182795",
@@ -6540,7 +6629,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "阿尔奇·格雷"
     },
     {
       "id": "fm-91147345",
@@ -6620,7 +6710,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "罗比恩·科赫"
     },
     {
       "id": "fm-27100968",
@@ -6700,7 +6791,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "拉斯穆斯·克里斯特恩森"
     },
     {
       "id": "fm-37059452",
@@ -6778,7 +6870,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "帕斯卡尔·斯特鲁杰克"
     },
     {
       "id": "fm-92086318",
@@ -6858,7 +6951,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "利亚·格鲁埃夫"
     },
     {
       "id": "fm-28124578",
@@ -6900,7 +6994,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -6938,7 +7032,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "刘易斯·巴特"
     },
     {
       "id": "fm-29175064",
@@ -7018,7 +7113,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "特安·姆帕杜"
     },
     {
       "id": "fm-67222900",
@@ -7098,7 +7194,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰尼尔·菲尔波"
     },
     {
       "id": "fm-28122190",
@@ -7178,7 +7275,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "科德·德拉梅赫"
     },
     {
       "id": "fm-28059632",
@@ -7256,7 +7354,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "帕特里克·巴姆福尔德"
     },
     {
       "id": "fm-72045910",
@@ -7299,7 +7398,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -7337,7 +7436,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·哈尔里森"
     },
     {
       "id": "fm-52014865",
@@ -7420,7 +7520,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "斯图阿尔特·达尔拉斯"
     },
     {
       "id": "fm-29217875",
@@ -7498,7 +7599,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "奇阿尔利·克雷斯韦尔"
     },
     {
       "id": "fm-29174741",
@@ -7541,7 +7643,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -7579,7 +7681,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雅米·什克莱托恩"
     },
     {
       "id": "fm-20046423",
@@ -7659,7 +7762,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "布雷恩德恩·阿尔恩森"
     },
     {
       "id": "fm-29233534",
@@ -7737,7 +7841,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "塞安·姆克古尔克"
     },
     {
       "id": "fm-98029123",
@@ -7815,7 +7920,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "森·迪恩格"
     },
     {
       "id": "fm-5123525",
@@ -7895,7 +8001,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔恩·霍夫森"
     },
     {
       "id": "fm-29218024",
@@ -7975,7 +8082,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "海登·哈克内"
     },
     {
       "id": "fm-28106531",
@@ -8053,7 +8161,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马尔库斯·福尔斯"
     },
     {
       "id": "fm-29121995",
@@ -8131,7 +8240,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "达尔·夫尔"
     },
     {
       "id": "fm-15075581",
@@ -8212,7 +8322,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "里莱·姆克格雷"
     },
     {
       "id": "fm-28070819",
@@ -8290,7 +8401,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "达尔拉格赫·莱尼哈恩"
     },
     {
       "id": "fm-31042061",
@@ -8371,7 +8483,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "萨赫·乔内斯"
     },
     {
       "id": "fm-27130518",
@@ -8452,7 +8565,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卢卡斯·恩热尔"
     },
     {
       "id": "fm-29233252",
@@ -8530,7 +8644,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔什·科布尔恩"
     },
     {
       "id": "fm-28068190",
@@ -8610,7 +8725,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "帕德·姆克纳尔"
     },
     {
       "id": "fm-43252470",
@@ -8691,7 +8807,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "姆曼尔·拉特·拉特"
     },
     {
       "id": "fm-37064890",
@@ -8772,7 +8889,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "亚历克斯·巴恩古拉"
     },
     {
       "id": "fm-2000010316",
@@ -8850,7 +8968,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "拉夫·德恩·贝格"
     },
     {
       "id": "fm-2000123286",
@@ -8930,7 +9049,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "桑尼·菲恩奇"
     },
     {
       "id": "fm-29233250",
@@ -9010,7 +9130,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "夫阿尔雷尔·维尔利斯"
     },
     {
       "id": "fm-2000305358",
@@ -9090,7 +9211,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "菲恩拉·卡尔特夫里格赫特"
     },
     {
       "id": "fm-29194057",
@@ -9170,7 +9292,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "比尔·米特奇尔"
     },
     {
       "id": "fm-29086211",
@@ -9250,7 +9373,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·库珀"
     },
     {
       "id": "fm-37055848",
@@ -9330,7 +9454,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "齐安·夫莱姆米恩格"
     },
     {
       "id": "fm-29056844",
@@ -9408,7 +9533,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "托姆·布拉德什夫"
     },
     {
       "id": "fm-28058545",
@@ -9488,7 +9614,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔·布尔亚恩"
     },
     {
       "id": "fm-28084714",
@@ -9566,7 +9693,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "安古斯·古恩"
     },
     {
       "id": "fm-61084182",
@@ -9644,7 +9772,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "阿尔奇·马尔"
     },
     {
       "id": "fm-2000192314",
@@ -9722,7 +9851,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卡莱布·安森"
     },
     {
       "id": "fm-19290889",
@@ -9802,7 +9932,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "加布里尔·萨拉"
     },
     {
       "id": "fm-28027621",
@@ -9882,7 +10013,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "什安·杜夫夫"
     },
     {
       "id": "fm-28027622",
@@ -9962,7 +10094,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "亚当·福尔什夫"
     },
     {
       "id": "fm-28043665",
@@ -10040,7 +10173,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "贝恩·吉布森"
     },
     {
       "id": "fm-28086122",
@@ -10120,7 +10254,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·斯塔塞"
     },
     {
       "id": "fm-28027432",
@@ -10200,7 +10335,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "格拉恩特·哈恩莱"
     },
     {
       "id": "fm-36078574",
@@ -10280,7 +10416,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "迪米特里斯·吉安诺利斯"
     },
     {
       "id": "fm-75045691",
@@ -10360,7 +10497,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马尔塞利诺·恩兹"
     },
     {
       "id": "fm-61014825",
@@ -10440,7 +10578,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "克恩·姆克莱安"
     },
     {
       "id": "fm-28127273",
@@ -10520,7 +10659,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔纳特安·罗韦"
     },
     {
       "id": "fm-67277845",
@@ -10598,7 +10738,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "博尔雅·萨恩兹"
     },
     {
       "id": "fm-29233183",
@@ -10678,7 +10819,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "利姆·吉布布斯"
     },
     {
       "id": "fm-29219001",
@@ -10758,7 +10900,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "萨姆·姆克卡尔卢姆"
     },
     {
       "id": "fm-36152916",
@@ -10836,7 +10979,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "奇里斯托斯·特佐利斯"
     },
     {
       "id": "fm-92092175",
@@ -10917,7 +11061,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔什·萨尔热恩特"
     },
     {
       "id": "fm-98033448",
@@ -10959,7 +11104,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -10997,7 +11142,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "奇里斯蒂安·法斯纳奇特"
     },
     {
       "id": "fm-28016057",
@@ -11077,7 +11223,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "什莱·巴尔内斯"
     },
     {
       "id": "fm-29190795",
@@ -11155,7 +11302,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "亚当·达赫"
     },
     {
       "id": "fm-2000202612",
@@ -11235,7 +11383,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "里赫·德杰德杰"
     },
     {
       "id": "fm-28127271",
@@ -11313,7 +11462,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "布·卡马拉"
     },
     {
       "id": "fm-2000284187",
@@ -11391,7 +11541,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "尔利特·姆莱斯"
     },
     {
       "id": "fm-2000202573",
@@ -11469,7 +11620,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "瓦洛恩·雷内克"
     },
     {
       "id": "fm-29191598",
@@ -11512,7 +11664,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -11550,7 +11702,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "莫尔加恩·夫希特塔克尔"
     },
     {
       "id": "fm-29173645",
@@ -11590,7 +11743,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -11628,7 +11781,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "刘易斯·吉布森"
     },
     {
       "id": "fm-222138",
@@ -11670,7 +11824,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [
@@ -11710,7 +11864,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "巴利·穆姆巴"
     },
     {
       "id": "fm-2000154528",
@@ -11753,7 +11908,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -11791,7 +11946,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "夫雷德迪·斯萨卡"
     },
     {
       "id": "fm-28091347",
@@ -11869,7 +12025,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "夫雷德迪·沃德曼"
     },
     {
       "id": "fm-62221063",
@@ -11949,7 +12106,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "米卢蒂恩·斯马吉"
     },
     {
       "id": "fm-29107332",
@@ -12027,7 +12185,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·夫哈特莫格赫"
     },
     {
       "id": "fm-5123112",
@@ -12105,7 +12264,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "斯米尔·贝戈维"
     },
     {
       "id": "fm-72048181",
@@ -12186,7 +12346,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雷格吉·卡恩诺恩"
     },
     {
       "id": "fm-18089606",
@@ -12266,7 +12427,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "利斯·奇尔"
     },
     {
       "id": "fm-28099973",
@@ -12346,7 +12508,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "奇里斯·维尔洛克"
     },
     {
       "id": "fm-28014634",
@@ -12424,7 +12587,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "斯特韦·科克"
     },
     {
       "id": "fm-28066818",
@@ -12504,7 +12668,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "贝恩·佩阿尔森"
     },
     {
       "id": "fm-52012309",
@@ -12584,7 +12749,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "恩达·斯特韦恩斯"
     },
     {
       "id": "fm-29000029",
@@ -12662,7 +12828,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "奇阿尔安·克拉尔克"
     },
     {
       "id": "fm-37060938",
@@ -12742,7 +12909,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "沃特尔·布尔热尔"
     },
     {
       "id": "fm-18092575",
@@ -12820,7 +12988,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "尔亚恩·姆马"
     },
     {
       "id": "fm-28108499",
@@ -12898,7 +13067,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "特雷塞·卡姆普贝尔"
     },
     {
       "id": "fm-43252697",
@@ -12979,7 +13149,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "梅赫迪·尔里斯"
     },
     {
       "id": "fm-63028929",
@@ -13057,7 +13228,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "韦斯莱·莫拉斯"
     },
     {
       "id": "fm-29174249",
@@ -13135,7 +13307,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "贝恩·维尔莫特"
     },
     {
       "id": "fm-2000166113",
@@ -13213,7 +13386,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "尼古拉·乔吉"
     },
     {
       "id": "fm-2000161759",
@@ -13291,7 +13465,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "巴·朱恩-霍"
     },
     {
       "id": "fm-93141673",
@@ -13371,7 +13546,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "德维恩·安德尔斯森"
     },
     {
       "id": "fm-2000009606",
@@ -13451,7 +13627,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "儒尼奥尔·特奇马德"
     },
     {
       "id": "fm-2000184715",
@@ -13529,7 +13706,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "姆雷·特兹热尔"
     },
     {
       "id": "fm-28110962",
@@ -13607,7 +13785,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "安东尼·帕特尔森"
     },
     {
       "id": "fm-29186418",
@@ -13687,7 +13866,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·克拉尔克"
     },
     {
       "id": "fm-52094225",
@@ -13767,7 +13947,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "特拉·胡梅"
     },
     {
       "id": "fm-28087595",
@@ -13847,7 +14028,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "帕特里克·罗贝尔特斯"
     },
     {
       "id": "fm-28116526",
@@ -13925,7 +14107,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "吉·阿尔塞"
     },
     {
       "id": "fm-28122834",
@@ -14006,7 +14189,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "丹尼斯·奇尔基恩"
     },
     {
       "id": "fm-29088322",
@@ -14086,7 +14270,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "布拉德莱·达克"
     },
     {
       "id": "fm-29218480",
@@ -14166,7 +14351,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "达恩·内尔"
     },
     {
       "id": "fm-28121371",
@@ -14246,7 +14432,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "皮尔雷·克瓦赫"
     },
     {
       "id": "fm-28110835",
@@ -14324,7 +14511,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "达尼尔·巴尔拉尔德"
     },
     {
       "id": "fm-49058792",
@@ -14404,7 +14592,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "蒂莫特·佩姆布尔"
     },
     {
       "id": "fm-29084738",
@@ -14482,7 +14671,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卢克·尼恩"
     },
     {
       "id": "fm-29217703",
@@ -14562,7 +14752,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雅·马特"
     },
     {
       "id": "fm-49056379",
@@ -14605,7 +14796,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -14643,7 +14834,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "布多尔拉赫·巴"
     },
     {
       "id": "fm-2000112404",
@@ -14725,7 +14917,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰维森·贝恩内特"
     },
     {
       "id": "fm-49048441",
@@ -14805,7 +14998,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "迪尔·奇奇"
     },
     {
       "id": "fm-37084995",
@@ -14883,7 +15077,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰恩森·塞尔特"
     },
     {
       "id": "fm-2000088437",
@@ -14923,7 +15118,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -14961,7 +15156,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "内克塔尔·特里安蒂斯"
     },
     {
       "id": "fm-2000205927",
@@ -15039,7 +15235,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔贝·贝尔利恩格哈姆"
     },
     {
       "id": "fm-2000254692",
@@ -15119,7 +15316,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "奇里斯·里格格"
     },
     {
       "id": "fm-29086056",
@@ -15199,7 +15397,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马特·格里梅斯"
     },
     {
       "id": "fm-28109135",
@@ -15277,7 +15476,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "贝恩·卡巴恩戈"
     },
     {
       "id": "fm-27089250",
@@ -15355,7 +15555,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "克里斯蒂安·佩德尔森"
     },
     {
       "id": "fm-29179790",
@@ -15433,7 +15634,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "哈里·达尔利恩格"
     },
     {
       "id": "fm-28094025",
@@ -15511,7 +15713,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰尔·亚特斯"
     },
     {
       "id": "fm-28113831",
@@ -15591,7 +15794,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "纳特安尔·格贝塔"
     },
     {
       "id": "fm-2000251369",
@@ -15669,7 +15873,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰克·法恩尼恩格"
     },
     {
       "id": "fm-16045707",
@@ -15747,7 +15952,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "达尼尔·巴奇曼恩"
     },
     {
       "id": "fm-2000106513",
@@ -15825,7 +16031,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔纳特安·马卡拉"
     },
     {
       "id": "fm-61077396",
@@ -15905,7 +16112,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "尔亚恩·波尔特斯"
     },
     {
       "id": "fm-37020713",
@@ -15983,7 +16191,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "韦斯莱·霍德特"
     },
     {
       "id": "fm-48038017",
@@ -16063,7 +16272,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "姆尔恩·洛扎"
     },
     {
       "id": "fm-74029518",
@@ -16141,7 +16351,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "尔赫斯·赫阿尔"
     },
     {
       "id": "fm-2000121309",
@@ -16221,7 +16432,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "斯马尔·科恩"
     },
     {
       "id": "fm-2000053239",
@@ -16302,7 +16514,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "亚塞尔·斯普里尔拉"
     },
     {
       "id": "fm-28116533",
@@ -16382,7 +16595,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰雷姆·恩加基"
     },
     {
       "id": "fm-83257056",
@@ -16460,7 +16674,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔·费尔雷拉"
     },
     {
       "id": "fm-28027646",
@@ -16540,7 +16755,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "特马斯·恩塞"
     },
     {
       "id": "fm-28121643",
@@ -16620,7 +16836,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雅梅斯·莫尔里斯"
     },
     {
       "id": "fm-29221552",
@@ -16698,7 +16915,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "马特蒂·波尔洛克"
     },
     {
       "id": "fm-2000086299",
@@ -16778,7 +16996,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔尔热·卡贝扎斯·胡尔塔多"
     },
     {
       "id": "fm-28108496",
@@ -16856,7 +17075,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "托姆·德莱-巴什鲁"
     },
     {
       "id": "fm-28096363",
@@ -16934,7 +17154,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "亚历克斯·帕尔梅尔"
     },
     {
       "id": "fm-29218605",
@@ -17012,7 +17233,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔什·格里夫菲特斯"
     },
     {
       "id": "fm-70052844",
@@ -17092,7 +17314,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卡·约库卢"
     },
     {
       "id": "fm-28059292",
@@ -17170,7 +17393,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "约翰·斯维夫特"
     },
     {
       "id": "fm-37000517",
@@ -17251,7 +17475,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "里克·皮特尔斯"
     },
     {
       "id": "fm-29156202",
@@ -17331,7 +17556,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "雅森·莫卢姆布"
     },
     {
       "id": "fm-28051665",
@@ -17409,7 +17635,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "科诺尔·托夫恩森德"
     },
     {
       "id": "fm-89020866",
@@ -17490,7 +17717,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "杰德·瓦尔拉塞"
     },
     {
       "id": "fm-72056133",
@@ -17568,7 +17796,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "达尔·迪克"
     },
     {
       "id": "fm-28106417",
@@ -17646,7 +17875,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "乔什·马雅"
     },
     {
       "id": "fm-28101028",
@@ -17727,7 +17957,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "格拉德·迪安加纳"
     },
     {
       "id": "fm-29120253",
@@ -17807,7 +18038,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卡尔拉恩·格拉恩特"
     },
     {
       "id": "fm-29090319",
@@ -17887,7 +18119,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "亚历克斯·莫瓦特"
     },
     {
       "id": "fm-29067784",
@@ -17965,7 +18198,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "塞米·雅"
     },
     {
       "id": "fm-28085799",
@@ -18045,7 +18279,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "卡梅罗恩·布拉恩纳加恩"
     },
     {
       "id": "fm-2000207761",
@@ -18123,7 +18358,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "斯特夫安·内格鲁"
     },
     {
       "id": "fm-29234543",
@@ -18163,7 +18399,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -18201,7 +18437,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "特莱尔·戈德尔哈姆"
     },
     {
       "id": "fm-90091510",
@@ -18282,7 +18519,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "帕德·拉内"
     },
     {
       "id": "fm-2000006159",
@@ -18360,7 +18598,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "特尔·德夫利恩"
     },
     {
       "id": "fm-29010507",
@@ -18440,7 +18679,8 @@
         "pending_promise": null,
         "talk_cooldown_until": null,
         "renewal_state": null
-      }
+      },
+      "full_name_cn": "巴尔·巴恩纳恩"
     },
     {
       "id": "fm-29071654",
@@ -18482,7 +18722,7 @@
       "morale": 75,
       "fitness": 75,
       "injury": null,
-      "team_id": "plymouth-argyle",
+      "team_id": "birmingham-city",
       "retired": false,
       "squad_role": "Senior",
       "traits": [],
@@ -18491,6 +18731,887 @@
       "contract_end": "2027-06-30",
       "wage": 20992,
       "market_value": 3475556,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      },
+      "full_name_cn": "乔什·维恩达斯"
+    },
+    {
+      "id": "fm-synth-championship-00001",
+      "match_name": "W. Smith",
+      "full_name": "William Smith",
+      "date_of_birth": "1993-07-07",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "CentreBack",
+      "natural_position": "CentreBack",
+      "alternate_positions": [],
+      "footedness": "Left",
+      "weak_foot": 3,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 38,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 60,
+      "fitness": 82,
+      "injury": null,
+      "team_id": "blackburn-rovers",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 62,
+      "potential": 69,
+      "contract_end": "2027-06-30",
+      "wage": 7690,
+      "market_value": 26908000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00002",
+      "match_name": "T. Davies",
+      "full_name": "Thomas Davies",
+      "date_of_birth": "2003-10-21",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "LeftBack",
+      "natural_position": "LeftBack",
+      "alternate_positions": [],
+      "footedness": "Left",
+      "weak_foot": 2,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 30,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 76,
+      "fitness": 78,
+      "injury": null,
+      "team_id": "bristol-city",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 56,
+      "potential": 64,
+      "contract_end": "2027-06-30",
+      "wage": 6970,
+      "market_value": 21952000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00003",
+      "match_name": "J. Davies",
+      "full_name": "Jack Davies",
+      "date_of_birth": "2000-08-08",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "CentreBack",
+      "natural_position": "CentreBack",
+      "alternate_positions": [],
+      "footedness": "Right",
+      "weak_foot": 1,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 37,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 70,
+      "fitness": 70,
+      "injury": null,
+      "team_id": "cardiff-city",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 58,
+      "potential": 61,
+      "contract_end": "2027-06-30",
+      "wage": 7210,
+      "market_value": 23548000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00004",
+      "match_name": "C. Walker",
+      "full_name": "Charlie Walker",
+      "date_of_birth": "1996-03-17",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "LeftBack",
+      "natural_position": "LeftBack",
+      "alternate_positions": [],
+      "footedness": "Right",
+      "weak_foot": 3,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 44,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 76,
+      "fitness": 86,
+      "injury": null,
+      "team_id": "coventry-city",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 58,
+      "potential": 65,
+      "contract_end": "2027-06-30",
+      "wage": 7210,
+      "market_value": 23548000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00005",
+      "match_name": "W. Evans",
+      "full_name": "William Evans",
+      "date_of_birth": "1997-03-23",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "Striker",
+      "natural_position": "Striker",
+      "alternate_positions": [],
+      "footedness": "Right",
+      "weak_foot": 1,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 99,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 76,
+      "fitness": 90,
+      "injury": null,
+      "team_id": "derby-county",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 58,
+      "potential": 60,
+      "contract_end": "2027-06-30",
+      "wage": 7210,
+      "market_value": 23548000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00006",
+      "match_name": "T. Taylor",
+      "full_name": "Thomas Taylor",
+      "date_of_birth": "1997-09-11",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "LeftBack",
+      "natural_position": "LeftBack",
+      "alternate_positions": [],
+      "footedness": "Right",
+      "weak_foot": 2,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 32,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 66,
+      "fitness": 75,
+      "injury": null,
+      "team_id": "hull-city-afc",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 62,
+      "potential": 62,
+      "contract_end": "2027-06-30",
+      "wage": 7719,
+      "market_value": 26908000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00007",
+      "match_name": "H. Walker",
+      "full_name": "Harry Walker",
+      "date_of_birth": "2003-04-17",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "CentreBack",
+      "natural_position": "CentreBack",
+      "alternate_positions": [],
+      "footedness": "Left",
+      "weak_foot": 3,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 45,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 74,
+      "fitness": 73,
+      "injury": null,
+      "team_id": "millwall",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 56,
+      "potential": 63,
+      "contract_end": "2027-06-30",
+      "wage": 6970,
+      "market_value": 21952000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00008",
+      "match_name": "G. Walker",
+      "full_name": "George Walker",
+      "date_of_birth": "1999-04-05",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "RightBack",
+      "natural_position": "RightBack",
+      "alternate_positions": [],
+      "footedness": "Right",
+      "weak_foot": 3,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 38,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 70,
+      "fitness": 78,
+      "injury": null,
+      "team_id": "birmingham-city",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 58,
+      "potential": 58,
+      "contract_end": "2027-06-30",
+      "wage": 7210,
+      "market_value": 23548000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00009",
+      "match_name": "J. Davies",
+      "full_name": "Jack Davies",
+      "date_of_birth": "1996-10-13",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "CentreBack",
+      "natural_position": "CentreBack",
+      "alternate_positions": [],
+      "footedness": "Left",
+      "weak_foot": 2,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 45,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 68,
+      "fitness": 76,
+      "injury": null,
+      "team_id": "preston-north-end",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 53,
+      "potential": 53,
+      "contract_end": "2027-06-30",
+      "wage": 6610,
+      "market_value": 19663000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00010",
+      "match_name": "J. Davies",
+      "full_name": "Jack Davies",
+      "date_of_birth": "1993-08-06",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "CentreBack",
+      "natural_position": "CentreBack",
+      "alternate_positions": [],
+      "footedness": "Left",
+      "weak_foot": 3,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 37,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 68,
+      "fitness": 90,
+      "injury": null,
+      "team_id": "queens-park-rangers",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 62,
+      "potential": 70,
+      "contract_end": "2027-06-30",
+      "wage": 7690,
+      "market_value": 26908000,
+      "stats": {
+        "appearances": 0,
+        "goals": 0,
+        "assists": 0,
+        "clean_sheets": 0,
+        "yellow_cards": 0,
+        "red_cards": 0,
+        "avg_rating": 0.0,
+        "minutes_played": 0,
+        "shots": 0,
+        "shots_on_target": 0,
+        "passes_completed": 0,
+        "passes_attempted": 0,
+        "tackles_won": 0,
+        "interceptions": 0,
+        "fouls_committed": 0
+      },
+      "career": [],
+      "training_focus": null,
+      "transfer_listed": false,
+      "loan_listed": false,
+      "transfer_offers": [],
+      "morale_core": {
+        "manager_trust": 50,
+        "unresolved_issue": null,
+        "recent_treatment": null,
+        "pending_promise": null,
+        "talk_cooldown_until": null,
+        "renewal_state": null
+      }
+    },
+    {
+      "id": "fm-synth-championship-00011",
+      "match_name": "W. Evans",
+      "full_name": "William Evans",
+      "date_of_birth": "1994-03-10",
+      "nationality": "ENG",
+      "football_nation": "ENG",
+      "birth_country": "ENG",
+      "position": "LeftBack",
+      "natural_position": "LeftBack",
+      "alternate_positions": [],
+      "footedness": "Right",
+      "weak_foot": 1,
+      "attributes": {
+        "pace": 99,
+        "stamina": 99,
+        "strength": 99,
+        "agility": 99,
+        "passing": 99,
+        "shooting": 39,
+        "tackling": 99,
+        "dribbling": 99,
+        "defending": 99,
+        "positioning": 99,
+        "vision": 99,
+        "decisions": 99,
+        "composure": 99,
+        "aggression": 99,
+        "teamwork": 99,
+        "leadership": 99,
+        "handling": 99,
+        "reflexes": 99,
+        "aerial": 99
+      },
+      "condition": 100,
+      "morale": 76,
+      "fitness": 85,
+      "injury": null,
+      "team_id": "swansea-city-afc",
+      "retired": false,
+      "squad_role": "Senior",
+      "traits": [
+        "synthetic_squad_fill"
+      ],
+      "ovr": 60,
+      "potential": 61,
+      "contract_end": "2027-06-30",
+      "wage": 7450,
+      "market_value": 25200000,
       "stats": {
         "appearances": 0,
         "goals": 0,
@@ -18535,7 +19656,7 @@
         "matchday": 0,
         "date": "2024-07-20",
         "home_team_id": "millwall",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "Friendly",
         "status": "Scheduled",
         "result": null
@@ -18665,7 +19786,7 @@
         "matchday": 0,
         "date": "2024-08-03",
         "home_team_id": "hull-city-afc",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "Friendly",
         "status": "Scheduled",
         "result": null
@@ -18745,7 +19866,7 @@
         "matchday": 0,
         "date": "2024-08-10",
         "home_team_id": "coventry-city",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "Friendly",
         "status": "Scheduled",
         "result": null
@@ -18825,7 +19946,7 @@
         "matchday": 1,
         "date": "2024-08-17",
         "home_team_id": "millwall",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -18935,7 +20056,7 @@
         "matchday": 3,
         "date": "2024-08-31",
         "home_team_id": "hull-city-afc",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -19005,7 +20126,7 @@
         "matchday": 4,
         "date": "2024-09-07",
         "home_team_id": "coventry-city",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -19115,7 +20236,7 @@
         "matchday": 6,
         "date": "2024-09-21",
         "home_team_id": "west-bromwich-albion",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -19165,7 +20286,7 @@
         "matchday": 7,
         "date": "2024-09-28",
         "home_team_id": "swansea-city-afc",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -19275,7 +20396,7 @@
         "matchday": 8,
         "date": "2024-10-05",
         "home_team_id": "stoke-city",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -19385,7 +20506,7 @@
         "matchday": 10,
         "date": "2024-10-19",
         "home_team_id": "preston-north-end",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -19445,7 +20566,7 @@
         "matchday": 11,
         "date": "2024-10-26",
         "home_team_id": "blackburn-rovers",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -19504,7 +20625,7 @@
         "id": "578875c9-5c70-4c59-b5e4-f44be8a76f80",
         "matchday": 12,
         "date": "2024-11-02",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "norwich-city",
         "competition": "League",
         "status": "Scheduled",
@@ -19574,7 +20695,7 @@
         "id": "7feb96ff-c7f8-4b7f-8009-22d1a20a563b",
         "matchday": 13,
         "date": "2024-11-09",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "middlesbrough",
         "competition": "League",
         "status": "Scheduled",
@@ -19654,7 +20775,7 @@
         "id": "817fb6f2-1f51-4953-8641-3dcc6a790c9d",
         "matchday": 14,
         "date": "2024-11-16",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "leeds-united",
         "competition": "League",
         "status": "Scheduled",
@@ -19754,7 +20875,7 @@
         "id": "b09a2d07-9963-4d63-bf6f-78833553cc73",
         "matchday": 15,
         "date": "2024-11-23",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "derby-county",
         "competition": "League",
         "status": "Scheduled",
@@ -19774,7 +20895,7 @@
         "id": "13db9f55-f656-4de1-adb8-807226fd0316",
         "matchday": 16,
         "date": "2024-11-30",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "cardiff-city",
         "competition": "League",
         "status": "Scheduled",
@@ -19894,7 +21015,7 @@
         "id": "c01f6472-c46d-41e9-9555-939daaf8efd6",
         "matchday": 17,
         "date": "2024-12-07",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "bristol-city",
         "competition": "League",
         "status": "Scheduled",
@@ -19914,7 +21035,7 @@
         "id": "33f98524-4490-46c4-b8ff-a0d41a9afd8a",
         "matchday": 18,
         "date": "2024-12-14",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "watford",
         "competition": "League",
         "status": "Scheduled",
@@ -20024,7 +21145,7 @@
         "id": "cb2f13cd-902e-4427-ace0-dd6f8e034360",
         "matchday": 19,
         "date": "2024-12-21",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "sunderland-afc",
         "competition": "League",
         "status": "Scheduled",
@@ -20124,7 +21245,7 @@
         "id": "2f5de46b-2fe3-4da6-8b2a-09556cb141d9",
         "matchday": 21,
         "date": "2025-01-04",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "queens-park-rangers",
         "competition": "League",
         "status": "Scheduled",
@@ -20354,7 +21475,7 @@
         "id": "7a894597-c364-4068-abc8-cd59f175c6ac",
         "matchday": 24,
         "date": "2025-01-25",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "millwall",
         "competition": "League",
         "status": "Scheduled",
@@ -20464,7 +21585,7 @@
         "id": "989ba824-44a5-43af-92ea-e58c5b7431ee",
         "matchday": 26,
         "date": "2025-02-08",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "hull-city-afc",
         "competition": "League",
         "status": "Scheduled",
@@ -20514,7 +21635,7 @@
         "id": "27fed5b8-96a3-4689-840d-bad9b9362066",
         "matchday": 27,
         "date": "2025-02-15",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "coventry-city",
         "competition": "League",
         "status": "Scheduled",
@@ -20664,7 +21785,7 @@
         "id": "ad2ff49b-c101-4d63-a564-e59abe6dad9d",
         "matchday": 29,
         "date": "2025-03-01",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "west-bromwich-albion",
         "competition": "League",
         "status": "Scheduled",
@@ -20684,7 +21805,7 @@
         "id": "1ddef91a-e3fc-4a09-a580-e450e1f7cf50",
         "matchday": 30,
         "date": "2025-03-08",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "swansea-city-afc",
         "competition": "League",
         "status": "Scheduled",
@@ -20784,7 +21905,7 @@
         "id": "95139652-b3f6-45a0-a865-faca7e8095a4",
         "matchday": 31,
         "date": "2025-03-15",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "stoke-city",
         "competition": "League",
         "status": "Scheduled",
@@ -20884,7 +22005,7 @@
         "id": "4d67ec93-b08b-4463-8ce0-cbba2851913e",
         "matchday": 33,
         "date": "2025-03-29",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "preston-north-end",
         "competition": "League",
         "status": "Scheduled",
@@ -20944,7 +22065,7 @@
         "id": "3172346c-a7fc-41a3-93c3-a3aea30844ca",
         "matchday": 34,
         "date": "2025-04-05",
-        "home_team_id": "plymouth-argyle",
+        "home_team_id": "birmingham-city",
         "away_team_id": "blackburn-rovers",
         "competition": "League",
         "status": "Scheduled",
@@ -21065,7 +22186,7 @@
         "matchday": 35,
         "date": "2025-04-12",
         "home_team_id": "norwich-city",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21135,7 +22256,7 @@
         "matchday": 36,
         "date": "2025-04-19",
         "home_team_id": "middlesbrough",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21185,7 +22306,7 @@
         "matchday": 37,
         "date": "2025-04-26",
         "home_team_id": "leeds-united",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21275,7 +22396,7 @@
         "matchday": 38,
         "date": "2025-05-03",
         "home_team_id": "derby-county",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21325,7 +22446,7 @@
         "matchday": 39,
         "date": "2025-05-10",
         "home_team_id": "cardiff-city",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21375,7 +22496,7 @@
         "matchday": 40,
         "date": "2025-05-17",
         "home_team_id": "bristol-city",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21435,7 +22556,7 @@
         "matchday": 41,
         "date": "2025-05-24",
         "home_team_id": "watford",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21565,7 +22686,7 @@
         "matchday": 42,
         "date": "2025-05-31",
         "home_team_id": "sunderland-afc",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21685,7 +22806,7 @@
         "matchday": 44,
         "date": "2025-06-14",
         "home_team_id": "queens-park-rangers",
-        "away_team_id": "plymouth-argyle",
+        "away_team_id": "birmingham-city",
         "competition": "League",
         "status": "Scheduled",
         "result": null
@@ -21973,7 +23094,7 @@
         "points": 0
       },
       {
-        "team_id": "plymouth-argyle",
+        "team_id": "birmingham-city",
         "played": 0,
         "won": 0,
         "drawn": 0,

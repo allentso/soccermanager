@@ -1452,10 +1452,10 @@ function Settings._claimCompensationLegend()
         DefensiveMidfielder = "CDM",
         CentralMidfielder = "CM",
         AttackingMidfielder = "CAM",
-        LeftMidfielder = "LM", RightMidfielder = "RM",
+        LeftMidfielder = "LW", RightMidfielder = "RW",
         LeftWinger = "LW", RightWinger = "RW",
         LeftWing = "LW", RightWing = "RW",
-        Striker = "ST", CentreForward = "CF",
+        Striker = "ST", CentreForward = "ST", CenterForward = "ST",
     }
 
     -- 赠送3位传奇球员

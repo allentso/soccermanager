@@ -1562,7 +1562,7 @@ function WorldCup._pickStartingXI(players)
             table.insert(posGroups.GK, p)
         elseif pos == "CB" or pos == "LB" or pos == "RB" then
             table.insert(posGroups.DEF, p)
-        elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then
+        elseif pos == "ST" or pos == "LW" or pos == "RW" then
             table.insert(posGroups.FWD, p)
         else
             table.insert(posGroups.MID, p)
@@ -1629,7 +1629,7 @@ local function _getNeededPositions(existingPlayers, count)
         local pos = p.position or "CM"
         if pos == "GK" then posCount.GK = posCount.GK + 1
         elseif pos == "CB" or pos == "LB" or pos == "RB" then posCount.DEF = posCount.DEF + 1
-        elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then posCount.FWD = posCount.FWD + 1
+        elseif pos == "ST" or pos == "LW" or pos == "RW" then posCount.FWD = posCount.FWD + 1
         else posCount.MID = posCount.MID + 1
         end
     end
@@ -1639,7 +1639,7 @@ local function _getNeededPositions(existingPlayers, count)
         {group = "GK", target = 3, positions = {"GK"}},
         {group = "DEF", target = 8, positions = {"CB", "CB", "CB", "CB", "LB", "LB", "RB", "RB"}},
         {group = "MID", target = 7, positions = {"CM", "CM", "CM", "CDM", "CDM", "CAM", "CAM"}},
-        {group = "FWD", target = 5, positions = {"ST", "ST", "LW", "RW", "CF"}},
+        {group = "FWD", target = 5, positions = {"ST", "ST", "LW", "RW", "ST"}},
     }
 
     local needed = {}
@@ -1723,7 +1723,7 @@ local function _generateAttributes(position, ovr)
         attrs.pace = high - RandomInt(0, 5)
         attrs.dribbling = high - RandomInt(0, 5)
         attrs.shooting = high - RandomInt(0, 10)
-    elseif position == "ST" or position == "CF" then
+    elseif position == "ST" then
         attrs.shooting = high - RandomInt(0, 5)
         attrs.positioning = high - RandomInt(0, 5)
         attrs.composure = high - RandomInt(0, 8)
@@ -2096,7 +2096,7 @@ function WorldCup.getAvailablePlayers(gameState, nationCode)
         local pos = p.position or "CM"
         if pos == "GK" then posCount.GK = posCount.GK + 1
         elseif pos == "CB" or pos == "LB" or pos == "RB" then posCount.DEF = posCount.DEF + 1
-        elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then posCount.FWD = posCount.FWD + 1
+        elseif pos == "ST" or pos == "LW" or pos == "RW" then posCount.FWD = posCount.FWD + 1
         else posCount.MID = posCount.MID + 1
         end
     end
@@ -2107,7 +2107,7 @@ function WorldCup.getAvailablePlayers(gameState, nationCode)
         {group = "GK",  current = posCount.GK,  positions = {"GK"}},
         {group = "DEF", current = posCount.DEF, positions = {"CB", "LB", "RB", "CB", "LB"}},
         {group = "MID", current = posCount.MID, positions = {"CM", "CDM", "CAM", "CM", "CDM"}},
-        {group = "FWD", current = posCount.FWD, positions = {"ST", "LW", "RW", "ST", "CF"}},
+        {group = "FWD", current = posCount.FWD, positions = {"ST", "LW", "RW", "ST", "ST"}},
     }
     for _, g in ipairs(groupFill) do
         local deficit = math.max(0, MIN_PER_GROUP - g.current)

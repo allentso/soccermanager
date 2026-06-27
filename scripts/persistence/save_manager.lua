@@ -349,6 +349,9 @@ function SaveManager._doSave(gameState, slot)
     if gameState.normalizeRuntimeScalars then
         gameState:normalizeRuntimeScalars()
     end
+    if gameState.normalizePlayerDynamicState then
+        gameState:normalizePlayerDynamicState()
+    end
     local d = gameState.date or {}
     local saved_at = string.format("%d-%02d-%02d",
         tonumber(d.year) or 2025, tonumber(d.month) or 8, tonumber(d.day) or 10)

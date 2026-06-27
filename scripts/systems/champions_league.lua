@@ -80,13 +80,15 @@ local function _leaguePhaseFixtureCountsValid(lp)
     if not lp then return false end
     local teamIds = lp.teamIds or {}
     if #teamIds == 0 then return false end
-    local expectedTotal = math.floor(#teamIds * 8 / 2)
+    local matchesPerTeam = (#(lp.pots or {}) * (lp.opponentsPerPot or 2))
+    if matchesPerTeam == 0 then matchesPerTeam = 8 end
+    local expectedTotal = math.floor(#teamIds * matchesPerTeam / 2)
     if #(lp.fixtures or {}) ~= expectedTotal then
         return false
     end
     local counts = _countLeaguePhaseFixturesPerTeam(lp)
     for _, tid in ipairs(teamIds) do
-        if (counts[tid] or 0) ~= 8 then
+        if (counts[tid] or 0) ~= matchesPerTeam then
             return false
         end
     end
@@ -135,7 +137,7 @@ function ChampionsLeague.initialize(gameState)
     })
 
     -- 初始化联赛阶段（36队单一积分榜）
-    ucl:initLeaguePhase(qualifiedTeams, pots)
+    ucl:initLeaguePhase(qualifiedTeams, pots, Tournament.DEFAULT_LEAGUE_PHASE_CONFIG)
 
     -- 抽签生成联赛阶段赛程（每队8场：每档2个对手，4主4客）
     local leagueStart = {
@@ -218,10 +220,14 @@ local function _trimExcessLeaguePhaseFixtures(ucl)
     local teamIds = lp.teamIds or {}
     local counts = _countLeaguePhaseFixturesPerTeam(lp)
 
+    local matchesPerTeam = (#(lp.pots or {}) * (lp.opponentsPerPot or 2))
+    if matchesPerTeam == 0 then matchesPerTeam = 8 end
+    local matchdays = lp.matchdays or 8
+
     while true do
         local overTeam = nil
         for _, tid in ipairs(teamIds) do
-            if (counts[tid] or 0) > 8 then
+            if (counts[tid] or 0) > matchesPerTeam then
                 overTeam = tid
                 break
             end
@@ -333,7 +339,7 @@ function ChampionsLeague.migrateIfNeeded(gameState)
         -- 重新初始化联赛阶段
         ucl.qualifiedTeams = oldTeams
         ucl.groups = {}  -- 清除旧小组数据
-        ucl:initLeaguePhase(oldTeams, pots)
+        ucl:initLeaguePhase(oldTeams, pots, Tournament.DEFAULT_LEAGUE_PHASE_CONFIG)
 
         -- 重新抽签
         local leagueStart = {
@@ -431,7 +437,7 @@ function ChampionsLeague.migrateIfNeeded(gameState)
             local matchDays = {}
             local date = League._alignToWeekday(
                 { year = leagueStart.year, month = leagueStart.month, day = leagueStart.day }, 3)
-            for i = 1, 8 do
+            for i = 1, matchdays do
                 table.insert(matchDays, { year = date.year, month = date.month, day = date.day })
                 date = League._addDays(date, 14)
             end
@@ -451,7 +457,7 @@ function ChampionsLeague.migrateIfNeeded(gameState)
                 teamDayUsed[tid] = {}
             end
             local daySlots = {}
-            for i = 1, 8 do
+            for i = 1, matchdays do
                 daySlots[i] = 0
             end
             for _, f in ipairs(lp.fixtures) do
@@ -469,7 +475,7 @@ function ChampionsLeague.migrateIfNeeded(gameState)
             -- 贪心重新分配
             for _, f in ipairs(scheduledFixtures) do
                 local assigned = false
-                for d = 1, 8 do
+                for d = 1, matchdays do
                     if daySlots[d] < maxPerDay and
                        not teamDayUsed[f.homeTeamId][d] and
                        not teamDayUsed[f.awayTeamId][d] then
@@ -490,7 +496,7 @@ function ChampionsLeague.migrateIfNeeded(gameState)
                     -- fallback: 找负载最轻且至少一方无冲突的比赛日
                     local bestDay = nil
                     local bestCount = 999
-                    for d = 1, 8 do
+                    for d = 1, matchdays do
                         local homeUsed = teamDayUsed[f.homeTeamId] and teamDayUsed[f.homeTeamId][d]
                         local awayUsed = teamDayUsed[f.awayTeamId] and teamDayUsed[f.awayTeamId][d]
                         -- 优先找双方都没用过的；其次找至少一方没用过的
@@ -503,7 +509,7 @@ function ChampionsLeague.migrateIfNeeded(gameState)
                     if not bestDay then
                         bestDay = 1
                         bestCount = daySlots[1]
-                        for d = 2, 8 do
+                        for d = 2, matchdays do
                             if daySlots[d] < bestCount then
                                 bestDay = d
                                 bestCount = daySlots[d]

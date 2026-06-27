@@ -1,5 +1,5 @@
 -- systems/awards_manager.lua
--- 赛季奖项系统 - 金靴、最佳球员、最佳年轻球员、最佳助攻、最佳经理
+-- 赛季奖项系统 - 金靴、金手套、最佳球员、最佳年轻球员、最佳助攻、最佳经理
 
 local EventBus = require("scripts/app/event_bus")
 local Constants = require("scripts/app/constants")
@@ -80,8 +80,10 @@ function AwardsManager._calculateLeagueAwards(gameState, league)
     -- 4. 最佳年轻球员（23岁及以下）
     result.bestYoungPlayer = AwardsManager._findBestYoungPlayer(leaguePlayers, gameState)
 
-    -- 5. 最佳门将（零封场次最多）
-    result.bestGoalkeeper = AwardsManager._findBestGoalkeeper(leaguePlayers)
+    -- 5. 金手套（门将零封场次最多）
+    result.goldenGlove = AwardsManager._findGoldenGlove(leaguePlayers)
+    -- 兼容旧存档/UI：历史字段 bestGoalkeeper 继续保留
+    result.bestGoalkeeper = result.goldenGlove
 
     return result
 end
@@ -235,10 +237,10 @@ function AwardsManager._findBestYoungPlayer(players, gameState)
 end
 
 ------------------------------------------------------
--- 最佳门将（零封场次最多）
+-- 金手套（门将零封场次最多）
 ------------------------------------------------------
 
-function AwardsManager._findBestGoalkeeper(players)
+function AwardsManager._findGoldenGlove(players)
     local best = nil
     local bestCleanSheets = 0
 
@@ -268,6 +270,11 @@ function AwardsManager._findBestGoalkeeper(players)
         }
     end
     return nil
+end
+
+-- 兼容旧调用
+function AwardsManager._findBestGoalkeeper(players)
+    return AwardsManager._findGoldenGlove(players)
 end
 
 ------------------------------------------------------
@@ -438,10 +445,11 @@ function AwardsManager._announceAwards(gameState, leagueName, leagueAwards)
             ta.playerName, team and team.name or "?", ta.assists))
     end
 
-    if leagueAwards.bestGoalkeeper then
-        local bgk = leagueAwards.bestGoalkeeper
+    local goldenGlove = leagueAwards.goldenGlove or leagueAwards.bestGoalkeeper
+    if goldenGlove then
+        local bgk = goldenGlove
         local team = gameState.teams[bgk.teamId]
-        table.insert(lines, string.format("最佳门将: %s（%s）- %d次零封",
+        table.insert(lines, string.format("金手套奖: %s（%s）- %d次零封",
             bgk.playerName, team and team.name or "?", bgk.cleanSheets))
     end
 
@@ -477,8 +485,9 @@ function AwardsManager._notifyPlayerAwards(gameState, awards)
         if leagueAwards.topAssists and leagueAwards.topAssists.teamId == playerTeamId then
             table.insert(playerAwards, "最佳助攻: " .. leagueAwards.topAssists.playerName)
         end
-        if leagueAwards.bestGoalkeeper and leagueAwards.bestGoalkeeper.teamId == playerTeamId then
-            table.insert(playerAwards, "最佳门将: " .. leagueAwards.bestGoalkeeper.playerName)
+        local goldenGlove = leagueAwards.goldenGlove or leagueAwards.bestGoalkeeper
+        if goldenGlove and goldenGlove.teamId == playerTeamId then
+            table.insert(playerAwards, "金手套奖: " .. goldenGlove.playerName)
         end
     end
 

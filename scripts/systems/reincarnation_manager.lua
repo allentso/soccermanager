@@ -4,6 +4,7 @@
 local PotentialSystem = require("scripts/systems/potential_system")
 local Player = require("scripts/domain/player")
 local YouthManager = require("scripts/systems/youth_manager")
+local Constants = require("scripts/app/constants")
 
 local ReincarnationManager = {}
 
@@ -206,7 +207,7 @@ local FALLBACK_SOURCE_BY_MATCH_NAME = {
     },
     ["Karim Benzema"] = {
         displayName = "卡里姆·本泽马", shortName = "本泽马", nationality = "FR", position = "ST",
-        naturalPositions = {"ST", "CF"},
+        naturalPositions = {"ST"},
     },
     ["Kevin De Bruyne"] = {
         displayName = "凯文·德布劳内", shortName = "德布劳内", nationality = "BE", position = "CM",
@@ -258,7 +259,7 @@ local FALLBACK_SOURCE_BY_MATCH_NAME = {
     },
     ["Zlatan Ibrahimović"] = {
         displayName = "兹拉坦·伊布拉希莫维奇", shortName = "伊布", nationality = "SE", position = "ST",
-        naturalPositions = {"ST", "CF"},
+        naturalPositions = {"ST"},
     },
     ["Pepe"] = {
         displayName = "佩佩", shortName = "佩佩", nationality = "PT", position = "CB",
@@ -291,7 +292,7 @@ local FREE_AGENT_SOURCE_BY_MATCH_NAME = {
     },
     ["Zlatan Ibrahimović"] = {
         displayName = "兹拉坦·伊布拉希莫维奇", shortName = "伊布", nationality = "SE", position = "ST",
-        naturalPositions = {"ST", "CF"}, birthYear = 1981, overall = 80, potential = 80,
+        naturalPositions = {"ST"}, birthYear = 1981, overall = 80, potential = 80,
         wage = 90000, value = 3500000,
         attributes = {
             speed = 10, stamina = 12, strength = 18, agility = 14, passing = 16,
@@ -417,7 +418,7 @@ local function generateRebirthAttributes(position, overall, attrBonus)
         attrs.speed = attrs.speed + RandomInt(2, 4)
         attrs.dribbling = attrs.dribbling + RandomInt(2, 3)
         attrs.agility = attrs.agility + RandomInt(1, 3)
-    elseif position == "ST" or position == "CF" then
+    elseif position == "ST" then
         attrs.shooting = attrs.shooting + RandomInt(2, 4)
         attrs.composure = attrs.composure + RandomInt(1, 3)
         attrs.speed = attrs.speed + RandomInt(1, 3)
@@ -737,8 +738,8 @@ function ReincarnationManager.ensureMissingFreeAgentSources(gameState)
             legendName = entry.matchName,
             birthYear = data.birthYear,
             nationality = data.nationality,
-            position = data.position,
-            naturalPositions = data.naturalPositions,
+            position = Constants.normalizePosition(data.position) or "CM",
+            naturalPositions = Constants.normalizePositionList(data.naturalPositions, data.position),
             preferredFoot = "right",
             weakFoot = 3,
             attributes = data.attributes,
@@ -802,8 +803,8 @@ function ReincarnationManager.createFallbackSource(entry)
         legendName = entry.matchName,
         match_name = entry.matchName,
         nationality = data.nationality,
-        position = data.position,
-        naturalPositions = data.naturalPositions,
+        position = Constants.normalizePosition(data.position) or "CM",
+        naturalPositions = Constants.normalizePositionList(data.naturalPositions, data.position),
         retired = true,
     }
 end
@@ -877,7 +878,7 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
     local rebirthAge = 16
     local birthYear = gameState.date.year - rebirthAge
     local overall = RandomInt(70, 78)
-    local position = sourcePlayer.position or "CM"
+    local position = Constants.normalizePosition(sourcePlayer.position) or "CM"
     local attributes = generateRebirthAttributes(position, overall, entry.attrBonus)
     local actualOverall = Player.calculateOverallFromAttrs(position, attributes)
     if actualOverall < 70 then actualOverall = 70 end
@@ -889,7 +890,7 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
         nationality = sourcePlayer.nationality,
         birthYear = birthYear,
         position = position,
-        naturalPositions = sourcePlayer.naturalPositions,
+        naturalPositions = Constants.normalizePositionList(sourcePlayer.naturalPositions, position),
         attributes = attributes,
         potential = entry.potential,
         overall = actualOverall,

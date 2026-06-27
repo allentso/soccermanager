@@ -12,7 +12,7 @@ local PlaceholderEngine = {}
 local function positionStaminaGroup(position)
     if position == "GK" then return "GK"
     elseif position == "CB" or position == "LB" or position == "RB" then return "DEF"
-    elseif position == "ST" or position == "CF" or position == "LW" or position == "RW" then return "FWD"
+    elseif position == "ST" or position == "LW" or position == "RW" then return "FWD"
     end
     return "MID"
 end
@@ -658,13 +658,13 @@ function PlaceholderEngine._pickScorer(players)
     for _, p in ipairs(players) do
         local weight = 0
         local shooting = p.attributes.shooting or 10
-        if p.position == "ST" or p.position == "CF" then
+        if p.position == "ST" then
             weight = shooting * 3
         elseif p.position == "LW" or p.position == "RW" then
             weight = shooting * 2
         elseif p.position == "CAM" then
             weight = shooting * 1.5
-        elseif p.position == "CM" or p.position == "LM" or p.position == "RM" then
+        elseif p.position == "CM" then
             weight = shooting * 0.8
         elseif p.position == "CDM" then
             weight = shooting * 0.3
@@ -699,13 +699,13 @@ function PlaceholderEngine._pickAssister(players, scorer)
         local vision = p.attributes.vision or 10
         if p.position == "CAM" then
             weight = (passing + vision) * 2
-        elseif p.position == "CM" or p.position == "LM" or p.position == "RM" then
+        elseif p.position == "CM" then
             weight = (passing + vision) * 1.5
         elseif p.position == "LW" or p.position == "RW" then
             weight = (passing + vision) * 1.2
         elseif p.position == "LB" or p.position == "RB" then
             weight = passing * 0.8
-        elseif p.position == "ST" or p.position == "CF" then
+        elseif p.position == "ST" then
             weight = passing * 0.6
         else
             weight = passing * 0.3
@@ -1047,7 +1047,7 @@ function PlaceholderEngine.generateOpponentAnalysis(gameState, opponentTeamId)
             -- 位置统计
             if p.position == "GK" then positionCount.GK = positionCount.GK + 1
             elseif p.position == "CB" or p.position == "LB" or p.position == "RB" then positionCount.DEF = positionCount.DEF + 1
-            elseif p.position == "ST" or p.position == "CF" or p.position == "LW" or p.position == "RW" then positionCount.FWD = positionCount.FWD + 1
+            elseif p.position == "ST" or p.position == "LW" or p.position == "RW" then positionCount.FWD = positionCount.FWD + 1
             else positionCount.MID = positionCount.MID + 1 end
 
             -- 最佳射手

@@ -64,10 +64,10 @@ local ROLE_SYNERGIES = {
         bonus = { attack = 0.02, defense = 0.02 },
         tag = "边路纵深分工",
     },
-    -- 贴边边锋/宽幅中场 + 支点前锋 = 传中找人战术
+    -- 贴边边锋 + 支点前锋 = 传中找人战术
     {
-        posA = { "RW", "LW", "RM", "LM" }, roleA = { "touchline", "winger", "wide" },
-        posB = { "ST", "CF" }, roleB = "targetMan",
+        posA = { "RW", "LW" }, roleA = "touchline",
+        posB = { "ST" }, roleB = "targetMan",
         side = "any",
         bonus = { attack = 0.04, aerial = 0.05 },
         tag = "边路传中战术",
@@ -76,7 +76,7 @@ local ROLE_SYNERGIES = {
     -- === 中前场配合 ===
     -- 支点前锋 + 影子前锋 = 纵深呼应
     {
-        posA = { "ST", "CF" }, roleA = "targetMan",
+        posA = { "ST" }, roleA = "targetMan",
         posB = { "CAM" }, roleB = "shadow",
         side = "any",
         bonus = { attack = 0.05, shotQuality = 0.06 },
@@ -93,7 +93,7 @@ local ROLE_SYNERGIES = {
     -- 古典前腰 + 禁区猎手 = 最后一传→终结
     {
         posA = { "CAM" }, roleA = "playmaker",
-        posB = { "ST", "CF" }, roleB = "poacher",
+        posB = { "ST" }, roleB = "poacher",
         side = "any",
         bonus = { shotQuality = 0.06, attack = 0.02 },
         tag = "组织+终结搭配",

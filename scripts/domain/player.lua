@@ -45,6 +45,13 @@ local function unpackNumeric(t, order)
     return out
 end
 
+local function readPercentField(raw, default)
+    if raw == nil then return default end
+    local n = tonumber(raw)
+    if n == nil then return default end
+    return math.max(Constants.FITNESS_MIN, math.min(Constants.FITNESS_MAX, math.floor(n + 0.5)))
+end
+
 function Player.new(data)
     local self = setmetatable({}, Player)
     -- 身份
@@ -56,8 +63,8 @@ function Player.new(data)
     self.nationality = data.nationality or "ENG"
 
     -- 位置
-    self.position = data.position or "CM"
-    self.naturalPositions = data.naturalPositions or {self.position}
+    self.position = Constants.normalizePosition(data.position) or "CM"
+    self.naturalPositions = Constants.normalizePositionList(data.naturalPositions, self.position)
 
     -- 脚法
     self.preferredFoot = data.preferredFoot or "right"
@@ -85,10 +92,10 @@ function Player.new(data)
     self.attributes.reflexes = self.attributes.reflexes or 5  -- GK
     self.attributes.aerial = self.attributes.aerial or 10
 
-    -- 动态状态
-    self.fitness = data.fitness or Constants.FITNESS_DEFAULT
-    self.morale = data.morale or Constants.MORALE_DEFAULT
-    self.condition = data.condition or 100  -- 长期体能
+    -- 动态状态（显式 nil 判断，避免 fitness=0 被 or 默认值覆盖）
+    self.fitness = readPercentField(data.fitness, Constants.FITNESS_DEFAULT)
+    self.morale = readPercentField(data.morale, Constants.MORALE_DEFAULT)
+    self.condition = readPercentField(data.condition, 100)  -- 长期体能
     self.injured = data.injured or false
     self.injuryDays = data.injuryDays or 0
     self.injuryKind = data.injuryKind or nil
@@ -143,7 +150,7 @@ function Player.new(data)
 
     -- 训练
     self.trainingFocus = data.trainingFocus or nil
-    self.positionTrainingTarget = data.positionTrainingTarget or nil
+    self.positionTrainingTarget = Constants.normalizePosition(data.positionTrainingTarget)
     self.positionTrainingProgress = data.positionTrainingProgress or 0
     self.positionTrainingDrillProgress = data.positionTrainingDrillProgress or 0
 
@@ -250,7 +257,8 @@ end
 -- 3. 混合: baseScore * 25% + posScore * 75%（位置适配更重要，综合素质兜底）
 -- 4. 分段线性映射到OVR（低段平缓、中段陡峭、高段衰减）
 function Player:calculateOverall()
-    local pos = self.position
+    local pos = Constants.normalizePosition(self.position) or "CM"
+    self.position = pos
     local a = self.attributes
 
     -- 1. 全属性基础分
@@ -310,11 +318,6 @@ function Player:calculateOverall()
             vision = 2.5, dribbling = 2.5, passing = 2.0,
             shooting = 2.0, composure = 1.5, decisions = 1.0, agility = 0.5,
         }
-    elseif pos == "LM" or pos == "RM" then
-        posWeights = {
-            speed = 2.0, dribbling = 2.0, passing = 2.0,
-            stamina = 2.0, agility = 1.5, shooting = 1.0, vision = 1.0,
-        }
     elseif pos == "LW" or pos == "RW" then
         posWeights = {
             dribbling = 3.0, agility = 2.0, shooting = 2.0,
@@ -324,11 +327,6 @@ function Player:calculateOverall()
         posWeights = {
             shooting = 3.0, composure = 2.5, speed = 2.0,
             positioning = 1.5, dribbling = 1.0, strength = 1.0, aerial = 0.5,
-        }
-    elseif pos == "CF" then
-        posWeights = {
-            shooting = 2.5, composure = 2.0, dribbling = 2.0,
-            vision = 1.5, passing = 1.5, speed = 1.0, positioning = 1.0,
         }
     else
         posWeights = {
@@ -374,6 +372,7 @@ end
 ---@param a table
 ---@return number
 function Player.calculateOverallFromAttrs(pos, a)
+    pos = Constants.normalizePosition(pos) or "CM"
     local allAttrs
     if pos == "GK" then
         allAttrs = {
@@ -410,14 +409,10 @@ function Player.calculateOverallFromAttrs(pos, a)
         posWeights = { passing = 2.5, vision = 2.0, dribbling = 2.0, stamina = 2.0, shooting = 1.5, decisions = 1.5, composure = 1.0 }
     elseif pos == "CAM" then
         posWeights = { vision = 2.5, dribbling = 2.5, passing = 2.0, shooting = 2.0, composure = 1.5, decisions = 1.0, agility = 0.5 }
-    elseif pos == "LM" or pos == "RM" then
-        posWeights = { speed = 2.0, dribbling = 2.0, passing = 2.0, stamina = 2.0, agility = 1.5, shooting = 1.0, vision = 1.0 }
     elseif pos == "LW" or pos == "RW" then
         posWeights = { dribbling = 3.0, agility = 2.0, shooting = 2.0, speed = 1.5, passing = 1.5, composure = 1.0, vision = 1.0 }
     elseif pos == "ST" then
         posWeights = { shooting = 3.0, composure = 2.5, speed = 2.0, positioning = 1.5, dribbling = 1.0, strength = 1.0, aerial = 0.5 }
-    elseif pos == "CF" then
-        posWeights = { shooting = 2.5, composure = 2.0, dribbling = 2.0, vision = 1.5, passing = 1.5, speed = 1.0, positioning = 1.0 }
     else
         posWeights = { passing = 1.5, shooting = 1.5, dribbling = 1.5, defending = 1.0, speed = 1.0, stamina = 1.0, decisions = 1.0 }
     end
@@ -960,6 +955,14 @@ function Player:getInjuryBlockReason()
     return string.format("受伤中（剩余 %d 天）", self.injuryDays or 0)
 end
 
+--- 校正动态状态标量（读档后或运行时兜底）
+function Player.normalizeDynamicState(player)
+    if not player then return end
+    player.fitness = readPercentField(player.fitness, Constants.FITNESS_DEFAULT)
+    player.morale = readPercentField(player.morale, Constants.MORALE_DEFAULT)
+    player.condition = readPercentField(player.condition, 100)
+end
+
 ------------------------------------------------------
 
 -- 序列化为存档数据
@@ -976,9 +979,9 @@ function Player:serialize()
         preferredFoot = self.preferredFoot,
         weakFoot = self.weakFoot,
         attributes = packNumeric(self.attributes, ATTR_ORDER),
-        fitness = self.fitness,
-        morale = self.morale,
-        condition = self.condition,
+        fitness = readPercentField(self.fitness, Constants.FITNESS_DEFAULT),
+        morale = readPercentField(self.morale, Constants.MORALE_DEFAULT),
+        condition = readPercentField(self.condition, 100),
         injured = self.injured,
         injuryDays = self.injuryDays,
         injuryKind = self.injuryKind,

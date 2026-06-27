@@ -22,10 +22,10 @@ function Theme.posColor(pos)
         return {255, 204, 0, 255}       -- 门将：黄色
     elseif pos == "CB" or pos == "LB" or pos == "RB" then
         return {77, 179, 255, 255}      -- 后卫：蓝色
-    elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then
+    elseif pos == "ST" or pos == "LW" or pos == "RW" then
         return {255, 102, 102, 255}     -- 前锋：红色
     else
-        return {102, 255, 128, 255}     -- 中场：绿色（CM, CDM, CAM, LM, RM）
+        return {102, 255, 128, 255}     -- 中场：绿色（CM, CDM, CAM）
     end
 end
 

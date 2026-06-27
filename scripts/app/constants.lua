@@ -6,7 +6,7 @@ local Constants = {}
 -- 游戏版本
 Constants.VERSION = "2.6.1"
 Constants.VERSION_MAJOR = "v" .. Constants.VERSION:match("^(%d+)")
-Constants.SAVE_VERSION = 13
+Constants.SAVE_VERSION = 15
 
 -- 赛季设置
 Constants.SEASON_START_MONTH = 8   -- 8月开始
@@ -182,23 +182,23 @@ Constants.LAYOUT_TO_STORAGE_KEY = {
 }
 
 Constants.FORMATION_PRESET_SLOTS = {
-    ["4-4-2:flat"]     = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"},
-    ["4-4-2:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST", "ST"},
+    ["4-4-2:flat"]     = {"GK", "RB", "CB", "CB", "LB", "RW", "CM", "CM", "LW", "ST", "ST"},
+    ["4-4-2:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RW", "CDM", "CAM", "LW", "ST", "ST"},
     ["4-3-3:hold"]     = {"GK", "RB", "CB", "CB", "LB", "CM", "CDM", "CM", "RW", "ST", "LW"},
     ["4-3-3:attack"]   = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "CAM", "RW", "ST", "LW"},
     ["4-2-3-1:wide"]   = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "LW", "ST"},
     ["4-2-3-1:narrow"] = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "CAM", "CAM", "ST"},
-    ["3-4-3:flat"]     = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "LM", "RW", "ST", "LW"},
-    ["3-4-3:stagger"]  = {"GK", "CB", "CB", "CB", "RM", "CDM", "CAM", "LM", "RW", "ST", "LW"},
-    ["3-5-2:default"]  = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"},
-    ["3-5-2:attack"]   = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "CAM", "LM", "ST", "ST"},
+    ["3-4-3:flat"]     = {"GK", "CB", "CB", "CB", "RW", "CM", "CM", "LW", "RW", "ST", "LW"},
+    ["3-4-3:stagger"]  = {"GK", "CB", "CB", "CB", "RW", "CDM", "CAM", "LW", "RW", "ST", "LW"},
+    ["3-5-2:default"]  = {"GK", "CB", "CB", "CB", "RW", "CM", "CDM", "CM", "LW", "ST", "ST"},
+    ["3-5-2:attack"]   = {"GK", "CB", "CB", "CB", "RW", "CM", "CM", "CAM", "LW", "ST", "ST"},
     ["5-3-2:flat"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CM", "ST", "ST"},
     ["5-3-2:hold"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CDM", "CM", "ST", "ST"},
     ["4-2-4:flat"]     = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "RW", "ST", "ST", "LW"},
-    ["4-5-1:default"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CDM", "CM", "LM", "ST"},
-    ["4-5-1:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "CM", "LM", "ST"},
-    ["5-4-1:flat"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST"},
-    ["5-4-1:stagger"]  = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST"},
+    ["4-5-1:default"]  = {"GK", "RB", "CB", "CB", "LB", "RW", "CM", "CDM", "CM", "LW", "ST"},
+    ["4-5-1:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RW", "CDM", "CAM", "CM", "LW", "ST"},
+    ["5-4-1:flat"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "RW", "CM", "CM", "LW", "ST"},
+    ["5-4-1:stagger"]  = {"GK", "RB", "CB", "CB", "CB", "LB", "RW", "CDM", "CAM", "LW", "ST"},
 }
 
 -- 旧存档/代码中的 storageKey → layoutKey
@@ -285,25 +285,57 @@ Constants.FORMATION_VARIANTS = {}
 Constants.POSITIONS = {
     GK = "GK",
     CB = "CB", LB = "LB", RB = "RB",
-    CM = "CM", LM = "LM", RM = "RM", CDM = "CDM", CAM = "CAM",
-    LW = "LW", RW = "RW", ST = "ST", CF = "CF"
+    CDM = "CDM", CM = "CM", CAM = "CAM",
+    LW = "LW", RW = "RW", ST = "ST"
 }
 
 -- 位置中文名
 Constants.POSITION_NAMES = {
     GK = "门将", CB = "中卫", LB = "左后卫", RB = "右后卫",
-    CM = "中场", LM = "左中场", RM = "右中场",
-    CDM = "后腰", CAM = "前腰",
-    LW = "左边锋", RW = "右边锋", ST = "前锋", CF = "中锋"
+    CDM = "后腰", CM = "中场", CAM = "前腰",
+    LW = "左边锋", RW = "右边锋", ST = "前锋"
 }
 
 -- 位置分类
 Constants.POSITION_GROUPS = {
     GK = {"GK"},
     DEF = {"CB", "LB", "RB"},
-    MID = {"CM", "LM", "RM", "CDM", "CAM"},
-    FWD = {"LW", "RW", "ST", "CF"}
+    MID = {"CDM", "CM", "CAM"},
+    FWD = {"LW", "RW", "ST"}
 }
+
+Constants.STANDARD_POSITIONS = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"}
+Constants.NON_STANDARD_POSITION_MAP = {
+    LM = "LW",
+    RM = "RW",
+    CF = "ST",
+    LeftMidfielder = "LW",
+    RightMidfielder = "RW",
+    CentreForward = "ST",
+    CenterForward = "ST",
+}
+
+function Constants.normalizePosition(position)
+    if not position or position == "" then return nil end
+    if Constants.POSITIONS[position] then return position end
+    return Constants.NON_STANDARD_POSITION_MAP[position]
+end
+
+function Constants.normalizePositionList(positions, primary)
+    local out = {}
+    local seen = {}
+    local function add(pos)
+        local normalized = Constants.normalizePosition(pos)
+        if normalized and not seen[normalized] then
+            seen[normalized] = true
+            table.insert(out, normalized)
+        end
+    end
+    add(primary)
+    for _, pos in ipairs(positions or {}) do add(pos) end
+    if #out == 0 then table.insert(out, "CM") end
+    return out
+end
 
 -- 球员角色（每个位置的细分职责）
 -- 每个角色: key=标识, name=中文名, desc=描述, modifiers=属性加权修正
@@ -375,24 +407,6 @@ Constants.POSITION_ROLES = {
           modifiers = { passing = 1.3, vision = 1.3, dribbling = 1.1, speed = 0.85 },
           posOffset = {0, -4} },
     },
-    RM = {
-        { key = "default",    name = "标准右中场", desc = "攻守兼备" },
-        { key = "winger",     name = "边路突击手", desc = "贴边快速突破",
-          modifiers = { speed = 1.3, dribbling = 1.2, defending = 0.8 },
-          posOffset = {4, 7} },
-        { key = "wide",       name = "宽幅中场",   desc = "拉边接应，传中为主",
-          modifiers = { passing = 1.2, stamina = 1.2, shooting = 0.85 },
-          posOffset = {5, 0} },
-    },
-    LM = {
-        { key = "default",    name = "标准左中场", desc = "攻守兼备" },
-        { key = "winger",     name = "边路突击手", desc = "贴边快速突破",
-          modifiers = { speed = 1.3, dribbling = 1.2, defending = 0.8 },
-          posOffset = {-4, 7} },
-        { key = "wide",       name = "宽幅中场",   desc = "拉边接应，传中为主",
-          modifiers = { passing = 1.2, stamina = 1.2, shooting = 0.85 },
-          posOffset = {-5, 0} },
-    },
     RW = {
         { key = "default",    name = "标准右边锋", desc = "突破与射门兼具" },
         { key = "inverted",   name = "内切射手",   desc = "内切到中路射门",
@@ -423,19 +437,11 @@ Constants.POSITION_ROLES = {
           modifiers = { passing = 1.3, vision = 1.2, dribbling = 1.1, shooting = 0.85 },
           posOffset = {0, -10} },
     },
-    CF = {
-        { key = "default",    name = "标准中锋",   desc = "禁区终结者" },
-        { key = "poacher",    name = "禁区猎手",   desc = "专注射门得分",
-          modifiers = { composure = 1.3, shooting = 1.2, passing = 0.7, defending = 0.5 },
-          posOffset = {0, 5} },
-        { key = "targetMan",  name = "支点前锋",   desc = "背身做球，策应队友",
-          modifiers = { strength = 1.3, heading = 1.2, passing = 1.1, speed = 0.85 },
-          posOffset = {0, -4} },
-    },
 }
 
 --- 根据位置和角色key查找角色数据
 function Constants.getPositionRole(position, roleKey)
+    position = Constants.normalizePosition(position) or position
     local roles = Constants.POSITION_ROLES[position]
     if not roles then return nil end
     if not roleKey or roleKey == "default" then return roles[1] end

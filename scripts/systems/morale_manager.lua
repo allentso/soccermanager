@@ -301,6 +301,24 @@ local function forEachFinishedClubFixture(gameState, teamId, callback)
         end
     end
 
+    local uel = gameState.europaLeague
+    if uel and uel.leaguePhase and uel.leaguePhase.fixtures then
+        for _, fixture in ipairs(uel.leaguePhase.fixtures) do
+            if fixture.status == "finished" and fixtureInvolvesTeam(fixture, teamId) then
+                callback(fixture)
+            end
+        end
+    end
+    if uel and uel.knockout then
+        for _, phaseFixtures in pairs(uel.knockout) do
+            for _, fixture in ipairs(phaseFixtures or {}) do
+                if fixture.status == "finished" and fixtureInvolvesTeam(fixture, teamId) then
+                    callback(fixture)
+                end
+            end
+        end
+    end
+
     for _, cup in pairs(gameState.domesticCups or {}) do
         for _, roundFixtures in ipairs(cup.rounds or {}) do
             for _, fixture in ipairs(roundFixtures or {}) do

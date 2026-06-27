@@ -7,6 +7,47 @@ local MessageManager = require("scripts/systems/message_manager")
 
 local FinanceManager = {}
 
+-- 联赛级别经济倍率。次级联赛已经通过 wageBudget/reputation 被压低，这里只补足
+-- 转播、赞助、奖金等「联赛平台收入」的额外差距。
+FinanceManager.LEAGUE_TIER_ECONOMY = {
+    [1] = {
+        sponsor = 1.0,
+        sponsorContract = 1.0,
+        broadcast = 1.0,
+        merchandise = 1.0,
+        matchday = 1.0,
+        prize = 1.0,
+    },
+    [2] = {
+        sponsor = 0.65,
+        sponsorContract = 0.65,
+        broadcast = 0.38,
+        merchandise = 0.60,
+        matchday = 0.78,
+        prize = 0.25,
+    },
+}
+
+function FinanceManager.getLeagueTier(gameState, teamId)
+    if not gameState or not teamId or not gameState.leagues then return 1 end
+    for _, league in pairs(gameState.leagues) do
+        for _, tid in ipairs(league.teamIds or {}) do
+            if tid == teamId then
+                return league.tier or 1
+            end
+        end
+    end
+    return 1
+end
+
+function FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, key)
+    local tier = FinanceManager.getLeagueTier(gameState, teamId)
+    local cfg = FinanceManager.LEAGUE_TIER_ECONOMY[tier]
+        or (tier >= 2 and FinanceManager.LEAGUE_TIER_ECONOMY[2])
+        or FinanceManager.LEAGUE_TIER_ECONOMY[1]
+    return cfg[key] or 1.0
+end
+
 ------------------------------------------------------
 -- 每周处理：扣除所有球队的周薪
 ------------------------------------------------------
@@ -209,6 +250,8 @@ function FinanceManager.generateSponsorOffers(gameState)
     -- 英超顶级队年赞助 2-3 亿，月约 2000 万；中游约 5000-8000 万/年
     local reputation = (team.reputation or 500) / 10
     local baseFactor = 0.65 + (reputation / 100) * 1.6  -- 0.65x ~ 2.25x
+    local offerScale = FinanceManager._getWageScale(team)
+        * FinanceManager.getLeagueEconomyMultiplier(gameState, team.id, "sponsorContract")
 
     local offers = {}
     for _, tmpl in ipairs(FinanceManager.SPONSOR_TEMPLATES) do
@@ -222,6 +265,7 @@ function FinanceManager.generateSponsorOffers(gameState)
         else
             baseAmount = math.floor(350000 * baseFactor)
         end
+        baseAmount = math.floor(baseAmount * offerScale)
 
         -- 生成 3 个方案：保守/均衡/激进
         local profiles = {
@@ -347,7 +391,8 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
     -- 英超票价通常 40-100 镑，rep68(曼联级)基础应约 48-50
     local basePrice = 32 + math.floor(rep / 5)  -- rep50=42, rep68=45, rep80=48
     local opponentHype = math.min(1.75, 1.0 + opponentRep / 130)
-    local ticketPrice = math.floor(basePrice * opponentHype * strategy.multiplier)
+    local matchdayScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "matchday")
+    local ticketPrice = math.floor(basePrice * opponentHype * strategy.multiplier * matchdayScale)
 
     -- 智能上座率 = 基础率 + 对手吸引力 + 连胜奖励 + 策略调整
     local baseAttendance = 0.60 + rep / 520  -- 略低于旧版，贴近现实票房占比
@@ -441,6 +486,8 @@ function FinanceManager.awardSeasonPrize(gameState, teamId, position)
 
     local prizeTable = Constants.SEASON_END_PRIZE or {}
     local prize = prizeTable[position] or 0
+    local prizeScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "prize")
+    prize = math.floor(prize * prizeScale / 100000) * 100000
     if prize <= 0 then return end
 
     team.balance = team.balance + prize
@@ -491,7 +538,11 @@ function FinanceManager.processMonthlySponsorship(gameState)
             local baseSponsor = rep * 10000 + (capacity / 30000) * 320000
             local posBonus = math.max(0, (11 - position) * rep * 700)
             local prestigeBonus = math.max(0, (rep - 80) * 280000)
-            sponsorRevenue = math.floor(((baseSponsor + posBonus) * wageScale + prestigeBonus) * (0.85 + Random() * 0.25))
+            local leagueScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "sponsor")
+            sponsorRevenue = math.floor(
+                ((baseSponsor + posBonus) * wageScale + prestigeBonus)
+                * leagueScale
+                * (0.85 + Random() * 0.25))
         end
 
         team.balance = team.balance + sponsorRevenue
@@ -525,7 +576,8 @@ function FinanceManager.processMonthlyBroadcast(gameState)
         -- 英超中游年转播约 1.0-1.3 亿（校准 Brighton/Wolves 2023/24）
         local shareRatio = 1.0 + (20 - position) * 0.04  -- 第1=1.76x, 第10=1.40x, 第20=1.00x
         local baseAmount = rep * 105000 + 750000
-        local amount = math.floor(baseAmount * shareRatio * wageScale)
+        local leagueScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "broadcast")
+        local amount = math.floor(baseAmount * shareRatio * wageScale * leagueScale)
 
         team.balance = team.balance + amount
         team.seasonIncome = (team.seasonIncome or 0) + amount
@@ -570,7 +622,12 @@ function FinanceManager.processMonthlyMerchandise(gameState)
 
         local baseAmount = rep * 14000 + 150000
         local prestigeMerch = math.max(0, (rep - 80) * 200000)
-        local amount = math.floor((baseAmount * wageScale + prestigeMerch) * starBonus * (0.88 + Random() * 0.18))
+        local leagueScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "merchandise")
+        local amount = math.floor(
+            (baseAmount * wageScale + prestigeMerch)
+            * leagueScale
+            * starBonus
+            * (0.88 + Random() * 0.18))
 
         team.balance = team.balance + amount
         team.seasonIncome = (team.seasonIncome or 0) + amount
@@ -1514,7 +1571,7 @@ function FinanceManager.checkSquadSafety(gameState, playerId)
                     gkCount = gkCount + 1
                 elseif pos == "CB" or pos == "LB" or pos == "RB" then
                     defCount = defCount + 1
-                elseif pos == "CM" or pos == "LM" or pos == "RM" or pos == "CDM" or pos == "CAM" then
+                elseif pos == "CM" or pos == "CDM" or pos == "CAM" then
                     midCount = midCount + 1
                 else
                     fwdCount = fwdCount + 1

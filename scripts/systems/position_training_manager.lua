@@ -3,6 +3,7 @@
 
 local PositionFit = require("scripts/domain/position_fit")
 local FormationShape = require("scripts/match/formation_shape")
+local Constants = require("scripts/app/constants")
 
 local PositionTrainingManager = {}
 
@@ -21,7 +22,7 @@ function PositionTrainingManager.buildPlayerSlotPosMap(team, lineupBySlot)
     local slots = FormationShape.getFormationSlots(team)
     for slotIdx, pid in pairs(lineupBySlot) do
         if pid and slots[slotIdx] then
-            map[pid] = slots[slotIdx]
+            map[pid] = Constants.normalizePosition(slots[slotIdx])
         end
     end
     return map
@@ -51,11 +52,13 @@ function PositionTrainingManager.completeIfReady(player)
         return false
     end
 
-    local target = player.positionTrainingTarget
+    local target = Constants.normalizePosition(player.positionTrainingTarget)
+    if not target then return false end
+    player.positionTrainingTarget = target
     player.naturalPositions = player.naturalPositions or { player.position }
     local exists = false
     for _, pos in ipairs(player.naturalPositions) do
-        if pos == target then exists = true; break end
+        if Constants.normalizePosition(pos) == target then exists = true; break end
     end
     if not exists then
         table.insert(player.naturalPositions, target)
@@ -69,8 +72,9 @@ end
 
 function PositionTrainingManager.processDrillDay(player)
     if not player or player.injured then return false end
-    local target = player.positionTrainingTarget
+    local target = Constants.normalizePosition(player.positionTrainingTarget)
     if not target then return false end
+    player.positionTrainingTarget = target
 
     local drill = player.positionTrainingDrillProgress or 0
     if drill >= PositionTrainingManager.DRILL_CAP then
@@ -89,7 +93,8 @@ end
 
 function PositionTrainingManager.processMatchAppearance(player, slotPos)
     if not player or not slotPos then return false end
-    local target = player.positionTrainingTarget
+    slotPos = Constants.normalizePosition(slotPos)
+    local target = Constants.normalizePosition(player.positionTrainingTarget)
     if not target or slotPos ~= target then return false end
 
     PositionTrainingManager.addProgress(player, PositionTrainingManager.MATCH_PROGRESS)
@@ -136,6 +141,8 @@ end
 
 function PositionTrainingManager.setTarget(player, slotPos)
     if not player then return false, "球员不存在" end
+    slotPos = Constants.normalizePosition(slotPos)
+    if not slotPos then return false, "无效位置" end
     if player.positionTrainingTarget then
         return false, "已在学习其他位置"
     end

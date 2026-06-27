@@ -86,16 +86,46 @@ end
 -- 联赛阶段（瑞士制 - 2024/25 欧冠新赛制）
 ------------------------------------------------------
 
---- 初始化联赛阶段（36队，4档抽签，每队8场比赛）
----@param teamIds string[] 36个参赛球队ID
----@param pots table 4个档次，每档9队 {{...},{...},{...},{...}}
-function Tournament:initLeaguePhase(teamIds, pots)
+--- 默认瑞士制联赛阶段配置（欧冠 36 队）
+Tournament.DEFAULT_LEAGUE_PHASE_CONFIG = {
+    matchdays = 8,
+    opponentsPerPot = 2,
+    directAdvanceCount = 8,
+    playoffStartRank = 9,
+    playoffEndRank = 24,
+    weekday = 3,       -- 周三
+    dayInterval = 14,
+}
+
+--- 欧联杯 24 队小瑞士制配置
+Tournament.UEL_LEAGUE_PHASE_CONFIG = {
+    matchdays = 6,
+    opponentsPerPot = 2,
+    directAdvanceCount = 8,
+    playoffStartRank = 9,
+    playoffEndRank = 24,
+    weekday = 4,       -- 周四
+    dayInterval = 14,
+}
+
+--- 初始化联赛阶段（瑞士制）
+---@param teamIds string[] 参赛球队ID
+---@param pots table 分档 {{...},{...},...}
+---@param config table|nil 可选：matchdays, opponentsPerPot, directAdvanceCount, playoffStartRank, playoffEndRank, weekday, dayInterval
+function Tournament:initLeaguePhase(teamIds, pots, config)
+    config = config or Tournament.DEFAULT_LEAGUE_PHASE_CONFIG
     self.leaguePhase = {
         teamIds = teamIds,
         pots = pots,
         standings = {},   -- teamId → 积分数据
         fixtures = {},    -- 所有联赛阶段比赛
-        matchdays = 8,    -- 8个比赛日
+        matchdays = config.matchdays or 8,
+        opponentsPerPot = config.opponentsPerPot or 2,
+        directAdvanceCount = config.directAdvanceCount or 8,
+        playoffStartRank = config.playoffStartRank or 9,
+        playoffEndRank = config.playoffEndRank or 24,
+        weekday = config.weekday or 3,
+        dayInterval = config.dayInterval or 14,
     }
 
     -- 初始化积分榜
@@ -116,14 +146,21 @@ function Tournament:initLeaguePhase(teamIds, pots)
     self.phase = Tournament.PHASE_LEAGUE
 end
 
---- 瑞士制抽签：每队从每档抽2个对手（1主1客），共8场
+--- 瑞士制抽签：每队从每档抽 opponentsPerPot 个对手（主客交替），共 matchdays 场
 --- 返回 teamOpponents 或 nil（配对失败时重试）
-local function _buildLeaguePhaseOpponents(teamIds, pots)
+local function _buildLeaguePhaseOpponents(teamIds, pots, opponentsPerPot)
+    opponentsPerPot = opponentsPerPot or 2
+    local numPots = #pots
+    local expectedMatches = numPots * opponentsPerPot
+
     local teamOpponents = {}
     local potOppCount = {}
     for _, tid in ipairs(teamIds) do
         teamOpponents[tid] = {}
-        potOppCount[tid] = { 0, 0, 0, 0 }
+        potOppCount[tid] = {}
+        for p = 1, numPots do
+            potOppCount[tid][p] = 0
+        end
     end
 
     local teamPot = {}
@@ -164,13 +201,13 @@ local function _buildLeaguePhaseOpponents(teamIds, pots)
 
     for _, tid in ipairs(processOrder) do
         for potIdx, pot in ipairs(pots) do
-            while potOppCount[tid][potIdx] < 2 do
+            while potOppCount[tid][potIdx] < opponentsPerPot do
                 local candidates = {}
                 for _, cid in ipairs(pot) do
                     if cid ~= tid
                         and not isPaired(tid, cid)
-                        and potOppCount[tid][potIdx] < 2
-                        and potOppCount[cid][teamPot[tid]] < 2 then
+                        and potOppCount[tid][potIdx] < opponentsPerPot
+                        and potOppCount[cid][teamPot[tid]] < opponentsPerPot then
                         table.insert(candidates, cid)
                     end
                 end
@@ -187,11 +224,11 @@ local function _buildLeaguePhaseOpponents(teamIds, pots)
     end
 
     for _, tid in ipairs(teamIds) do
-        if #teamOpponents[tid] ~= 8 then
+        if #teamOpponents[tid] ~= expectedMatches then
             return nil
         end
-        for potIdx = 1, 4 do
-            if potOppCount[tid][potIdx] ~= 2 then
+        for potIdx = 1, numPots do
+            if potOppCount[tid][potIdx] ~= opponentsPerPot then
                 return nil
             end
         end
@@ -229,19 +266,25 @@ local function _fixturesFromOpponents(teamIds, teamOpponents)
 end
 
 ---@param startDate table {year, month, day}
-function Tournament:drawLeaguePhaseFixtures(startDate)
+---@param drawConfig table|nil 可选覆盖：weekday, dayInterval（其余从 leaguePhase 读取）
+function Tournament:drawLeaguePhaseFixtures(startDate, drawConfig)
     local lp = self.leaguePhase
     if not lp then return end
 
     local pots = lp.pots
     local teamIds = lp.teamIds
+    local matchdays = lp.matchdays or 8
+    local opponentsPerPot = lp.opponentsPerPot or 2
+    local matchesPerTeam = #pots * opponentsPerPot
+    local weekday = (drawConfig and drawConfig.weekday) or lp.weekday or 3
+    local dayInterval = (drawConfig and drawConfig.dayInterval) or lp.dayInterval or 14
 
     local fixtures = nil
     for _ = 1, 200 do
-        local teamOpponents = _buildLeaguePhaseOpponents(teamIds, pots)
+        local teamOpponents = _buildLeaguePhaseOpponents(teamIds, pots, opponentsPerPot)
         if teamOpponents then
             local candidateFixtures = _fixturesFromOpponents(teamIds, teamOpponents)
-            if #candidateFixtures == math.floor(#teamIds * 8 / 2) then
+            if #candidateFixtures == math.floor(#teamIds * matchesPerTeam / 2) then
                 fixtures = candidateFixtures
                 break
             end
@@ -249,22 +292,21 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
     end
 
     if not fixtures then
-        log:Write(LOG_WARNING, "[UCL] league phase draw failed after retries")
+        log:Write(LOG_WARNING, "[" .. (self.shortName or "Tournament") .. "] league phase draw failed after retries")
         return
     end
 
-    -- 分配比赛日（8个比赛日，每隔14天，对齐到周三）
+    -- 分配比赛日
     local matchDays = {}
     local date = League._alignToWeekday(
-        { year = startDate.year, month = startDate.month, day = startDate.day }, 3)  -- 3=周三
-    for i = 1, 8 do
+        { year = startDate.year, month = startDate.month, day = startDate.day }, weekday)
+    for i = 1, matchdays do
         table.insert(matchDays, { year = date.year, month = date.month, day = date.day })
-        date = League._addDays(date, 14)
+        date = League._addDays(date, dayInterval)
     end
 
-    -- 将比赛分配到8个比赛日（每个比赛日18场，36队各踢1场）
-    -- 约束：每支球队每个比赛日最多踢1场
-    local maxPerDay = math.floor(#teamIds / 2)  -- 18
+    -- 将比赛分配到各比赛日（每队每比赛日最多 1 场）
+    local maxPerDay = math.floor(#teamIds / 2)
 
     -- 洗牌赛程以打散
     for i = #fixtures, 2, -1 do
@@ -278,13 +320,13 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
         teamDayUsed[tid] = {}
     end
     local daySlots = {}  -- dayIdx → count（该日已分配的比赛数）
-    for i = 1, 8 do
+    for i = 1, matchdays do
         daySlots[i] = 0
     end
 
     for _, f in ipairs(fixtures) do
         local assigned = false
-        for d = 1, 8 do
+        for d = 1, matchdays do
             if daySlots[d] < maxPerDay and
                not teamDayUsed[f.homeTeamId][d] and
                not teamDayUsed[f.awayTeamId][d] then
@@ -301,7 +343,7 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
         if not assigned then
             local bestDay = nil
             local bestCount = 999
-            for d = 1, 8 do
+            for d = 1, matchdays do
                 if not teamDayUsed[f.homeTeamId][d] and
                    not teamDayUsed[f.awayTeamId][d] and
                    daySlots[d] < bestCount then
@@ -313,7 +355,7 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
             if not bestDay then
                 bestDay = 1
                 bestCount = daySlots[1]
-                for d = 2, 8 do
+                for d = 2, matchdays do
                     if daySlots[d] < bestCount then
                         bestDay = d
                         bestCount = daySlots[d]
@@ -404,17 +446,21 @@ function Tournament:isLeaguePhaseComplete()
     return true
 end
 
---- 从联赛阶段获取晋级者
---- 前8直接晋级R16，9-24进附加赛，25-36淘汰
+--- 从联赛阶段获取晋级者（阈值来自 leaguePhase 配置）
 function Tournament:getLeaguePhaseAdvancers()
+    local lp = self.leaguePhase
+    local directCount = (lp and lp.directAdvanceCount) or 8
+    local playoffStart = (lp and lp.playoffStartRank) or 9
+    local playoffEnd = (lp and lp.playoffEndRank) or 24
+
     local sorted = self:getLeaguePhaseSortedStandings()
-    local directR16 = {}   -- 1-8名
-    local playoffTeams = {} -- 9-24名
+    local directR16 = {}
+    local playoffTeams = {}
 
     for i, s in ipairs(sorted) do
-        if i <= 8 then
+        if i <= directCount then
             table.insert(directR16, s.teamId)
-        elseif i <= 24 then
+        elseif i <= playoffEnd then
             table.insert(playoffTeams, s.teamId)
         end
     end

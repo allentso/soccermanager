@@ -112,21 +112,18 @@ FormationShape.ZONE_LABELS = {
 FormationShape.SLOT_COMPATIBILITY = {
     GK = { GK = 1.0 },
     CB = { CB = 1.0, RB = 0.6, LB = 0.6, CDM = 0.5 },
-    RB = { RB = 1.0, CB = 0.6, RM = 0.7, LB = 0.8 },
-    LB = { LB = 1.0, CB = 0.6, LM = 0.7, RB = 0.8 },
+    RB = { RB = 1.0, CB = 0.6, RW = 0.7, LB = 0.8 },
+    LB = { LB = 1.0, CB = 0.6, LW = 0.7, RB = 0.8 },
     CDM = { CDM = 1.0, CM = 0.8, CB = 0.5 },
-    CM = { CM = 1.0, CDM = 0.8, CAM = 0.7, RM = 0.6, LM = 0.6 },
-    CAM = { CAM = 1.0, CM = 0.7, CF = 0.6, RW = 0.6, LW = 0.6, ST = 0.5 },
-    RM = { RM = 1.0, RW = 0.9, CM = 0.6, RB = 0.5, LM = 0.7 },
-    LM = { LM = 1.0, LW = 0.9, CM = 0.6, LB = 0.5, RM = 0.7 },
-    RW = { RW = 1.0, RM = 0.9, ST = 0.6, CF = 0.6, CAM = 0.6, LW = 0.7 },
-    LW = { LW = 1.0, LM = 0.9, ST = 0.6, CF = 0.6, CAM = 0.6, RW = 0.7 },
-    ST = { ST = 1.0, CF = 0.9, CAM = 0.6, RW = 0.5, LW = 0.5 },
-    CF = { CF = 1.0, ST = 0.9, CAM = 0.6 },
+    CM = { CM = 1.0, CDM = 0.8, CAM = 0.7, RW = 0.6, LW = 0.6 },
+    CAM = { CAM = 1.0, CM = 0.7, RW = 0.6, LW = 0.6, ST = 0.5 },
+    RW = { RW = 1.0, ST = 0.6, CAM = 0.6, LW = 0.7, CM = 0.6, RB = 0.5 },
+    LW = { LW = 1.0, ST = 0.6, CAM = 0.6, RW = 0.7, CM = 0.6, LB = 0.5 },
+    ST = { ST = 1.0, CAM = 0.6, RW = 0.5, LW = 0.5 },
 }
 
 FormationShape.POSITION_ORDER = {
-    "GK", "LB", "CB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "CF", "ST",
+    "GK", "LB", "CB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST",
 }
 
 -- 按实际槽位 DEF/MID/FWD 数量自动归类
@@ -188,15 +185,15 @@ FormationShape.FORMATION_TO_ARCHETYPE = {
 local TEMPLATE_BUCKET = {
     GK = "GK",
     CB = "DEF", LB = "DEF", RB = "DEF",
-    CDM = "MID", CM = "MID", CAM = "MID", RM = "MID", LM = "MID",
-    RW = "FWD", LW = "FWD", ST = "FWD", CF = "FWD",
+    CDM = "MID", CM = "MID", CAM = "MID",
+    RW = "FWD", LW = "FWD", ST = "FWD",
 }
 
 local POS_LINE = {
     GK = "GK",
     CB = "DEF", LB = "DEF", RB = "DEF",
-    CDM = "MID", CM = "MID", CAM = "MID", RM = "MID", LM = "MID",
-    LW = "FWD", RW = "FWD", ST = "FWD", CF = "FWD",
+    CDM = "MID", CM = "MID", CAM = "MID",
+    LW = "FWD", RW = "FWD", ST = "FWD",
 }
 
 local NUDGE_STEP = 8
@@ -205,7 +202,39 @@ local STRUCTURE_MATCH_TOLERANCE = 2
 local HEAVY_CUSTOM_THRESHOLD = 3
 local FORMATION_ANCHOR_BIAS = 1.5
 
-local WING_TEMPLATE_SLOTS = { RM = true, LM = true }
+local WIDE_MID_TEMPLATE_SLOTS = {
+    ["4-4-2:flat:6"] = true,
+    ["4-4-2:flat:9"] = true,
+    ["4-4-2:diamond:6"] = true,
+    ["4-4-2:diamond:9"] = true,
+    ["3-4-3:flat:5"] = true,
+    ["3-4-3:flat:8"] = true,
+    ["3-4-3:stagger:5"] = true,
+    ["3-4-3:stagger:8"] = true,
+    ["3-5-2:default:5"] = true,
+    ["3-5-2:default:9"] = true,
+    ["3-5-2:attack:5"] = true,
+    ["3-5-2:attack:9"] = true,
+    ["4-5-1:default:6"] = true,
+    ["4-5-1:default:10"] = true,
+    ["4-5-1:diamond:6"] = true,
+    ["4-5-1:diamond:10"] = true,
+    ["5-4-1:flat:7"] = true,
+    ["5-4-1:flat:10"] = true,
+    ["5-4-1:stagger:7"] = true,
+    ["5-4-1:stagger:10"] = true,
+}
+
+local function wideMidTemplateKey(team, slotIdx)
+    local formation = team.formation or "4-4-2"
+    local layoutKey = Constants.normalizeLayoutKey(formation, team.formationVariant)
+    local storageKey = Constants.layoutToStorageKey(formation, layoutKey)
+    return formation .. ":" .. storageKey .. ":" .. tostring(slotIdx)
+end
+
+local function isWideMidTemplateSlot(team, slotIdx)
+    return WIDE_MID_TEMPLATE_SLOTS[wideMidTemplateKey(team, slotIdx)] == true
+end
 
 local function structureLineForSlot(team, slotIdx, actualPos, useFullCustom)
     if useFullCustom then
@@ -213,12 +242,7 @@ local function structureLineForSlot(team, slotIdx, actualPos, useFullCustom)
     end
 
     local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
-
-    -- 翼卫/宽中场槽改为边锋 → 结构上按前场线计算
-    if WING_TEMPLATE_SLOTS[defaultPos] and (actualPos == "RW" or actualPos == "LW") then
-        return "FWD"
-    end
-    if WING_TEMPLATE_SLOTS[defaultPos] then
+    if isWideMidTemplateSlot(team, slotIdx) and (defaultPos == "LW" or defaultPos == "RW") then
         return "MID"
     end
 
@@ -274,7 +298,7 @@ function FormationShape.getBaseFormationSlots(formation, variantKey)
         return variant.slots
     end
     local fallback = Constants.getVariant("4-4-2", "flat")
-    return fallback and fallback.slots or { "GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST" }
+    return fallback and fallback.slots or { "GK", "RB", "CB", "CB", "LB", "RW", "CM", "CM", "LW", "ST", "ST" }
 end
 
 --- 获取实际槽位（变体模板 + customSlots 覆盖）
@@ -286,7 +310,7 @@ function FormationShape.getFormationSlots(teamOrFormation, variantKey)
     end
     local slots = {}
     for i = 1, 11 do
-        slots[i] = customSlots[i] or base[i]
+        slots[i] = Constants.normalizePosition(customSlots[i] or base[i]) or base[i]
     end
     return slots
 end
@@ -374,8 +398,8 @@ end
 
 -- 位置的侧边归属：RIGHT=球场右路, LEFT=球场左路, CENTER=中路
 local POS_SIDE = {
-    RB = "RIGHT", RW = "RIGHT", RM = "RIGHT",
-    LB = "LEFT",  LW = "LEFT",  LM = "LEFT",
+    RB = "RIGHT", RW = "RIGHT",
+    LB = "LEFT",  LW = "LEFT",
 }
 
 -- 位置纵深层级（5层：后2 / 后1 / 中1 / 前2 / 前1）
@@ -386,9 +410,9 @@ local POS_DEPTH_TIER = {
     GK = 0,
     CB = 1, RB = 1, LB = 1,
     CDM = 2,
-    CM = 3, RM = 3, LM = 3,
+    CM = 3,
     CAM = 4, RW = 4, LW = 4,
-    ST = 5, CF = 5,
+    ST = 5,
 }
 
 -- 根据当前槽位纵深层级，返回允许的 tier 范围 [min, max]
@@ -486,6 +510,7 @@ function FormationShape.clearCustomization(team)
 end
 
 function FormationShape.setSlotPosition(team, slotIdx, newPos)
+    newPos = Constants.normalizePosition(newPos)
     if not newPos or (newPos == "GK" and slotIdx ~= 1) then return false end
     local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
     if not team.customSlots then team.customSlots = {} end
@@ -538,7 +563,7 @@ local function countStructureLines(team, slots)
         local defaultPos = FormationShape.getDefaultSlotPosition(team, i)
         local line = structureLineForSlot(team, i, pos, useFullCustom)
         lines[line] = (lines[line] or 0) + 1
-        if WING_TEMPLATE_SLOTS[defaultPos] and (pos == "RW" or pos == "LW") then
+        if isWideMidTemplateSlot(team, i) and (defaultPos == "LW" or defaultPos == "RW") then
             countMode = "hybrid"
         end
     end
@@ -602,7 +627,7 @@ local function analyzeSlotTypes(slots, slotZones)
     for i, pos in ipairs(slots) do
         if pos == "CDM" then counts.CDM = counts.CDM + 1 end
         if pos == "CAM" then counts.CAM = counts.CAM + 1 end
-        if pos == "RM" or pos == "LM" or pos == "LB" or pos == "RB" then
+        if pos == "LB" or pos == "RB" then
             counts.WB = counts.WB + 1
         end
         if pos == "RW" or pos == "LW" then

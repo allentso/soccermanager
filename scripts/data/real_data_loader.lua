@@ -13,7 +13,7 @@ local RealDataLoader = {}
 local POSITION_MAP = {
     Goalkeeper = "GK",
     CentreBack = "CB",     -- JSON使用英式拼写
-    CenterBack = "CB",     -- 兼容美式拼写
+    CenterBack = "CB",
     LeftBack = "LB",
     RightBack = "RB",
     LeftWingBack = "LB",   -- 翼卫映射为边后卫
@@ -21,15 +21,15 @@ local POSITION_MAP = {
     DefensiveMidfielder = "CDM",
     CentralMidfielder = "CM",
     AttackingMidfielder = "CAM",
-    LeftMidfielder = "LM",
-    RightMidfielder = "RM",
+    LeftMidfielder = "LW",
+    RightMidfielder = "RW",
     LeftWinger = "LW",
     RightWinger = "RW",
     LeftWing = "LW",       -- JSON变体写法
     RightWing = "RW",      -- JSON变体写法
     Striker = "ST",
-    CentreForward = "CF",  -- 托蒂等传奇球员使用此位置
-    CenterForward = "CF",  -- 兼容美式拼写
+    CentreForward = "ST",
+    CenterForward = "ST",
 }
 
 -- 属性名映射：JSON → 游戏内（pace → speed）
@@ -104,12 +104,14 @@ end
 
 -- 映射位置列表
 local function mapPositions(mainPos, altPositions)
-    local main = POSITION_MAP[mainPos] or "CM"
+    local main = Constants.normalizePosition(POSITION_MAP[mainPos]) or "CM"
     local positions = {main}
+    local seen = {[main] = true}
     if altPositions then
         for _, ap in ipairs(altPositions) do
-            local mapped = POSITION_MAP[ap]
-            if mapped and mapped ~= main then
+            local mapped = Constants.normalizePosition(POSITION_MAP[ap])
+            if mapped and not seen[mapped] then
+                seen[mapped] = true
                 table.insert(positions, mapped)
             end
         end
@@ -292,7 +294,7 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
             country = tData.country or leagueConfig.country,
             colors = tData.colors or {primary = "#333333", secondary = "#ffffff"},
             stadiumName = tData.stadium_name or "",
-            stadiumCapacity = tData.stadium_capacity or 30000,
+            stadiumCapacity = RealDataLoader._normalizeStadiumCapacity(tData, leagueConfig, wb),
             foundedYear = tData.founded_year or 1900,
             reputation = rep,
             _baseReputation = rep,
@@ -394,6 +396,21 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
     local WorldGenerator = require("scripts/systems/world_generator")
     for _, teamId in ipairs(teamIds) do
         WorldGenerator.autoSelectStartingXI(gameState, teamId)
+    end
+
+    -- 首发选择会把核心球员的 squadRole 调整为 key/rotation，
+    -- 需要再刷新一次名气和身价，否则真实球星会按导入时的泛用角色低估。
+    for _, teamId in ipairs(teamIds) do
+        local team = gameState.teams[teamId]
+        if team then
+            for _, playerId in ipairs(team.playerIds or {}) do
+                local player = gameState.players[playerId]
+                if player and not player.retired then
+                    player:calculateReputation(team.reputation or 300)
+                    player:calculateValue(gameState.date.year)
+                end
+            end
+        end
     end
 
     -- 创建联赛对象
@@ -643,6 +660,33 @@ function RealDataLoader._calcReputation(wageBudget, tier)
     local ratio = (logWb - logMin) / (logMax - logMin)
     ratio = math.max(0, math.min(1, ratio))
     return math.floor(500 + ratio * 450)
+end
+
+local SECOND_DIVISION_STADIUM_BOUNDS = {
+    Championship = { min = 18000, max = 39000 },
+    LaLiga2 = { min = 12000, max = 28000 },
+    SerieB = { min = 12000, max = 30000 },
+    Bundesliga2 = { min = 16000, max = 42000 },
+    Ligue2 = { min = 9000, max = 26000 },
+}
+
+function RealDataLoader._estimateSecondDivisionStadiumCapacity(wageBudget, leagueKey)
+    local bounds = SECOND_DIVISION_STADIUM_BOUNDS[leagueKey] or { min = 10000, max = 30000 }
+    local wb = math.max(wageBudget or 200000, 200000)
+    local logMin = math.log(200000)
+    local logMax = math.log(1200000)
+    local ratio = (math.log(wb) - logMin) / (logMax - logMin)
+    ratio = math.max(0, math.min(1, ratio))
+    local capacity = bounds.min + (bounds.max - bounds.min) * ratio
+    return math.floor(capacity / 500 + 0.5) * 500
+end
+
+function RealDataLoader._normalizeStadiumCapacity(tData, leagueConfig, wageBudget)
+    local capacity = tData.stadium_capacity or 30000
+    if (leagueConfig.tier or 1) >= 2 and (not tData.stadium_capacity or capacity == 40000) then
+        return RealDataLoader._estimateSecondDivisionStadiumCapacity(wageBudget, leagueConfig.shortName)
+    end
+    return capacity
 end
 
 --- 中超球队初始声望：顶级 550，按 wage_budget 排名每降一名 -3（全局减益，转会等仍用存盘值）

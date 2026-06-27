@@ -286,11 +286,11 @@ end
 
 --- 获取位置大组
 function AIManager._getPositionGroup(position)
+    position = Constants.normalizePosition(position)
     local groups = {
         GK = "goalkeeper",
         CB = "defense", RB = "defense", LB = "defense",
         CDM = "midfield", CM = "midfield", CAM = "midfield",
-        RM = "midfield", LM = "midfield",
         RW = "attack", LW = "attack", ST = "attack",
     }
     return groups[position] or "midfield"

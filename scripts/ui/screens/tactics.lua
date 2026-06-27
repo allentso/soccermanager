@@ -680,7 +680,7 @@ function Tactics._buildPitchView(gameState, team, formation)
         local group = "MID"
         if slotPos == "GK" then group = "GK"
         elseif slotPos == "CB" or slotPos == "LB" or slotPos == "RB" then group = "DEF"
-        elseif slotPos == "ST" or slotPos == "CF" or slotPos == "LW" or slotPos == "RW" then group = "FWD"
+        elseif slotPos == "ST" or slotPos == "LW" or slotPos == "RW" then group = "FWD"
         end
 
         local arrowDir = arrowDef[group]
@@ -1189,7 +1189,6 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         }
         local x = FormationShape.getSlotCoords(team, slotIdx)
         local isWideSlot = slotPos == "LB" or slotPos == "RB"
-            or slotPos == "LM" or slotPos == "RM"
             or slotPos == "LW" or slotPos == "RW"
             or x < 32 or x > 68
         if isWideSlot then

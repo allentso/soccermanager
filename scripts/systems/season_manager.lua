@@ -531,6 +531,7 @@ function SeasonManager._processContractExpiry(gameState)
                 player.contractEnd = {year = gameState.date.year + RandomInt(1, 3), month = 6}
                 local marketWage = FinanceManager.estimateMarketWage(player, team, gameState)
                 player.wage = math.max(player.wage or 0, math.floor(marketWage * 0.88 / 100) * 100)
+                player:calculateValue(gameState.date.year)
             else
                 -- 释放球员
                 if team then
@@ -542,6 +543,8 @@ function SeasonManager._processContractExpiry(gameState)
                     end
                 end
                 player.teamId = nil
+                player.contractEnd = nil
+                player:calculateValue(gameState.date.year)
             end
         else
             -- 玩家球队球员合同到期：按市场工资重估后续约
@@ -549,6 +552,7 @@ function SeasonManager._processContractExpiry(gameState)
             local newWage = math.max(player.wage or 0, math.floor(marketWage * 0.90 / 100) * 100)
             player.wage = newWage
             player.contractEnd = {year = gameState.date.year + 1, month = 6}
+            player:calculateValue(gameState.date.year)
             gameState:sendMessage({
                 category = "contract",
                 title = "合同自动续约",
@@ -1369,10 +1373,11 @@ function SeasonManager._startNewSeason(gameState)
             day = 1,
         }
     else
+        -- 新赛季从夏窗开启（7月1日）起步，便于赛季结算后先处理转会
         gameState.date = {
             year = gameState.season,
-            month = Constants.SEASON_START_MONTH,
-            day = Constants.SEASON_START_DAY,
+            month = 7,
+            day = 1,
         }
     end
     gameState.dayOfWeek = 1
@@ -1414,6 +1419,10 @@ function SeasonManager._startNewSeason(gameState)
 
     -- 初始化本赛季欧冠
     ChampionsLeague.initialize(gameState)
+
+    -- 初始化本赛季欧联杯
+    local EuropaLeague = require("scripts/systems/europa_league")
+    EuropaLeague.initialize(gameState)
 
     -- 初始化国内杯赛（足总杯、国王杯等）
     DomesticCup.initialize(gameState)

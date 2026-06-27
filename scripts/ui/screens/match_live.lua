@@ -152,6 +152,34 @@ local TACTICAL_INSTRUCTIONS = {
     { key = "time_wasting",     label = "拖延时间",   desc = "减缓比赛节奏" },
 }
 
+local function getControlledTeamId(session, gameState)
+    if not session or not gameState then return nil end
+    if session._isWC then
+        local NT = session.fixture and session.fixture._isEuro
+            and require("scripts/systems/euro_cup")
+            or require("scripts/systems/world_cup")
+        return NT._getPlayerNation(gameState)
+    end
+    return gameState.playerTeamId
+end
+
+local function getControlledTeam(session, gameState)
+    local teamId = getControlledTeamId(session, gameState)
+    if not teamId or not session or not session.fixture then return nil, teamId end
+    if teamId == session.fixture.homeTeamId then
+        return session.homeContext and session.homeContext.team, teamId
+    elseif teamId == session.fixture.awayTeamId then
+        return session.awayContext and session.awayContext.team, teamId
+    end
+    return nil, teamId
+end
+
+function MatchLive._getTacticsSummary(session, gameState)
+    local team = getControlledTeam(session, gameState or _G.gameState)
+    local formation = team and team.formation or "4-4-2"
+    return "阵型：" .. formation .. " · 指示：" .. MatchLive._getInstructionLabel(session and session.tacticalInstruction)
+end
+
 function MatchLive.create(params)
     local gameState = _G.gameState
     ---@type MatchSession
@@ -472,7 +500,7 @@ function MatchLive.create(params)
                             end,
                         },
                         UI.Button {
-                            text = "战术指示",
+                            text = "阵型/战术",
                             width = "31%", height = 40,
                             backgroundColor = {30, 70, 110, 255},
                             borderRadius = 10, fontSize = 12, fontWeight = "bold",
@@ -697,7 +725,7 @@ function MatchLive.create(params)
             },
             (function()
                 local tacticLabel = UI.Label {
-                    text = "战术：" .. MatchLive._getInstructionLabel(session.tacticalInstruction),
+                    text = MatchLive._getTacticsSummary(session, gameState),
                     fontSize = 11, color = Theme.COLORS.ACCENT,
                 }
                 if liveRefs then liveRefs.tacticLabel = tacticLabel end
@@ -996,7 +1024,46 @@ end
 -- 战术指示面板
 ---------------------------------------------------------------------------
 function MatchLive._buildTacticsPanel(session, fixture)
+    local gameState = _G.gameState
+    local controlledTeam, tactTeamId = getControlledTeam(session, gameState)
+    local currentFormation = controlledTeam and controlledTeam.formation or "4-4-2"
     local currentInstruction = session.tacticalInstruction
+    local formationRows = {}
+    for i = 1, #Constants.FORMATIONS, 3 do
+        local rowChildren = {}
+        for j = i, math.min(i + 2, #Constants.FORMATIONS) do
+            local fmt = Constants.FORMATIONS[j]
+            local isActive = fmt == currentFormation
+            table.insert(rowChildren, UI.Button {
+                text = fmt,
+                width = "32%", height = 38,
+                backgroundColor = isActive and {45, 95, 135, 255} or Theme.COLORS.BG_CARD,
+                borderRadius = 8,
+                borderWidth = isActive and 2 or 1,
+                borderColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.BORDER,
+                fontSize = 13,
+                color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                fontWeight = isActive and "bold" or "normal",
+                onClick = function()
+                    if isActive or not tactTeamId then return end
+                    session:applyCommand({
+                        type = MatchSession.COMMAND.CHANGE_FORMATION,
+                        formation = fmt,
+                        teamId = tactTeamId,
+                    })
+                    Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
+                end,
+            })
+        end
+        table.insert(formationRows, UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            justifyContent = "space-between",
+            marginBottom = 8,
+            children = rowChildren,
+        })
+    end
+
     local rows = {}
     for _, inst in ipairs(TACTICAL_INSTRUCTIONS) do
         local isActive = inst.key == currentInstruction
@@ -1009,13 +1076,6 @@ function MatchLive._buildTacticsPanel(session, fixture)
             flexDirection = "row", alignItems = "center",
             onClick = function()
                 -- 应用真实战术指令（影响后续模拟）
-                local tactTeamId
-                if session._isWC then
-                    local WC = require("scripts/systems/world_cup")
-                    tactTeamId = WC._getPlayerNation(_G.gameState)
-                else
-                    tactTeamId = _G.gameState and _G.gameState.playerTeamId
-                end
                 session:applyCommand({
                     type = MatchSession.COMMAND.CHANGE_INSTRUCTION,
                     instruction = inst.key,
@@ -1042,7 +1102,7 @@ function MatchLive._buildTacticsPanel(session, fixture)
             UI.Panel {
                 width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 10,
                 children = {
-                    UI.Label { text = "战术指示", fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                    UI.Label { text = "阵型与战术", fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                     UI.Button {
                         text = "返回", width = 60, height = 30, borderRadius = 6,
                         backgroundColor = Theme.COLORS.BG_CARD, fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
@@ -1053,10 +1113,21 @@ function MatchLive._buildTacticsPanel(session, fixture)
                 }
             },
             UI.Label {
-                text = "选择战术指示改变球队进攻/防守侧重", fontSize = 12,
+                text = "换阵会保留当前场上球员，并立即影响后续比赛模拟。", fontSize = 12,
                 color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
             },
-            UI.Panel { width = "100%", children = rows },
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "当前阵型：" .. currentFormation },
+                    UI.Panel { width = "100%", marginTop = 8, children = formationRows },
+                }
+            },
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "战术指示：" .. MatchLive._getInstructionLabel(currentInstruction) },
+                    UI.Panel { width = "100%", marginTop = 8, children = rows },
+                }
+            },
         }
     }
 end
@@ -1114,7 +1185,7 @@ function MatchLive._buildHalftimePanel(gameState, session, fixture)
                             },
                             -- 战术调整
                             UI.Button {
-                                text = "调整战术指示",
+                                text = "调整阵型/战术",
                                 width = "100%", height = 44,
                                 backgroundColor = {40, 80, 120, 255},
                                 borderRadius = 8, fontSize = 14, marginBottom = 8,
@@ -1231,7 +1302,7 @@ function MatchLive._buildExtraHalftimePanel(gameState, session, fixture)
                                 end,
                             },
                             UI.Button {
-                                text = "调整战术指示",
+                                text = "调整阵型/战术",
                                 width = "100%", height = 44,
                                 backgroundColor = {40, 80, 120, 255},
                                 borderRadius = 8, fontSize = 14, marginBottom = 8,
@@ -1475,7 +1546,7 @@ function MatchLive._refreshLiveUI()
     _setLabelText(refs.minuteLabel, "  " .. tostring(currentMinute) .. "'")
     _setLabelText(refs.homeScoreLabel, tostring(session.homeGoals))
     _setLabelText(refs.awayScoreLabel, tostring(session.awayGoals))
-    _setLabelText(refs.tacticLabel, "战术：" .. MatchLive._getInstructionLabel(session.tacticalInstruction))
+    _setLabelText(refs.tacticLabel, MatchLive._getTacticsSummary(session, _G.gameState))
 
     local maxMinute = 90
     if session.phase == MatchSession.PHASE.EXTRA_FIRST or session.phase == MatchSession.PHASE.EXTRA_SECOND
@@ -1543,6 +1614,14 @@ function MatchLive._refreshLiveUI()
 end
 
 function MatchLive._getInstructionLabel(key)
+    if type(key) == "string" then
+        local formation = string.match(key, "^formation:(.+)$")
+        if formation then return "阵型 " .. formation end
+
+        local style = string.match(key, "^style:(.+)$")
+        if style then return Constants.PLAY_STYLE_NAMES[style] or style end
+    end
+
     for _, inst in ipairs(TACTICAL_INSTRUCTIONS) do
         if inst.key == key then return inst.label end
     end

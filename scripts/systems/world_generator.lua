@@ -149,7 +149,7 @@ local function generateAttributes(position, overall, age)
         attrs.leadership = attr(2.5)
         attrs.handling = attr(0.3)
         attrs.reflexes = attr(0.3)
-    elseif position == "LW" or position == "RW" or position == "LM" or position == "RM" then
+    elseif position == "LW" or position == "RW" then
         attrs.speed = attr(3.5)
         attrs.dribbling = attr(3.5)
         attrs.agility = attr(3.0)
@@ -169,7 +169,7 @@ local function generateAttributes(position, overall, age)
         attrs.leadership = attr(1.5)
         attrs.handling = attr(0.3)
         attrs.reflexes = attr(0.3)
-    else  -- ST, CF
+    else  -- ST
         attrs.shooting = attr(4.0)
         attrs.composure = attr(3.5)
         attrs.positioning = attr(3.0)
@@ -258,10 +258,10 @@ local function generateSquad(gameState, teamId, country, reputation)
     local defPos = {"CB", "CB", "CB", "LB", "LB", "RB", "RB"}
     for _, p in ipairs(defPos) do table.insert(positions, p) end
     -- 7 MID
-    local midPos = {"CM", "CM", "CM", "CDM", "CAM", "LM", "RM"}
+    local midPos = {"CM", "CM", "CM", "CDM", "CAM", "CM", "CAM"}
     for _, p in ipairs(midPos) do table.insert(positions, p) end
     -- 6 FWD
-    local fwdPos = {"ST", "ST", "CF", "LW", "RW", "ST"}
+    local fwdPos = {"ST", "ST", "ST", "LW", "RW", "ST"}
     for _, p in ipairs(fwdPos) do table.insert(positions, p) end
 
     local team = gameState.teams[teamId]
@@ -500,6 +500,10 @@ function WorldGenerator.generate(gameState, opts)
 
     -- 初始化首赛季欧冠
     ChampionsLeague.initialize(gameState)
+
+    -- 初始化首赛季欧联杯
+    local EuropaLeague = require("scripts/systems/europa_league")
+    EuropaLeague.initialize(gameState)
 
     local ReincarnationManager = require("scripts/systems/reincarnation_manager")
     ReincarnationManager.initNewGame(gameState)

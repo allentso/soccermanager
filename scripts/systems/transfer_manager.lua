@@ -24,8 +24,9 @@ local function fmtMoney(amount)
     end
 end
 
-------------------------------------------------------
--- 报价管理
+local SIGN_CONFIRM_TIMEOUT_DAYS = 5
+local SIGN_CONFIRM_DEFER_DAYS = 3
+
 ------------------------------------------------------
 
 -- 初始化转会数据（如果不存在）
@@ -475,6 +476,29 @@ function TransferManager.getWindowCloseDate(gameState)
     return nil
 end
 
+--- 获取下一个转会窗口开启日期
+--- @return table|nil {year, month, day} 已在窗口期内返回 nil
+function TransferManager.getNextWindowOpenDate(gameState)
+    if not gameState or not gameState.date then return nil end
+    if TransferManager.isInTransferWindow(gameState) then return nil end
+    local month = gameState.date.month
+    local year = gameState.date.year
+    if month >= 2 and month <= 6 then
+        return { year = year, month = 7, day = 1 }
+    elseif month >= 9 and month <= 12 then
+        return { year = year + 1, month = 1, day = 1 }
+    end
+    return nil
+end
+
+--- 计算距离下一个转会窗口开启的天数（已在窗口内返回 0）
+--- @return number
+function TransferManager.daysUntilWindowOpen(gameState)
+    local openDate = TransferManager.getNextWindowOpenDate(gameState)
+    if not openDate then return 0 end
+    return math.max(0, TransferManager._daysBetween(gameState.date, openDate))
+end
+
 --- 计算距离转会窗口关闭的天数
 --- @return number 剩余天数（不在窗口返回999）
 function TransferManager.daysUntilWindowClose(gameState)
@@ -767,7 +791,8 @@ function TransferManager.getPendingTransferSignConfirmations(gameState, teamId)
     local result = {}
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.buyerTeamId == teamId
-            and bid.status == "awaiting_confirmation" then
+            and bid.status == "awaiting_confirmation"
+            and not TransferManager.isSignConfirmDeferred(bid, gameState) then
             local activeLoan = TransferManager.getLoanForPlayer(gameState, bid.playerId)
             if activeLoan and activeLoan.loanTeamId == teamId then
                 TransferManager._cancelStaleLoanBidsForPlayer(gameState, bid.playerId, teamId)
@@ -797,7 +822,8 @@ function TransferManager.getPendingFreeAgentSignConfirmations(gameState, teamId)
     if not gameState.transfers.freeAgentNegos then return {} end
     local result = {}
     for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
-        if nego.teamId == teamId and nego.status == "awaiting_confirmation" then
+        if nego.teamId == teamId and nego.status == "awaiting_confirmation"
+            and not TransferManager.isFreeAgentSignDeferred(nego, gameState) then
             local player = gameState.players[nego.playerId]
             if player then
                 table.insert(result, {
@@ -811,6 +837,80 @@ function TransferManager.getPendingFreeAgentSignConfirmations(gameState, teamId)
         end
     end
     return result
+end
+
+--- 批量确认待签入转会/租借
+---@return number okCount
+---@return number failCount
+---@return string|nil lastErr
+function TransferManager.confirmAllPendingTransfers(gameState, teamId)
+    teamId = teamId or gameState.playerTeamId
+    local pending = TransferManager.getPendingTransferSignConfirmations(gameState, teamId)
+    local okCount, failCount = 0, 0
+    local lastErr = nil
+    for _, item in ipairs(pending) do
+        local bid = TransferManager.getBidById(gameState, item.bidId)
+        if bid and bid.type == "loan" then
+            local confirmed, err = TransferManager.confirmLoan(gameState, item.bidId)
+            if confirmed then
+                okCount = okCount + 1
+            else
+                failCount = failCount + 1
+                lastErr = err
+            end
+        else
+            local result, err = TransferManager.confirmTransfer(gameState, item.bidId)
+            if result then
+                okCount = okCount + 1
+            else
+                failCount = failCount + 1
+                lastErr = err
+            end
+        end
+    end
+    return okCount, failCount, lastErr
+end
+
+--- 批量确认待出售
+---@return number okCount
+---@return number failCount
+---@return string|nil lastErr
+function TransferManager.confirmAllPendingSales(gameState, teamId)
+    teamId = teamId or gameState.playerTeamId
+    local pending = TransferManager.getPendingSaleConfirmations(gameState, teamId)
+    local okCount, failCount = 0, 0
+    local lastErr = nil
+    for _, item in ipairs(pending) do
+        local ok, err = TransferManager.confirmSale(gameState, item.bidId)
+        if ok then
+            okCount = okCount + 1
+        else
+            failCount = failCount + 1
+            lastErr = err
+        end
+    end
+    return okCount, failCount, lastErr
+end
+
+--- 批量确认待签入自由球员
+---@return number okCount
+---@return number failCount
+---@return string|nil lastErr
+function TransferManager.confirmAllPendingFreeAgents(gameState, teamId)
+    teamId = teamId or gameState.playerTeamId
+    local pending = TransferManager.getPendingFreeAgentSignConfirmations(gameState, teamId)
+    local okCount, failCount = 0, 0
+    local lastErr = nil
+    for _, item in ipairs(pending) do
+        local _, err = TransferManager.confirmFreeAgent(gameState, item.negoId)
+        if not err then
+            okCount = okCount + 1
+        else
+            failCount = failCount + 1
+            lastErr = err
+        end
+    end
+    return okCount, failCount, lastErr
 end
 
 -- 获取别队对玩家球队球员的待处理报价（卖方视角）
@@ -1165,6 +1265,103 @@ function TransferManager.cancelTransferConfirmation(gameState, bidId)
         end
     end
     return nil, "未找到待确认的转会"
+end
+
+--- 签入确认是否处于推迟期（推迟期内不阻断时间推进）
+function TransferManager.isSignConfirmDeferred(bid, gameState)
+    if not bid or not bid.confirmDeferredUntil or not gameState or not gameState.date then
+        return false
+    end
+    return TransferManager._daysBetween(gameState.date, bid.confirmDeferredUntil) > 0
+end
+
+function TransferManager.isFreeAgentSignDeferred(nego, gameState)
+    if not nego or not nego.confirmDeferredUntil or not gameState or not gameState.date then
+        return false
+    end
+    return TransferManager._daysBetween(gameState.date, nego.confirmDeferredUntil) > 0
+end
+
+function TransferManager.getSignConfirmDeferDaysLeft(bid, gameState)
+    if not bid or not bid.confirmDeferredUntil then return 0 end
+    return math.max(0, TransferManager._daysBetween(gameState.date, bid.confirmDeferredUntil))
+end
+
+function TransferManager.getFreeAgentSignDeferDaysLeft(nego, gameState)
+    if not nego or not nego.confirmDeferredUntil then return 0 end
+    return math.max(0, TransferManager._daysBetween(gameState.date, nego.confirmDeferredUntil))
+end
+
+function TransferManager.getSignConfirmDeferDays()
+    return SIGN_CONFIRM_DEFER_DAYS
+end
+
+function TransferManager.canDeferTransferSignConfirmation(gameState, bidId)
+    TransferManager._ensureData(gameState)
+    local bid = TransferManager.getBidById(gameState, bidId)
+    if not bid or bid.status ~= "awaiting_confirmation" then return false end
+    if bid.buyerTeamId ~= gameState.playerTeamId then return false end
+    if bid.confirmDeferUsed then return false end
+    if TransferManager.isSignConfirmDeferred(bid, gameState) then return false end
+    return true
+end
+
+function TransferManager.canDeferFreeAgentSignConfirmation(gameState, negoId)
+    TransferManager._ensureData(gameState)
+    if not gameState.transfers.freeAgentNegos then return false end
+    for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
+        if nego.id == negoId and nego.status == "awaiting_confirmation"
+            and nego.teamId == gameState.playerTeamId
+            and not nego.confirmDeferUsed
+            and not TransferManager.isFreeAgentSignDeferred(nego, gameState) then
+            return true
+        end
+    end
+    return false
+end
+
+--- 推迟签入决定 3 天（每笔交易仅可推迟一次；推迟期内可继续推进时间）
+function TransferManager.deferTransferSignConfirmation(gameState, bidId)
+    if not TransferManager.canDeferTransferSignConfirmation(gameState, bidId) then
+        return false, "无法推迟此签约"
+    end
+    local bid = TransferManager.getBidById(gameState, bidId)
+    local player = gameState.players[bid.playerId]
+    bid.confirmDeferUsed = true
+    bid.confirmDeferredUntil = TransferManager._addDays(gameState.date, SIGN_CONFIRM_DEFER_DAYS)
+    gameState:sendMessage({
+        category = "transfer",
+        title = "签约已推迟",
+        body = string.format(
+            "已将 %s 的签入决定推迟 %d 天。你可以在这段时间筹钱或寻找替代人选，到期后需尽快确认。",
+            player and player.displayName or "该球员", SIGN_CONFIRM_DEFER_DAYS),
+        priority = "normal",
+    })
+    return true, nil
+end
+
+function TransferManager.deferFreeAgentSignConfirmation(gameState, negoId)
+    if not TransferManager.canDeferFreeAgentSignConfirmation(gameState, negoId) then
+        return false, "无法推迟此签约"
+    end
+    TransferManager._ensureData(gameState)
+    for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
+        if nego.id == negoId and nego.status == "awaiting_confirmation" then
+            local player = gameState.players[nego.playerId]
+            nego.confirmDeferUsed = true
+            nego.confirmDeferredUntil = TransferManager._addDays(gameState.date, SIGN_CONFIRM_DEFER_DAYS)
+            gameState:sendMessage({
+                category = "transfer",
+                title = "签约已推迟",
+                body = string.format(
+                    "已将自由球员 %s 的签入决定推迟 %d 天。你可以在这段时间筹钱或寻找替代人选，到期后需尽快确认。",
+                    player and player.displayName or "该球员", SIGN_CONFIRM_DEFER_DAYS),
+                priority = "normal",
+            })
+            return true, nil
+        end
+    end
+    return false, "未找到待确认的自由球员签约"
 end
 
 -- 拒绝报价
@@ -4719,10 +4916,14 @@ function TransferManager.processDailyFreeAgentNegos(gameState)
                 end
             end
         elseif nego.status == "awaiting_confirmation" then
-            -- 玩家未及时确认，球员失去耐心（5天超时）
+            if TransferManager.isFreeAgentSignDeferred(nego, gameState) then
+                goto continue_free_nego_timeout
+            end
+            -- 玩家未及时确认，球员失去耐心（5天超时，推迟后延长3天）
             local confirmDate = nego.confirmDate or nego.responseDate or nego.date
             local daysSince = TransferManager._daysBetween(confirmDate, gameState.date)
-            if daysSince >= 5 then
+            local limit = SIGN_CONFIRM_TIMEOUT_DAYS + (nego.confirmDeferUsed and SIGN_CONFIRM_DEFER_DAYS or 0)
+            if daysSince >= limit then
                 nego.status = "rejected"
                 nego.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
                 local player = gameState.players[nego.playerId]
@@ -4735,6 +4936,7 @@ function TransferManager.processDailyFreeAgentNegos(gameState)
                 })
             end
         end
+        ::continue_free_nego_timeout::
     end
 end
 
@@ -5054,7 +5256,8 @@ function TransferManager.getFreeAgents(gameState, positionFilter)
                 positionSet[pos] = true
             end
         else
-            positionSet = { [positionFilter] = true }
+            local normalized = Constants.normalizePosition(positionFilter)
+            positionSet = normalized and { [normalized] = true } or nil
         end
     end
 
@@ -5264,6 +5467,63 @@ function TransferManager._daysBetween(date1, date2)
     local d1 = date1.year * 365 + date1.month * 30 + date1.day
     local d2 = date2.year * 365 + date2.month * 30 + date2.day
     return d2 - d1
+end
+
+function TransferManager._addDays(date, days)
+    local y, m, d = date.year, date.month, date.day + (days or 0)
+    while d > 30 do
+        d = d - 30
+        m = m + 1
+    end
+    while m > 12 do
+        m = m - 12
+        y = y + 1
+    end
+    return { year = y, month = m, day = d }
+end
+
+function TransferManager._getSignConfirmTimeoutDays(bid)
+    return SIGN_CONFIRM_TIMEOUT_DAYS + (bid and bid.confirmDeferUsed and SIGN_CONFIRM_DEFER_DAYS or 0)
+end
+
+function TransferManager._processSignConfirmDeferExpiry(gameState, activeBids)
+    for _, bid in ipairs(activeBids) do
+        if bid.status == "awaiting_confirmation"
+            and bid.buyerTeamId == gameState.playerTeamId
+            and bid.confirmDeferredUntil
+            and not TransferManager.isSignConfirmDeferred(bid, gameState)
+            and not bid.confirmDeferExpiryNotified then
+            bid.confirmDeferExpiryNotified = true
+            bid.confirmDeferredUntil = nil
+            local player = gameState.players[bid.playerId]
+            gameState:sendMessage({
+                category = "transfer",
+                title = "推迟期已结束",
+                body = string.format("%s 的签入决定推迟期已结束，请尽快确认签入或放弃交易。",
+                    player and player.displayName or "该球员"),
+                priority = "high",
+            })
+        end
+    end
+    if not gameState.transfers.freeAgentNegos then return end
+    for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
+        if nego.status == "awaiting_confirmation"
+            and nego.teamId == gameState.playerTeamId
+            and nego.confirmDeferredUntil
+            and not TransferManager.isFreeAgentSignDeferred(nego, gameState)
+            and not nego.confirmDeferExpiryNotified then
+            nego.confirmDeferExpiryNotified = true
+            nego.confirmDeferredUntil = nil
+            local player = gameState.players[nego.playerId]
+            gameState:sendMessage({
+                category = "transfer",
+                title = "推迟期已结束",
+                body = string.format("自由球员 %s 的签入决定推迟期已结束，请尽快确认签入或放弃签约。",
+                    player and player.displayName or "该球员"),
+                priority = "high",
+            })
+        end
+    end
 end
 
 --- 队均 OVR 缓存代次：在每个转会处理 pass 开始时递增（覆盖跨日成长/伤退），
@@ -6703,13 +6963,19 @@ function TransferManager.processDailyBids(gameState)
         end
     end
 
-    -- awaiting_confirmation 状态超时处理（5天未确认则取消）
+    -- 推迟期结束提醒
+    TransferManager._processSignConfirmDeferExpiry(gameState, activeBids)
+
+    -- awaiting_confirmation 状态超时处理（5天未确认则取消，推迟后延长3天）
     for _, bid in ipairs(activeBids) do
         if bid.status == "awaiting_confirmation" then
+            if TransferManager.isSignConfirmDeferred(bid, gameState) then
+                goto continueAwaitingConfirm
+            end
             local refDate = bid.confirmDate or bid.feeAgreedDate
             if not refDate then goto continueAwaitingConfirm end
             local daysSinceConfirm = TransferManager._daysBetween(refDate, gameState.date)
-            if daysSinceConfirm >= 5 then
+            if daysSinceConfirm >= TransferManager._getSignConfirmTimeoutDays(bid) then
                 local player = gameState.players[bid.playerId]
                 TransferManager._rejectBid(gameState, bid,
                     string.format("%s 等待你的答复太久，决定不再等待。",

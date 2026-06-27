@@ -399,6 +399,14 @@ local function buildWorldHistoryTab(team, gameState, teamId)
                 color = COLORS.PRIMARY,
             })
         end
+        if record.uelChampion and record.uelChampion.teamId == teamId then
+            table.insert(honors, {
+                season = record.season,
+                title = "欧洲联赛",
+                detail = "冠军",
+                color = {80, 140, 220, 255},
+            })
+        end
         for _, cupData in pairs(record.domesticCups or {}) do
             if cupData.winnerId == teamId then
                 table.insert(honors, {
@@ -421,7 +429,7 @@ local function buildWorldHistoryTab(team, gameState, teamId)
                 paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
                 children = {
                     UI.Label { text = "第" .. tostring(h.season or "?") .. "季", width = 70, fontSize = 10, color = COLORS.TEXT_MUTED },
-                    UI.Label { text = tostring(h.title or "?"), flex = 1, fontSize = 12, fontWeight = "bold", color = COLORS.WARNING },
+                    UI.Label { text = tostring(h.title or "?"), flex = 1, fontSize = 12, fontWeight = "bold", color = h.color or COLORS.WARNING },
                     UI.Label { text = tostring(h.detail or ""), fontSize = 11, color = COLORS.TEXT_SECONDARY },
                 }
             })
@@ -478,7 +486,7 @@ local function buildWorldHistoryTab(team, gameState, teamId)
                     { label = "MVP", data = la.bestPlayer, detailKey = "score", suffix = "分" },
                     { label = "新秀", data = la.bestYoungPlayer, detailKey = "age", suffix = "岁" },
                     { label = "助攻王", data = la.topAssists or la.bestAssist, detailKey = "assists", suffix = "次" },
-                    { label = "金手套", data = la.bestGoalkeeper, detailKey = "cleanSheets", suffix = "零封" },
+                    { label = "金手套", data = la.goldenGlove or la.bestGoalkeeper, detailKey = "cleanSheets", suffix = "零封" },
                 }
                 for _, item in ipairs(awardItems) do
                     local data = item.data

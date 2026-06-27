@@ -325,7 +325,7 @@ end
 -- 个人训练标签
 function Training._buildIndividualTab(players, gameState)
     -- 按位置排序
-    local posOrder = {GK=1, CB=2, LB=3, RB=4, CDM=5, CM=6, LM=7, RM=8, CAM=9, LW=10, RW=11, CF=12, ST=13}
+    local posOrder = {GK=1, CB=2, LB=3, RB=4, CDM=5, CM=6, CAM=7, LW=8, RW=9, ST=10}
     table.sort(players, function(a, b)
         local oa = posOrder[a.position] or 99
         local ob = posOrder[b.position] or 99
@@ -805,7 +805,7 @@ function Training._applyGroupPreset(team, players)
     local defenseGroup = { focus = "defense", playerIds = {} }
     local fitnessGroup = { focus = "fitness", playerIds = {} }
 
-    local attackPos = { ST = true, CF = true, LW = true, RW = true, CAM = true }
+    local attackPos = { ST = true, LW = true, RW = true, CAM = true }
     local defensePos = { CB = true, LB = true, RB = true, GK = true, CDM = true }
 
     for _, p in ipairs(players) do
@@ -914,7 +914,7 @@ function Training._showEditGroupOverlay(team, groupName, players, gameState)
 
     -- 构建球员切换列表
     local playerRows = {}
-    local posOrder = {GK=1, CB=2, LB=3, RB=4, CDM=5, CM=6, LM=7, RM=8, CAM=9, LW=10, RW=11, CF=12, ST=13}
+    local posOrder = {GK=1, CB=2, LB=3, RB=4, CDM=5, CM=6, CAM=7, LW=8, RW=9, ST=10}
     local sortedPlayers = {}
     for _, p in ipairs(players) do
         if not p.injured then table.insert(sortedPlayers, p) end

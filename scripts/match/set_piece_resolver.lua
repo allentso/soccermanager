@@ -146,7 +146,7 @@ end
 local function positionGroup(position)
     if position == "GK" then return "GK" end
     if position == "CB" or position == "LB" or position == "RB" then return "DEF" end
-    if position == "ST" or position == "CF" or position == "LW" or position == "RW" then return "FWD" end
+    if position == "ST" or position == "LW" or position == "RW" then return "FWD" end
     return "MID"
 end
 

@@ -223,11 +223,13 @@ function MatchReport.enrichFromFixture(report, fixture, gameState)
     return report
 end
 
-local function _findUclLeg1(fixture, gameState)
-    if not fixture or not fixture._isUCL or fixture.leg ~= 2 then return nil end
-    local ucl = gameState and gameState.championsLeague
-    if not ucl or not ucl.knockout then return nil end
-    local fixtures = ucl.knockout[ucl.phase]
+local function _findContinentalLeg1(fixture, gameState)
+    if not fixture or fixture.leg ~= 2 then return nil end
+    if not fixture._isUCL and not fixture._isUEL then return nil end
+
+    local tournament = fixture._isUCL and gameState.championsLeague or gameState.europaLeague
+    if not tournament or not tournament.knockout then return nil end
+    local fixtures = tournament.knockout[tournament.phase]
     if not fixtures then return nil end
     for _, f in ipairs(fixtures) do
         if f.matchIndex == fixture.matchIndex and f.leg == 1 and f.status == "finished" then
@@ -237,8 +239,12 @@ local function _findUclLeg1(fixture, gameState)
     return nil
 end
 
+local function _findUclLeg1(fixture, gameState)
+    return _findContinentalLeg1(fixture, gameState)
+end
+
 function MatchReport.formatUclAggregate(fixture, gameState)
-    local leg1 = _findUclLeg1(fixture, gameState)
+    local leg1 = _findContinentalLeg1(fixture, gameState)
     if not leg1 then return nil end
     local agg1 = (leg1.homeGoals or 0) + (fixture.awayGoals or 0)
     local agg2 = (leg1.awayGoals or 0) + (fixture.homeGoals or 0)
@@ -256,7 +262,7 @@ function MatchReport.formatExtraTimeDetail(homeGoals, awayGoals, extraTime, fixt
     local penAway = pen and (pen.awayScore or pen.awayScored or 0) or nil
 
     -- 欧冠次回合总比分决胜：加时独立模拟，进球不计入 90 分钟比分
-    local etSeparate = fixture and fixture._isUCL and fixture.leg == 2
+    local etSeparate = fixture and (fixture._isUCL or fixture._isUEL) and fixture.leg == 2
 
     if penHome ~= nil then
         if etSeparate then
@@ -370,6 +376,7 @@ function MatchReport.getFixtureTags(gameState, fixture, perspectiveTeamId)
     if not fixture or not gameState then return tags end
 
     if fixture._isUCL then table.insert(tags, "ucl")
+    elseif fixture._isUEL then table.insert(tags, "uel")
     elseif fixture._isDomesticCup then table.insert(tags, "cup")
     elseif fixture._isWC or fixture._isEuro then table.insert(tags, "intl")
     end

@@ -53,6 +53,50 @@ function MatchSession._cloneStartingXI(xi)
     return cloneStartingXI(xi)
 end
 
+local function rearrangeOnPitchLineup(gameState, team, lineup)
+    if not gameState or not team or not lineup then return lineup end
+
+    local FormationShape = require("scripts/match/formation_shape")
+    local PositionFit = require("scripts/domain/position_fit")
+    local slots = FormationShape.getFormationSlots(team)
+    local currentPlayerIds = {}
+    local seen = {}
+    for i = 1, 11 do
+        local pid = lineup[i]
+        if pid and not seen[pid] and gameState.players[pid] then
+            currentPlayerIds[#currentPlayerIds + 1] = pid
+            seen[pid] = true
+        end
+    end
+
+    local arranged = {}
+    local used = {}
+    for slotIdx = 1, math.min(#slots, #currentPlayerIds) do
+        local slot = slots[slotIdx]
+        local bestPid = nil
+        local bestScore = -1
+        for _, pid in ipairs(currentPlayerIds) do
+            if not used[pid] then
+                local player = gameState.players[pid]
+                local score = PositionFit.getPositionScore(player, slot)
+                if lineup[slotIdx] == pid then
+                    score = score * 1.03
+                end
+                if score > bestScore then
+                    bestScore = score
+                    bestPid = pid
+                end
+            end
+        end
+        if bestPid then
+            arranged[slotIdx] = bestPid
+            used[bestPid] = true
+        end
+    end
+
+    return arranged
+end
+
 function MatchSession._initLineupTracking(self, homeTeam, awayTeam, homeContext, awayContext)
     self.kickoffStartingXI = {
         home = cloneStartingXI(homeTeam and homeTeam.startingXI),
@@ -93,21 +137,18 @@ end
 ---@return table|nil
 function MatchSession._resolveTwoLegAggregate(gameState, fixture)
     if fixture.leg ~= 2 or not fixture.matchIndex then return nil end
-    if not fixture._isUCL then return nil end
+    if not fixture._isUCL and not fixture._isUEL then return nil end
 
-    local ucl = gameState.championsLeague
-    if not ucl or not ucl.knockout then return nil end
+    local tournament = fixture._isUCL and gameState.championsLeague or gameState.europaLeague
+    if not tournament or not tournament.knockout then return nil end
 
-    -- 查找当前阶段的所有 fixture
     local knockoutPhases = {"playoff", "r16", "qf", "sf"}
     for _, phase in ipairs(knockoutPhases) do
-        if ucl.phase == phase or ucl.knockout[phase] then
-            local fixtures = ucl.knockout[phase]
+        if tournament.phase == phase or tournament.knockout[phase] then
+            local fixtures = tournament.knockout[phase]
             if fixtures then
                 for _, f in ipairs(fixtures) do
                     if f.matchIndex == fixture.matchIndex and f.leg == 1 and f.status == "finished" then
-                        -- 第一回合：home 是 team1，away 是 team2
-                        -- 第二回合：home 是 team2，away 是 team1（主客互换）
                         return { leg1Home = f.homeGoals, leg1Away = f.awayGoals }
                     end
                 end
@@ -685,15 +726,20 @@ function MatchSession:_applyFormationChange(command)
         context = self.awayContext
     end
 
+    local side = teamId == self.fixture.homeTeamId and "home" or "away"
     local team = context.team
     if team then
         team.formation = newFormation
         -- 切阵型时重置变体为新阵型默认变体
         local Constants = require("scripts/app/constants")
         team.formationVariant = Constants.getDefaultVariant(newFormation)
+        team.customSlots = nil
+        team.slotOffsets = nil
+        if self.shadowLineup and self.shadowLineup[side] then
+            self.shadowLineup[side] = rearrangeOnPitchLineup(self.gameState, team, self.shadowLineup[side])
+        end
     end
 
-    local side = teamId == self.fixture.homeTeamId and "home" or "away"
     self:_recalculateContext(context, side)
 
     table.insert(self.events, {

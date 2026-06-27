@@ -5,6 +5,20 @@
 local TacticsResolver = require("scripts/match/tactics_resolver")
 local MatchReport = require("scripts/match/match_report")
 local PlaceholderEngine = require("scripts/match/placeholder_engine")
+
+local function saveIfPlayerFixture(gameState, fixture)
+    if not gameState or not fixture then return end
+    local playerTeamId = gameState.playerTeamId
+    local playerNation = gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation
+    local isClub = playerTeamId
+        and (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
+    local isNat = playerNation
+        and (fixture.homeTeamId == playerNation or fixture.awayTeamId == playerNation)
+    if isClub or isNat then
+        local SaveManager = require("scripts/persistence/save_manager")
+        SaveManager.save(gameState, "auto")
+    end
+end
 local MatchSession = require("scripts/match/match_session")
 local TraitEffects = require("scripts/match/trait_effects")
 local SetPieceResolver = require("scripts/match/set_piece_resolver")
@@ -43,7 +57,7 @@ end
 local function positionGroup(position)
     if position == "GK" then return "GK" end
     if position == "CB" or position == "LB" or position == "RB" then return "DEF" end
-    if position == "ST" or position == "CF" or position == "LW" or position == "RW" then return "FWD" end
+    if position == "ST" or position == "LW" or position == "RW" then return "FWD" end
     return "MID"
 end
 
@@ -845,15 +859,20 @@ function MatchEngine.finishMatch(session, gameState, fixture)
     if fixture._isEuro then
         local TurnProcessor = require("scripts/core/turn_processor")
         TurnProcessor._applyEuroResult(gameState, fixture, report)
+        saveIfPlayerFixture(gameState, fixture)
         return report
     elseif fixture._isWC then
         local TurnProcessor = require("scripts/core/turn_processor")
         TurnProcessor._applyWCResult(gameState, fixture, report)
+        saveIfPlayerFixture(gameState, fixture)
         -- 世界杯比赛不更新俱乐部士气/声望/财务
         return report
     elseif fixture._isUCL then
         local TurnProcessor = require("scripts/core/turn_processor")
         TurnProcessor._applyUCLResult(gameState, fixture, report)
+    elseif fixture._isUEL then
+        local TurnProcessor = require("scripts/core/turn_processor")
+        TurnProcessor._applyUELResult(gameState, fixture, report)
     elseif fixture._isDomesticCup then
         local DomesticCup = require("scripts/systems/domestic_cup")
         DomesticCup.applyResult(gameState, fixture, report)
@@ -872,7 +891,9 @@ function MatchEngine.finishMatch(session, gameState, fixture)
         local awayTeam = gameState.teams[fixture.awayTeamId]
         local homeName = homeTeam and homeTeam.name or "主队"
         local awayName = awayTeam and awayTeam.name or "客队"
-        local prefix = fixture._isUCL and "[欧冠] " or ""
+        local prefix = fixture._isUCL and "[欧冠] "
+            or (fixture._isUEL and "[欧联杯] ")
+            or ""
         gameState:sendMessage({
             category = "match_result",
             title = prefix .. "比赛结果",
@@ -890,6 +911,8 @@ function MatchEngine.finishMatch(session, gameState, fixture)
             awayName = awayName,
         })
     end
+
+    saveIfPlayerFixture(gameState, fixture)
 
     return report
 end
