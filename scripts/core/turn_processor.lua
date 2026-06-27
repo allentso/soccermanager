@@ -1258,6 +1258,7 @@ local EURO_KNOCKOUT_PHASES = { "r16", "qf", "sf", "final" }
 function TurnProcessor._getPlayersWhoPlayedOnDate(gameState, date)
     local played = {}
     local PlaceholderEngine = require("scripts/match/placeholder_engine")
+    local key = _dateKey(date)
 
     local function markFixture(f)
         if not f or f.status ~= "finished" or not _datesEqual(f.date, date) then return end
@@ -1273,8 +1274,9 @@ function TurnProcessor._getPlayersWhoPlayedOnDate(gameState, date)
         end
     end
 
-    for _, lg in pairs(gameState.leagues or {}) do
-        for _, f in ipairs(lg.fixtures or {}) do
+    if key then
+        local bucket = _ensureLeagueFixtureDateIndex(gameState)[key]
+        for _, f in ipairs(bucket or {}) do
             markFixture(f)
         end
     end

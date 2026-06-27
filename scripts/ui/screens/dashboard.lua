@@ -344,6 +344,16 @@ function Dashboard.create(params)
         end
     end
 
+    local function ensureProgressRepair()
+        if gameState._cheatAutoPlay or gameState._stuckProgressRepairDone then return end
+        local RealDataLoader = require("scripts/data/real_data_loader")
+        RealDataLoader.fixMisalignedLeagueFixtures(gameState)
+        TurnProcessor.invalidateFixtureCaches(gameState)
+        -- 先补模拟其他球队的逾期比赛（否则 advanceDay 被拦截时积分榜永远不更新）
+        TurnProcessor.repairStuckProgressOnLoad(gameState)
+        gameState._stuckProgressRepairDone = true
+    end
+
     -- 通用推进回调
     local function doAdvanceDay()
         -- 如果有未完成的玩家比赛，先处理它（不推进日期）
@@ -367,14 +377,7 @@ function Dashboard.create(params)
         -- 如果有，直接展示给玩家而不消耗日历天数，避免雪球效应
         if not gameState._cheatAutoPlay then
             -- 旧档补救只需要在读档/首次继续时跑一次；后续每次点击只做轻量 peek。
-            if not gameState._stuckProgressRepairDone then
-                local RealDataLoader = require("scripts/data/real_data_loader")
-                RealDataLoader.fixMisalignedLeagueFixtures(gameState)
-                TurnProcessor.invalidateFixtureCaches(gameState)
-                -- 先补模拟其他球队的逾期比赛（否则 advanceDay 被拦截时积分榜永远不更新）
-                TurnProcessor.repairStuckProgressOnLoad(gameState)
-                gameState._stuckProgressRepairDone = true
-            end
+            ensureProgressRepair()
             local overdueFixture = TurnProcessor.peekOverduePlayerFixture(gameState)
             if overdueFixture then
                 overdueFixture._pendingPlayerMatch = true
@@ -477,6 +480,15 @@ function Dashboard.create(params)
     end
 
     local function runOneSkipDayStep(stopAt)
+        if not gameState._cheatAutoPlay then
+            ensureProgressRepair()
+            local overdueFixture = TurnProcessor.peekOverduePlayerFixture(gameState)
+            if overdueFixture then
+                overdueFixture._pendingPlayerMatch = true
+                return "player_match", overdueFixture
+            end
+        end
+
         local prevSeason = gameState.season
         local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
         if not ok then
@@ -582,22 +594,36 @@ function Dashboard.create(params)
         })
     end
 
-    local function doAdvanceDayForButton()
-        if daysToMatch == 1 and not gameState.pendingPlayerFixture then
-            DayAdvanceOverlay.run({
-                gameState = gameState,
-                totalSteps = 1,
-                minStepsForOverlay = 1,
-                title = "进入比赛日",
-                message = "正在模拟同日其他比赛和日常事务，游戏没有卡死，请稍候…",
-                stepFn = function()
-                    return runOneSkipDayStep("match")
-                end,
-                onComplete = finishSkipAdvance,
-            })
+    local function finishContinueAdvance(reason, playerFixture)
+        if reason == "done" then
+            showPopupMessages(function()
+                Router.replaceWith("dashboard")
+            end)
             return
         end
-        doAdvanceDay()
+        finishSkipAdvance(reason, playerFixture)
+    end
+
+    local function doAdvanceDayForButton()
+        if gameState.pendingPlayerFixture or daysToMatch == 0 then
+            doAdvanceDay()
+            return
+        end
+
+        local enteringMatchDay = (daysToMatch == 1)
+        DayAdvanceOverlay.run({
+            gameState = gameState,
+            totalSteps = 1,
+            minStepsForOverlay = 1,
+            title = enteringMatchDay and "进入比赛日" or "继续推进",
+            message = enteringMatchDay
+                and "正在模拟同日其他比赛和日常事务，游戏没有卡死，请稍候…"
+                or "正在处理训练、体能恢复、转会与消息，游戏没有卡死，请稍候…",
+            stepFn = function()
+                return runOneSkipDayStep("match")
+            end,
+            onComplete = finishContinueAdvance,
+        })
     end
 
     -- 判断当前身份
