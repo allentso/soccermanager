@@ -159,6 +159,16 @@ function Dashboard._shouldOfferSkipToMatch(gameState, daysToMatch)
     return daysToMatch and daysToMatch > 1
 end
 
+--- 仅当转会窗是最近的可快进目标时显示「快进到转会窗」
+function Dashboard._shouldOfferSkipToTransferWindow(gameState, daysToTransferWindow, daysToMatch, nextFixture)
+    if TransferManager.isInTransferWindow(gameState) then return false end
+    if not daysToTransferWindow or daysToTransferWindow <= 1 then return false end
+    if nextFixture and daysToMatch and daysToMatch <= daysToTransferWindow then
+        return false
+    end
+    return true
+end
+
 ------------------------------------------------------
 -- 主入口
 ------------------------------------------------------
@@ -184,9 +194,8 @@ function Dashboard.create(params)
     -- 跳到比赛日 / 转会窗（使用统一搜索）
     local daysToMatch, todayFixtureRef = Dashboard._findNextMatch(gameState)
     local daysToTransferWindow = TransferManager.daysUntilWindowOpen(gameState)
-    local inTransferWindow = TransferManager.isInTransferWindow(gameState)
-    local offerSkipToTransferWindow = not inTransferWindow and daysToTransferWindow > 1
     local offerSkipToMatch = Dashboard._shouldOfferSkipToMatch(gameState, daysToMatch)
+    local offerSkipToTransferWindow = Dashboard._shouldOfferSkipToTransferWindow(gameState, daysToTransferWindow, daysToMatch, todayFixtureRef)
 
     -- 弹窗消息处理：依次弹出 popup 消息，全部处理完后执行 onDone 回调
     local function runPopupAction(actionId, data)
@@ -325,6 +334,16 @@ function Dashboard.create(params)
         end
     end
 
+    local function saveAutoIfNeeded()
+        if gameState._turnCount and gameState._lastAutoSaveTurn == gameState._turnCount then
+            return
+        end
+        SaveManager.save(gameState, "auto")
+        if gameState._turnCount then
+            gameState._lastAutoSaveTurn = gameState._turnCount
+        end
+    end
+
     -- 通用推进回调
     local function doAdvanceDay()
         -- 如果有未完成的玩家比赛，先处理它（不推进日期）
@@ -380,7 +399,7 @@ function Dashboard.create(params)
 
         -- 如果赛季发生了变更（season_end handler 已经导航到赛季总结页），不要覆盖导航
         if gameState.season ~= prevSeason then
-            SaveManager.save(gameState, "auto")
+            saveAutoIfNeeded()
             return
         end
 
@@ -400,7 +419,7 @@ function Dashboard.create(params)
         end
         if playerFixture and playerFixture._pendingPlayerMatch then
             -- 比赛日：关键节点保存后，先弹窗再进入赛前
-            SaveManager.save(gameState, "auto")
+            saveAutoIfNeeded()
             showPopupMessages(function()
                 Router.navigate("pre_match", { fixture = playerFixture })
             end)
@@ -427,31 +446,31 @@ function Dashboard.create(params)
 
     local function finishSkipAdvance(reason, playerFixture)
         if reason == "season_end" then
-            SaveManager.save(gameState, "auto")
+            saveAutoIfNeeded()
             return
         end
         if reason == "transfer_window" then
-            SaveManager.save(gameState, "auto")
+            saveAutoIfNeeded()
             showPopupMessages(function()
                 Router.replaceWith("dashboard")
             end)
             return
         end
         if reason == "popup" then
-            SaveManager.save(gameState, "auto")
+            saveAutoIfNeeded()
             showPopupMessages(function()
                 Router.replaceWith("dashboard")
             end)
             return
         end
         if reason == "player_match" and playerFixture then
-            SaveManager.save(gameState, "auto")
+            saveAutoIfNeeded()
             showPopupMessages(function()
                 Router.navigate("pre_match", { fixture = playerFixture })
             end)
             return
         end
-        SaveManager.save(gameState, "auto")
+        saveAutoIfNeeded()
         showPopupMessages(function()
             Router.replaceWith("dashboard")
         end)
@@ -469,21 +488,21 @@ function Dashboard.create(params)
             return "season_end"
         end
 
-        if stopAt == "transfer_window" and TransferManager.isInTransferWindow(gameState) then
-            return "transfer_window"
-        end
-
         local popupQueue = gameState._popupQueue or {}
         if #popupQueue > 0 then
             return "popup"
         end
 
-        if stopAt == "match" and fixtures and #fixtures > 0 then
+        if fixtures and #fixtures > 0 then
             for _, f in ipairs(fixtures) do
                 if f._pendingPlayerMatch then
                     return "player_match", f
                 end
             end
+        end
+
+        if stopAt == "transfer_window" and TransferManager.isInTransferWindow(gameState) then
+            return "transfer_window"
         end
 
         return "continue"
@@ -552,7 +571,7 @@ function Dashboard.create(params)
             end,
             onComplete = function(reason, playerFixture)
                 if reason == "done" then
-                    SaveManager.save(gameState, "auto")
+                    saveAutoIfNeeded()
                     showPopupMessages(function()
                         Router.replaceWith("dashboard")
                     end)
@@ -561,6 +580,24 @@ function Dashboard.create(params)
                 finishSkipAdvance(reason, playerFixture)
             end,
         })
+    end
+
+    local function doAdvanceDayForButton()
+        if daysToMatch == 1 and not gameState.pendingPlayerFixture then
+            DayAdvanceOverlay.run({
+                gameState = gameState,
+                totalSteps = 1,
+                minStepsForOverlay = 1,
+                title = "进入比赛日",
+                message = "正在模拟同日其他比赛和日常事务，游戏没有卡死，请稍候…",
+                stepFn = function()
+                    return runOneSkipDayStep("match")
+                end,
+                onComplete = finishSkipAdvance,
+            })
+            return
+        end
+        doAdvanceDay()
     end
 
     -- 判断当前身份
@@ -599,7 +636,7 @@ function Dashboard.create(params)
             -- 顶部状态栏：日期 + 推进按钮
             Dashboard._buildTopBar(
                 gameState, team, isBlocked, hasAnyBlockers, blockers,
-                daysToMatch, doAdvanceDay, doSkipToMatchDay,
+                daysToMatch, doAdvanceDayForButton, doSkipToMatchDay,
                 offerSkipToTransferWindow, daysToTransferWindow, doSkipToTransferWindow,
                 offerSkipToMatch
             ),
@@ -804,10 +841,10 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
             end,
         })
     elseif offerSkipToTransferWindow then
-        -- 窗外观赛期：快进到转会窗开启（赛季结束后优先处理转会）
+        -- 快进到下一转会窗；仅在它比下一场比赛更近时显示
         table.insert(children, UI.Button {
-            text = ">>" .. daysToTransferWindow .. "天",
-            width = 64,
+            text = "转窗" .. daysToTransferWindow .. "天",
+            width = 72,
             height = 30,
             backgroundColor = hasAnyBlockers and Theme.COLORS.BG_SURFACE or Theme.COLORS.BG_CARD_ELEVATED,
             borderRadius = 6,

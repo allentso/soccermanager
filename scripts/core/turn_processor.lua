@@ -1178,6 +1178,7 @@ function TurnProcessor._processPeriodicEvents(gameState)
     if SettingsManager.shouldAutoSave(gameState._turnCount) then
         local SaveManager = require("scripts/persistence/save_manager")
         SaveManager.save(gameState, "auto")
+        gameState._lastAutoSaveTurn = gameState._turnCount
     end
 end
 

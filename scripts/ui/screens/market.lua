@@ -1730,7 +1730,8 @@ function Market._buildListedContent(gameState)
     else
         local inTransferWindow = TransferManager.isInTransferWindow(gameState)
         for _, p in ipairs(listedPlayers) do
-            local hasBid = TransferManager.hasPendingIncomingBid(gameState, p.id)
+            local incomingBids = TransferManager.getIncomingBidsForPlayer(gameState, p.id)
+            local hasBid = #incomingBids > 0
             local posColor = Theme.posColor(p.position)
 
             -- 获取报价信息（状态优先，避免列表与弹窗展示不同 bid）
@@ -1740,7 +1741,11 @@ function Market._buildListedContent(gameState)
             local primaryBid = nil
             if hasBid then
                 primaryBid = TransferManager.pickPrimaryIncomingSaleBid(gameState, p.id)
-                if primaryBid then
+                if #incomingBids > 1 then
+                    bidInfo = string.format("%d份报价 · 最高 %s", #incomingBids, Market._formatValue(incomingBids[1].amount or 0))
+                    bidColor = Theme.COLORS.ACCENT
+                    btnText = "处理"
+                elseif primaryBid then
                     local buyer = gameState.teams[primaryBid.buyerTeamId]
                     if primaryBid.status == "counter_pending" then
                         bidInfo = "还价中 · 等待" .. (buyer and buyer.name or "对方") .. "回复"
@@ -1793,6 +1798,10 @@ function Market._buildListedContent(gameState)
                                 borderRadius = 6, fontSize = 12,
                                 color = {255, 255, 255, 255},
                                 onClick = function()
+                                    if #incomingBids > 1 then
+                                        Market._showOfferSheet(gameState, p)
+                                        return
+                                    end
                                     if primaryBid and primaryBid.status == "awaiting_sale_confirmation" then
                                         local batchSales = TransferManager.getPendingSaleConfirmations(gameState, team.id)
                                         if #batchSales > 1 then
@@ -2579,7 +2588,8 @@ function Market._showFreeAgentConfirmSheet(gameState, nego)
     })
 end
 
-function Market._showOfferSheet(gameState, player, preferredBid)
+function Market._showOfferSheet(gameState, player, preferredBid, opts)
+    opts = opts or {}
     if preferredBid and preferredBid.playerId == player.id then
         -- 深链或列表已选定 bid，直接展示
     else
@@ -2598,15 +2608,9 @@ function Market._showOfferSheet(gameState, player, preferredBid)
     end
     if #allBids == 0 and not preferredBid then return end
 
-    if not preferredBid and #allBids > 1 then
-        local allPending = true
-        for _, b in ipairs(allBids) do
-            if b.status ~= "pending" then allPending = false; break end
-        end
-        if allPending then
-            Market._showCompetingOffersSheet(gameState, player, allBids)
-            return
-        end
+    if not opts.forceSingle and #allBids > 1 then
+        Market._showCompetingOffersSheet(gameState, player, allBids)
+        return
     end
 
     local bid = preferredBid or TransferManager.pickPrimaryIncomingSaleBid(gameState, player.id)
@@ -2914,24 +2918,143 @@ function Market._showCompetingOffersSheet(gameState, player, bids)
     local playerValue = player.value or 0
     local bidCards = {}
 
+    local function statusMeta(bid)
+        if bid.status == "awaiting_sale_confirmation" then
+            return "待最终确认", Theme.COLORS.SECONDARY
+        elseif bid.status == "counter_pending" then
+            return "还价中", Theme.COLORS.WARNING
+        elseif bid.status == "player_considering_sale" then
+            return "球员考虑中", {255, 180, 60, 255}
+        end
+        return "待处理", Theme.COLORS.ACCENT
+    end
+
+    local function reopenRemaining()
+        local remaining = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
+        if #remaining > 1 then
+            Market._showCompetingOffersSheet(gameState, player, remaining)
+        elseif #remaining == 1 then
+            Market._showOfferSheet(gameState, player, remaining[1], { forceSingle = true })
+        else
+            Router.replaceWith("market", { tab = "listed" })
+        end
+    end
+
     for i, bid in ipairs(bids) do
         local buyerTeam = gameState.teams[bid.buyerTeamId]
         local buyerName = buyerTeam and buyerTeam.name or "未知球队"
         local ratio = playerValue > 0 and math.floor(bid.amount / playerValue * 100) or 0
         local ratioColor = ratio >= 100 and Theme.COLORS.SECONDARY or
                            ratio >= 80  and Theme.COLORS.WARNING or Theme.COLORS.DANGER
+        local statusText, statusColor = statusMeta(bid)
+        local detailText = Market._formatValue(bid.amount or 0)
+        if bid.status == "counter_pending" then
+            detailText = string.format("原报价 %s · 你的要价 %s",
+                Market._formatValue(bid.amount or 0),
+                Market._formatValue(bid.counterAskAmount or bid.amount or 0))
+        elseif bid.status == "awaiting_sale_confirmation" then
+            detailText = "成交金额 " .. Market._formatValue(bid.amount or 0)
+        elseif bid.status == "player_considering_sale" then
+            detailText = "已接受报价 " .. Market._formatValue(bid.amount or 0)
+        end
+
+        local actionChildren = {}
+        if bid.status == "pending" then
+            table.insert(actionChildren, UI.Button {
+                text = "处理",
+                flexGrow = 1, height = 34, marginRight = 4,
+                backgroundColor = Theme.COLORS.SECONDARY,
+                borderRadius = 6, fontSize = 12,
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    BottomSheet.close()
+                    Market._showOfferSheet(gameState, player, bid, { forceSingle = true })
+                end,
+            })
+            table.insert(actionChildren, UI.Button {
+                text = "拒绝",
+                width = 60, height = 34,
+                backgroundColor = {60, 40, 40, 255},
+                borderRadius = 6, fontSize = 12,
+                color = Theme.COLORS.DANGER,
+                onClick = function()
+                    TransferManager.rejectIncomingBid(gameState, bid.id)
+                    UI.Toast.Show({ message = "已拒绝 " .. buyerName .. " 的报价", variant = "info" })
+                    BottomSheet.close()
+                    reopenRemaining()
+                end,
+            })
+        elseif bid.status == "awaiting_sale_confirmation" then
+            table.insert(actionChildren, UI.Button {
+                text = "确认出售",
+                flexGrow = 1, height = 34, marginRight = 4,
+                backgroundColor = Theme.COLORS.SECONDARY,
+                borderRadius = 6, fontSize = 12, fontWeight = "bold",
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    ConfirmDialog.show({
+                        title = "确认出售",
+                        message = string.format("确认以 %s 将 %s 出售给 %s？",
+                            Market._formatValue(bid.amount or 0), player.displayName, buyerName),
+                        confirmText = "确认出售",
+                        onConfirm = function()
+                            local ok, err = TransferManager.confirmSale(gameState, bid.id)
+                            if ok then
+                                UI.Toast.Show({ message = player.displayName .. " 已出售", variant = "success" })
+                            else
+                                AudioManager.deny()
+                                UI.Toast.Show({ message = err or "出售失败", variant = "error" })
+                            end
+                            BottomSheet.close()
+                            reopenRemaining()
+                        end,
+                    })
+                end,
+            })
+            table.insert(actionChildren, UI.Button {
+                text = "取消",
+                width = 60, height = 34,
+                backgroundColor = {60, 40, 40, 255},
+                borderRadius = 6, fontSize = 12,
+                color = Theme.COLORS.DANGER,
+                onClick = function()
+                    TransferManager.cancelSale(gameState, bid.id)
+                    UI.Toast.Show({ message = "已取消 " .. buyerName .. " 的交易", variant = "info" })
+                    BottomSheet.close()
+                    reopenRemaining()
+                end,
+            })
+        else
+            table.insert(actionChildren, UI.Button {
+                text = "查看",
+                flexGrow = 1, height = 34,
+                backgroundColor = {38, 46, 71, 255},
+                borderRadius = 6, fontSize = 12,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                onClick = function()
+                    BottomSheet.close()
+                    Market._showOfferSheet(gameState, player, bid, { forceSingle = true })
+                end,
+            })
+        end
 
         table.insert(bidCards, UI.Panel {
             width = "100%", backgroundColor = {30, 38, 55, 255},
             borderRadius = 8, padding = 10, marginBottom = 8,
-            borderWidth = i == 1 and 1 or 0,
-            borderColor = i == 1 and Theme.COLORS.ACCENT or nil,
+            borderWidth = 1,
+            borderColor = i == 1 and Theme.COLORS.ACCENT or {Theme.COLORS.BORDER[1], Theme.COLORS.BORDER[2], Theme.COLORS.BORDER[3], 80},
             children = {
                 -- 头部：球队名 + 推荐标记
                 UI.Panel {
                     width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 6,
                     children = {
                         UI.Label { text = buyerName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1 },
+                        UI.Panel {
+                            backgroundColor = {statusColor[1], statusColor[2], statusColor[3], 35},
+                            borderRadius = 4, paddingLeft = 6, paddingRight = 6, paddingTop = 2, paddingBottom = 2,
+                            marginRight = i == 1 and 6 or 0,
+                            children = { UI.Label { text = statusText, fontSize = 10, color = statusColor } }
+                        },
                         i == 1 and UI.Panel {
                             backgroundColor = {Theme.COLORS.ACCENT[1], Theme.COLORS.ACCENT[2], Theme.COLORS.ACCENT[3], 40},
                             borderRadius = 4, paddingLeft = 6, paddingRight = 6, paddingTop = 2, paddingBottom = 2,
@@ -2943,46 +3066,14 @@ function Market._showCompetingOffersSheet(gameState, player, bids)
                 UI.Panel {
                     width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 8,
                     children = {
-                        UI.Label { text = Market._formatValue(bid.amount), fontSize = 15, color = Theme.COLORS.ACCENT, fontWeight = "bold" },
-                        UI.Label { text = string.format("  (%d%%身价)", ratio), fontSize = 11, color = ratioColor, marginLeft = 4 },
+                        UI.Label { text = detailText, fontSize = 13, color = bid.status == "counter_pending" and Theme.COLORS.WARNING or Theme.COLORS.ACCENT, fontWeight = "bold" },
+                        bid.status == "pending" and UI.Label { text = string.format("  (%d%%身价)", ratio), fontSize = 11, color = ratioColor, marginLeft = 4 } or nil,
                     }
                 },
                 -- 操作按钮
                 UI.Panel {
                     width = "100%", flexDirection = "row",
-                    children = {
-                        UI.Button {
-                            text = "接受",
-                            flexGrow = 1, height = 34, marginRight = 4,
-                            backgroundColor = Theme.COLORS.SECONDARY,
-                            borderRadius = 6, fontSize = 12,
-                            color = {255, 255, 255, 255},
-                            onClick = function()
-                                BottomSheet.close()
-                                TransferManager.acceptIncomingBid(gameState, bid.id)
-                                -- 接受一份后，自动拒绝其余竞争报价
-                                for _, otherBid in ipairs(bids) do
-                                    if otherBid.id ~= bid.id and otherBid.status == "pending" then
-                                        TransferManager.rejectIncomingBid(gameState, otherBid.id)
-                                    end
-                                end
-                                UI.Toast.Show({ message = "已接受 " .. buyerName .. " 的报价", variant = "success" })
-                                Router.replaceWith("market", { tab = "listed" })
-                            end,
-                        },
-                        UI.Button {
-                            text = "拒绝",
-                            width = 60, height = 34,
-                            backgroundColor = {60, 40, 40, 255},
-                            borderRadius = 6, fontSize = 12,
-                            color = Theme.COLORS.DANGER,
-                            onClick = function()
-                                TransferManager.rejectIncomingBid(gameState, bid.id)
-                                UI.Toast.Show({ message = "已拒绝 " .. buyerName .. " 的报价", variant = "info" })
-                                Router.replaceWith("market", { tab = "listed" })
-                            end,
-                        },
-                    }
+                    children = actionChildren,
                 },
             }
         })
