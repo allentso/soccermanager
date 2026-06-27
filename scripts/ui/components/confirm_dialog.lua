@@ -15,6 +15,16 @@ local Theme = require("scripts/ui/theme")
 
 local ConfirmDialog = {}
 
+--- 关闭 overlay 并在下一帧执行回调，避免同一次点击穿透到底层按钮再次触发
+local function _closeAndDefer(fn)
+    UI.CloseOverlay()
+    if not fn then return end
+    SubscribeToEvent("PostUpdate", function()
+        UnsubscribeFromEvent("PostUpdate")
+        fn()
+    end)
+end
+
 --- 显示确认对话框
 --- @param opts table
 ---   title: string - 标题
@@ -80,8 +90,7 @@ function ConfirmDialog.show(opts)
                 color = Theme.COLORS.TEXT_SECONDARY,
                 marginRight = 8,
                 onClick = function()
-                    UI.CloseOverlay()
-                    if onCancel then onCancel() end
+                    _closeAndDefer(onCancel)
                 end,
             },
             -- 确认按钮
@@ -95,8 +104,7 @@ function ConfirmDialog.show(opts)
                 color = Theme.COLORS.TEXT_PRIMARY,
                 fontWeight = "bold",
                 onClick = function()
-                    UI.CloseOverlay()
-                    if onConfirm then onConfirm() end
+                    _closeAndDefer(onConfirm)
                 end,
             },
         }
@@ -193,8 +201,7 @@ function ConfirmDialog.showWithDetails(opts)
                 color = Theme.COLORS.TEXT_SECONDARY,
                 marginRight = 8,
                 onClick = function()
-                    UI.CloseOverlay()
-                    if onCancel then onCancel() end
+                    _closeAndDefer(onCancel)
                 end,
             },
             UI.Button {
@@ -207,8 +214,7 @@ function ConfirmDialog.showWithDetails(opts)
                 color = Theme.COLORS.TEXT_PRIMARY,
                 fontWeight = "bold",
                 onClick = function()
-                    UI.CloseOverlay()
-                    if onConfirm then onConfirm() end
+                    _closeAndDefer(onConfirm)
                 end,
             },
         }

@@ -2257,6 +2257,7 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                             borderRadius = 6, fontSize = 12, fontWeight = "bold",
                             color = {255, 255, 255, 255},
                             onClick = function()
+                                closeSheetForAction()
                                 ConfirmDialog.show({
                                     title = "确认出售",
                                     message = string.format("确认以 %s 将 %s 出售给 %s？",
@@ -2270,13 +2271,15 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                                             AudioManager.deny()
                                             UI.Toast.Show({ message = err or "出售失败", variant = "error" })
                                         end
-                                        closeSheetForAction()
                                         local remaining = TransferManager.getPendingSaleConfirmations(gameState)
                                         if #remaining > 0 then
                                             Market._showBatchSaleConfirmSheet(gameState, remaining, opts)
                                         else
                                             finish("listed")
                                         end
+                                    end,
+                                    onCancel = function()
+                                        Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                                     end,
                                 })
                             end,
@@ -2313,13 +2316,13 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                 borderRadius = 8, fontSize = 15, fontWeight = "bold",
                 color = {255, 255, 255, 255},
                 onClick = function()
+                    closeSheetForAction()
                     ConfirmDialog.show({
                         title = "全部确认出售",
                         message = string.format("确认出售 %d 名球员，合计 %s？\n此操作不可撤销。",
                             #pendingList, Market._formatValue(totalAmount)),
                         confirmText = "全部卖出",
                         onConfirm = function()
-                            closeSheetForAction()
                             local okCount, failCount, lastErr = TransferManager.confirmAllPendingSales(gameState)
                             if okCount > 0 then
                                 UI.Toast.Show({
@@ -2337,6 +2340,9 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                                 end
                             end
                             finish("listed")
+                        end,
+                        onCancel = function()
+                            Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
                         end,
                     })
                 end,
@@ -3067,6 +3073,7 @@ function Market._showCompetingOffersSheet(gameState, player, bids)
                 borderRadius = 6, fontSize = 12, fontWeight = "bold",
                 color = {255, 255, 255, 255},
                 onClick = function()
+                    BottomSheet.close()
                     ConfirmDialog.show({
                         title = "确认出售",
                         message = string.format("确认以 %s 将 %s 出售给 %s？",
@@ -3080,7 +3087,6 @@ function Market._showCompetingOffersSheet(gameState, player, bids)
                                 AudioManager.deny()
                                 UI.Toast.Show({ message = err or "出售失败", variant = "error" })
                             end
-                            BottomSheet.close()
                             reopenRemaining()
                         end,
                     })
