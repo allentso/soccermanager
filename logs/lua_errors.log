@@ -1,14 +1,4 @@
-Lua Errors: 11 | Dir: /workspace/scripts | Time: 2026-06-27 19:39:51
+Lua Errors: 0 | Dir: /workspace/scripts | Time: 2026-06-27 20:14:55
 EmmyLua Types: /workspace/.emmylua
 ---
-ERROR | champions_league.lua:440:24 | undefined global variable: matchdays [undefined-global]
-ERROR | champions_league.lua:460:24 | undefined global variable: matchdays [undefined-global]
-ERROR | champions_league.lua:478:28 | undefined global variable: matchdays [undefined-global]
-ERROR | champions_league.lua:499:32 | undefined global variable: matchdays [undefined-global]
-ERROR | champions_league.lua:512:36 | undefined global variable: matchdays [undefined-global]
-ERROR | youth_manager.lua:540:42 | expected `(string|number)` but found `"浩然"?`. [param-type-mismatch]
-ERROR | youth_manager.lua:540:98 | expected `(string|number)` but found `"浩然"?`. [param-type-mismatch]
-ERROR | youth_manager.lua:488:12 | Annotations specify that return value 1 has a type of `string`, returning value of type `boolean` here instead. [return-type-mismatch]
-ERROR | youth_manager.lua:485:11 | Undefined doc param: `usedNames` [undefined-doc-param]
-ERROR | market.lua:1371:30 | undefined global variable: _buildDeferTransferButton [undefined-global]
-ERROR | team_detail.lua:432:30 | expected `LabelProps?` but found `{ text = string, flex = 1, fontSize = 12, fontWeight = "bold", ... }`. [param-type-mismatch]
+✅ No errors

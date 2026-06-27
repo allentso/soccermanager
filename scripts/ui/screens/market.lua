@@ -22,6 +22,8 @@ local Market = {}
 -- 租借工资比例选择状态（按 bidId 记忆）
 local _loanShareSelection = {}
 
+local _buildDeferTransferButton
+
 ------------------------------------------------------
 -- 潜力星级（与 youth/player_detail 一致）
 ------------------------------------------------------
@@ -1958,7 +1960,7 @@ local function _onDeferSignSuccess(gameState, playerName, tabKey, opts)
     _finishBatchSheet(opts, tabKey)
 end
 
-local function _buildDeferTransferButton(gameState, bidId, playerName, tabKey, opts, compact)
+_buildDeferTransferButton = function(gameState, bidId, playerName, tabKey, opts, compact)
     if not TransferManager.canDeferTransferSignConfirmation(gameState, bidId) then return nil end
     return UI.Button {
         text = _deferDaysLabel(),

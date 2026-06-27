@@ -429,7 +429,7 @@ local function buildWorldHistoryTab(team, gameState, teamId)
                 paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
                 children = {
                     UI.Label { text = "第" .. tostring(h.season or "?") .. "季", width = 70, fontSize = 10, color = COLORS.TEXT_MUTED },
-                    UI.Label { text = tostring(h.title or "?"), flex = 1, fontSize = 12, fontWeight = "bold", color = h.color or COLORS.WARNING },
+                    UI.Label { text = tostring(h.title or "?"), flexGrow = 1, flexShrink = 1, fontSize = 12, color = COLORS.WARNING },
                     UI.Label { text = tostring(h.detail or ""), fontSize = 11, color = COLORS.TEXT_SECONDARY },
                 }
             })

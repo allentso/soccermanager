@@ -480,14 +480,13 @@ local function _collectYouthUsedNames(gameState, teamId, extraUsed)
     return used
 end
 
---- 从国籍对应名字池抽取未占用的 displayName，并写入 usedNames
----@param nationality string
----@param usedNames table|nil
----@return string displayName
 local function _isChineseYouthNation(nationality)
     return nationality == "CHN" or nationality == "CN"
 end
 
+---@param usedNames table<string, boolean>
+---@param maxAttempts number|nil
+---@return string|nil
 local function _pickChineseYouthDisplayName(usedNames, maxAttempts)
     maxAttempts = maxAttempts or 120
     for _ = 1, maxAttempts do
@@ -502,6 +501,10 @@ local function _pickChineseYouthDisplayName(usedNames, maxAttempts)
     return nil
 end
 
+--- 从国籍对应名字池抽取未占用的 displayName，并写入 usedNames
+---@param nationality string
+---@param usedNames table<string, boolean>|nil
+---@return string displayName
 local function _pickYouthDisplayName(nationality, usedNames)
     usedNames = usedNames or {}
     local maxAttempts = 120
@@ -537,7 +540,7 @@ local function _pickYouthDisplayName(nationality, usedNames)
         if _isChineseYouthNation(nationality) then
             local surname = YOUTH_CN_SURNAMES[RandomInt(1, #YOUTH_CN_SURNAMES)]
             local given = YOUTH_CN_GIVEN_NAMES[RandomInt(1, #YOUTH_CN_GIVEN_NAMES)]
-            local name = surname .. given:sub(1, 1) .. variants[RandomInt(1, #variants)] .. given:sub(2)
+            local name = surname .. variants[RandomInt(1, #variants)] .. given
             if not usedNames[name] then
                 usedNames[name] = true
                 return name
