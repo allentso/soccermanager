@@ -10,6 +10,7 @@ local CreateManager = {}
 
 local _includeCSL = false
 local _includeSecondDivisions = false
+local _enableReincarnation = true
 
 local function _toggleIncludeCSLRow()
     return UI.Panel {
@@ -105,6 +106,53 @@ local function _toggleIncludeSecondDivisionsRow()
     }
 end
 
+local function _toggleEnableReincarnationRow()
+    return UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        alignItems = "center",
+        justifyContent = "space-between",
+        marginBottom = 28,
+        paddingLeft = 4,
+        paddingRight = 4,
+        children = {
+            UI.Panel {
+                flexGrow = 1,
+                flexShrink = 1,
+                marginRight = 12,
+                children = {
+                    UI.Label {
+                        text = "开启转生/重生机制",
+                        fontSize = 14,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                    },
+                    UI.Label {
+                        text = "开档重生小妖 + 退役传奇转生为16岁青训",
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginTop = 4,
+                    },
+                }
+            },
+            UI.Button {
+                text = _enableReincarnation and "已开启" or "已关闭",
+                width = 80,
+                height = 32,
+                borderRadius = 16,
+                backgroundColor = _enableReincarnation and Theme.COLORS.SECONDARY or Theme.COLORS.BG_CARD_ELEVATED,
+                fontSize = 12,
+                color = _enableReincarnation and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                fontWeight = "bold",
+                onClick = function()
+                    _enableReincarnation = not _enableReincarnation
+                    Router.replaceWith("create_manager")
+                end,
+            },
+        }
+    }
+end
+
 function CreateManager.create()
     local page = UI.Panel {
         width = "100%",
@@ -169,6 +217,8 @@ function CreateManager.create()
                     _toggleIncludeCSLRow(),
 
                     _toggleIncludeSecondDivisionsRow(),
+
+                    _toggleEnableReincarnationRow(),
 
                     -- 姓氏输入框
                     UI.Label {
@@ -235,6 +285,7 @@ function CreateManager.create()
                                 lastName = lastName,
                                 includeCSL = _includeCSL,
                                 includeSecondDivisions = _includeSecondDivisions,
+                                enableReincarnation = _enableReincarnation,
                             })
                         end,
                     },

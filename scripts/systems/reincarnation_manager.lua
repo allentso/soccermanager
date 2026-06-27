@@ -184,6 +184,20 @@ ReincarnationManager.REINCARNATION_LIST = {
         attrBonus = { passing = 3, decisions = 3, leadership = 2, teamwork = 2 },
         traits = { "playmaker", "captain" },
     },
+    {
+        matchName = "Harry Kane",
+        matchAltNames = { "H. Kane", "Kane", "哈里·凯恩", "凯恩" },
+        potential = 92,
+        attrBonus = { shooting = 4, passing = 3, vision = 3, composure = 2 },
+        traits = { "clinical", "playmaker", "big_game" },
+    },
+    {
+        matchName = "Virgil van Dijk",
+        matchAltNames = { "V. Dijk", "van Dijk", "Virgil Van Dijk", "维吉尔·范戴克", "范戴克" },
+        potential = 91,
+        attrBonus = { defending = 4, tackling = 3, strength = 3, leadership = 2 },
+        traits = { "brick_wall", "aerial_threat", "captain" },
+    },
 }
 
 -- 老档中退役源球员可能已被 Housekeeping 物理删除；此时无法再读取“本人”对象。
@@ -273,6 +287,14 @@ local FALLBACK_SOURCE_BY_MATCH_NAME = {
         displayName = "郑智", shortName = "郑智", nationality = "CHN", position = "CM",
         naturalPositions = {"CM", "CDM"},
     },
+    ["Harry Kane"] = {
+        displayName = "哈里·凯恩", shortName = "凯恩", nationality = "ENG", position = "ST",
+        naturalPositions = {"ST"},
+    },
+    ["Virgil van Dijk"] = {
+        displayName = "维吉尔·范戴克", shortName = "范戴克", nationality = "NL", position = "CB",
+        naturalPositions = {"CB"},
+    },
 }
 
 -- 旧存档补源：这些球员新增前不在自由球员池中，需要在读档 housekeeping 时补入。
@@ -334,6 +356,14 @@ local FREE_AGENT_SOURCE_BY_MATCH_NAME = {
 ------------------------------------------------------
 -- 内部工具
 ------------------------------------------------------
+
+--- 当前存档是否启用转生/重生机制；旧档缺省视为启用以保留原行为。
+---@param gameState table|nil
+---@return boolean
+function ReincarnationManager.isEnabled(gameState)
+    local opts = gameState and gameState.newGameOptions
+    return not (opts and opts.enableReincarnation == false)
+end
 
 --- 检查球员名字是否匹配转生名单中的某个条目
 ---@param player table
@@ -633,6 +663,7 @@ end
 --- 新档初始化：记录开局赛季，首季末让自由/无队源球员转生
 ---@param gameState table
 function ReincarnationManager.initNewGame(gameState)
+    if not ReincarnationManager.isEnabled(gameState) then return end
     gameState._gameStartSeason = gameState.season
     gameState._reincarnationFirstSeasonEnd = true
 end
@@ -769,6 +800,8 @@ end
 --- 老档读档迁移：名单内未转生且已退役的源球员，立即补转生；未退役的留待自然退役
 ---@param gameState table
 function ReincarnationManager.bootstrapLegacySave(gameState)
+    if not ReincarnationManager.isEnabled(gameState) then return end
+
     ReincarnationManager.scanAndMarkKnownSources(gameState)
     ReincarnationManager.ensureMissingFreeAgentSources(gameState)
 
@@ -942,6 +975,8 @@ end
 --- 名单内每个源球员独立转生；必须用源球员本人姓名/位置/国籍重生。
 ---@param gameState table
 function ReincarnationManager.processReincarnations(gameState)
+    if not ReincarnationManager.isEnabled(gameState) then return end
+
     gameState._reincarnationsDone = gameState._reincarnationsDone or {}
 
     ReincarnationManager._maybeForceFirstSeasonRetire(gameState)

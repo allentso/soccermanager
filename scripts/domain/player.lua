@@ -171,6 +171,7 @@ function Player.new(data)
     -- 转生球员标记（用于立绘展示和 UI 识别）
     self.isReincarnation = data.isReincarnation or false
     self.reincarnationMatchName = data.reincarnationMatchName or nil
+    self.reincarnationTier = data.reincarnationTier or nil
 
     -- 转生球员固有特性（不受 calculateTraits 属性达标覆盖）
     self.innateTraits = data.innateTraits or nil
@@ -1021,6 +1022,7 @@ function Player:serialize()
         legendData = self.legendData,
         isReincarnation = self.isReincarnation or false,
         reincarnationMatchName = self.reincarnationMatchName,
+        reincarnationTier = self.reincarnationTier,
         innateTraits = self.innateTraits,
     }
 end

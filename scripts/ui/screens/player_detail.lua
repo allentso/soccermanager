@@ -336,7 +336,7 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
                                 backgroundSize = "cover",
                             },
                             UI.Label {
-                                text = (player.displayName or "转生球星") .. " · 转生",
+                                text = (player.displayName or "转生球星") .. (player.reincarnationTier == "rebirth" and " · 重生" or " · 转生"),
                                 fontSize = 14,
                                 color = {255, 130, 180, 255},
                                 fontWeight = "bold",

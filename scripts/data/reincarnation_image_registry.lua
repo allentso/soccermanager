@@ -29,6 +29,22 @@ local _images = {
     ["Pepe"] = "image/pepe_reborn_card_v2_20260621070920.png",
     ["Heung-Min Son"] = "image/son_reborn_card_v3_20260621072950.png",
     ["Zheng Zhi"] = "image/zhengzhi_reborn_card_v3_20260621073137.png",
+    ["Harry Kane"] = "image/kane_reborn_card_20260627104018.png",
+    ["Virgil van Dijk"] = "image/van_dijk_reborn_card_20260627111410.png",
+}
+
+--- 重生球员卡牌（开局独立名单，小妖式随机入队）
+local _rebirthImages = {
+    ["Alexandre Pato"] = "image/pato_rebirth_card_20260627111718.png",
+    ["Jack Wilshere"] = "image/wilshere_rebirth_card_20260627112230.png",
+    ["Adriano Leite Ribeiro"] = "image/adriano_rebirth_card_20260627112225.png",
+    ["Robinho"] = "image/robinho_rebirth_card_20260627112221.png",
+    ["Mario Balotelli"] = "image/balotelli_rebirth_card_20260627112236.png",
+    ["Giuseppe Rossi"] = "image/rossi_rebirth_card_20260627112224.png",
+    ["Ganso"] = "image/ganso_rebirth_card_20260627112727.png",
+    ["Antonio Cassano"] = "image/cassano_rebirth_card_20260627112225.png",
+    ["Ricardo Quaresma"] = "image/quaresma_rebirth_card_20260627112233.png",
+    ["Bojan Krkić"] = "image/bojan_rebirth_card_20260627112220.png",
 }
 
 --- 中文名 -> matchName 反查表
@@ -77,6 +93,28 @@ local _nameToMatch = {
     ["孙兴慜"] = "Heung-Min Son",
     ["孙兴民"] = "Heung-Min Son",
     ["郑智"] = "Zheng Zhi",
+    ["哈里·凯恩"] = "Harry Kane",
+    ["凯恩"] = "Harry Kane",
+    ["维吉尔·范戴克"] = "Virgil van Dijk",
+    ["范戴克"] = "Virgil van Dijk",
+    -- 重生
+    ["帕托"] = "Alexandre Pato",
+    ["亚历山大·帕托"] = "Alexandre Pato",
+    ["威尔谢尔"] = "Jack Wilshere",
+    ["杰克·威尔谢尔"] = "Jack Wilshere",
+    ["阿德里亚诺"] = "Adriano Leite Ribeiro",
+    ["罗比尼奥"] = "Robinho",
+    ["博扬"] = "Bojan Krkić",
+    ["博扬·克尔基奇"] = "Bojan Krkić",
+    ["巴洛特利"] = "Mario Balotelli",
+    ["马里奥·巴洛特利"] = "Mario Balotelli",
+    ["朱塞佩·罗西"] = "Giuseppe Rossi",
+    ["罗西"] = "Giuseppe Rossi",
+    ["甘索"] = "Ganso",
+    ["卡萨诺"] = "Antonio Cassano",
+    ["安东尼奥·卡萨诺"] = "Antonio Cassano",
+    ["夸雷斯马"] = "Ricardo Quaresma",
+    ["里卡多·夸雷斯马"] = "Ricardo Quaresma",
 }
 
 --- 根据转生名单 matchName 获取卡牌立绘路径
@@ -84,7 +122,13 @@ local _nameToMatch = {
 --- @return string|nil 图片资源路径
 function ReincarnationImageRegistry.getPath(matchName)
     if not matchName then return nil end
-    return _images[matchName]
+    return _images[matchName] or _rebirthImages[matchName]
+end
+
+--- 是否为重生（非转生）卡面
+function ReincarnationImageRegistry.isRebirthCard(matchName)
+    if not matchName then return false end
+    return _rebirthImages[matchName] ~= nil
 end
 
 --- 根据中文名获取卡牌立绘路径（兜底用）
@@ -93,7 +137,7 @@ end
 function ReincarnationImageRegistry.getPathByName(name)
     if not name then return nil end
     local matchName = _nameToMatch[name]
-    if matchName then return _images[matchName] end
+    if matchName then return _images[matchName] or _rebirthImages[matchName] end
     return nil
 end
 

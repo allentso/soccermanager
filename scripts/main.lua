@@ -299,6 +299,7 @@ function NavigateTo(screenId, params)
         local genOpts = {
             includeCSL = params and params.includeCSL or false,
             includeSecondDivisions = params and params.includeSecondDivisions or false,
+            enableReincarnation = not params or params.enableReincarnation ~= false,
         }
         local ok, err = pcall(function()
             local success = WorldGenerator.generate(gs, genOpts)

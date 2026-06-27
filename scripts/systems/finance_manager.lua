@@ -4,6 +4,7 @@
 local EventBus = require("scripts/app/event_bus")
 local Constants = require("scripts/app/constants")
 local MessageManager = require("scripts/systems/message_manager")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local FinanceManager = {}
 
@@ -46,6 +47,11 @@ function FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, key)
         or (tier >= 2 and FinanceManager.LEAGUE_TIER_ECONOMY[2])
         or FinanceManager.LEAGUE_TIER_ECONOMY[1]
     return cfg[key] or 1.0
+end
+
+function FinanceManager.getFinanceDifficultyMultiplier(key)
+    local mods = DifficultySettings.getFinanceModifiers()
+    return mods[key] or 1.0
 end
 
 ------------------------------------------------------
@@ -252,6 +258,7 @@ function FinanceManager.generateSponsorOffers(gameState)
     local baseFactor = 0.65 + (reputation / 100) * 1.6  -- 0.65x ~ 2.25x
     local offerScale = FinanceManager._getWageScale(team)
         * FinanceManager.getLeagueEconomyMultiplier(gameState, team.id, "sponsorContract")
+        * FinanceManager.getFinanceDifficultyMultiplier("sponsorContract")
 
     local offers = {}
     for _, tmpl in ipairs(FinanceManager.SPONSOR_TEMPLATES) do
@@ -392,6 +399,7 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
     local basePrice = 32 + math.floor(rep / 5)  -- rep50=42, rep68=45, rep80=48
     local opponentHype = math.min(1.75, 1.0 + opponentRep / 130)
     local matchdayScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "matchday")
+        * FinanceManager.getFinanceDifficultyMultiplier("matchday")
     local ticketPrice = math.floor(basePrice * opponentHype * strategy.multiplier * matchdayScale)
 
     -- 智能上座率 = 基础率 + 对手吸引力 + 连胜奖励 + 策略调整
@@ -487,6 +495,7 @@ function FinanceManager.awardSeasonPrize(gameState, teamId, position)
     local prizeTable = Constants.SEASON_END_PRIZE or {}
     local prize = prizeTable[position] or 0
     local prizeScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "prize")
+        * FinanceManager.getFinanceDifficultyMultiplier("prize")
     prize = math.floor(prize * prizeScale / 100000) * 100000
     if prize <= 0 then return end
 
@@ -539,6 +548,7 @@ function FinanceManager.processMonthlySponsorship(gameState)
             local posBonus = math.max(0, (11 - position) * rep * 700)
             local prestigeBonus = math.max(0, (rep - 80) * 280000)
             local leagueScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "sponsor")
+                * FinanceManager.getFinanceDifficultyMultiplier("sponsor")
             sponsorRevenue = math.floor(
                 ((baseSponsor + posBonus) * wageScale + prestigeBonus)
                 * leagueScale
@@ -577,6 +587,7 @@ function FinanceManager.processMonthlyBroadcast(gameState)
         local shareRatio = 1.0 + (20 - position) * 0.04  -- 第1=1.76x, 第10=1.40x, 第20=1.00x
         local baseAmount = rep * 105000 + 750000
         local leagueScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "broadcast")
+            * FinanceManager.getFinanceDifficultyMultiplier("broadcast")
         local amount = math.floor(baseAmount * shareRatio * wageScale * leagueScale)
 
         team.balance = team.balance + amount
@@ -623,6 +634,7 @@ function FinanceManager.processMonthlyMerchandise(gameState)
         local baseAmount = rep * 14000 + 150000
         local prestigeMerch = math.max(0, (rep - 80) * 200000)
         local leagueScale = FinanceManager.getLeagueEconomyMultiplier(gameState, teamId, "merchandise")
+            * FinanceManager.getFinanceDifficultyMultiplier("merchandise")
         local amount = math.floor(
             (baseAmount * wageScale + prestigeMerch)
             * leagueScale
@@ -697,6 +709,7 @@ function FinanceManager.processMonthlyMaintenance(gameState)
             end
         end
         totalMaintenance = totalMaintenance + math.floor(scoutLevel * 60000 + activeReports * 15000)
+        totalMaintenance = math.floor(totalMaintenance * FinanceManager.getFinanceDifficultyMultiplier("maintenance"))
 
         if totalMaintenance > 0 then
             team.balance = team.balance - totalMaintenance

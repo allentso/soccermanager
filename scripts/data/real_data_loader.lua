@@ -921,17 +921,19 @@ function RealDataLoader.loadLegends(gameState)
     return count
 end
 
---- 加载青训妖人名单，随机分配到各俱乐部青训队
+--- 加载 JSON 青训池，随机分配到各俱乐部青训队
 ---@param gameState table
----@return number 加载的球员数
-function RealDataLoader.loadWonderkids(gameState)
-    local data = RealDataLoader.loadLeagueFile("wonderkids_outside_top5_2025.json")
+---@param filename string
+---@param opts table|nil { markRebirth: boolean }
+---@return number
+local function loadYouthPoolFromJson(gameState, filename, opts)
+    opts = opts or {}
+    local data = RealDataLoader.loadLeagueFile(filename)
     if not data or not data.players then
-        log:Write(LOG_WARNING, "RealDataLoader: 无法加载青训妖人数据")
+        log:Write(LOG_WARNING, "RealDataLoader: 无法加载 " .. filename)
         return 0
     end
 
-    -- 收集所有球队 ID
     local teamIds = {}
     for teamId, _ in pairs(gameState.teams) do
         table.insert(teamIds, teamId)
@@ -941,7 +943,6 @@ function RealDataLoader.loadWonderkids(gameState)
         return 0
     end
 
-    -- 打乱 wonderkids 顺序
     local shuffled = {}
     for _, p in ipairs(data.players) do table.insert(shuffled, p) end
     for i = #shuffled, 2, -1 do
@@ -951,7 +952,6 @@ function RealDataLoader.loadWonderkids(gameState)
 
     local count = 0
     for _, pData in ipairs(shuffled) do
-        -- 随机选择一支球队
         local teamId = teamIds[RandomInt(1, #teamIds)]
         local team = gameState.teams[teamId]
 
@@ -982,7 +982,7 @@ function RealDataLoader.loadWonderkids(gameState)
             overall = pData.ovr or 50,
             potential = pData.potential or 70,
             contractEnd = {year = gameState.date.year + 3, month = 6, day = 30},
-            wage = 500,  -- 青训球员固定周薪
+            wage = 500,
             value = pData.market_value or 500000,
             teamId = teamId,
             squadRole = "youth",
@@ -990,18 +990,40 @@ function RealDataLoader.loadWonderkids(gameState)
             traits = pData.traits or {},
         })
 
-        -- 计算OVR和价值
+        if opts.markRebirth then
+            player.isReincarnation = true
+            player.reincarnationTier = "rebirth"
+            player.reincarnationMatchName = pData.reincarnation_match_name or fullName
+            player.innateTraits = pData.traits or nil
+        end
+
         player:calculateOverall()
         player:calculateValue(gameState.date.year)
 
-        -- 加入球队青训队列表
         team._youthPlayerIds = team._youthPlayerIds or {}
         table.insert(team._youthPlayerIds, player.id)
 
         count = count + 1
     end
 
-    log:Write(LOG_INFO, "RealDataLoader: 加载了 " .. count .. " 名青训妖人，分配到 " .. #teamIds .. " 支球队")
+    return count
+end
+
+--- 加载青训妖人名单，随机分配到各俱乐部青训队
+---@param gameState table
+---@return number 加载的球员数
+function RealDataLoader.loadWonderkids(gameState)
+    local count = loadYouthPoolFromJson(gameState, "wonderkids_outside_top5_2025.json")
+    log:Write(LOG_INFO, "RealDataLoader: 加载了 " .. count .. " 名青训妖人")
+    return count
+end
+
+--- 加载重生球员名单（独立 JSON，入队逻辑与小妖相同）
+---@param gameState table
+---@return number 加载的球员数
+function RealDataLoader.loadRebirthPlayers(gameState)
+    local count = loadYouthPoolFromJson(gameState, "rebirth_players.json", { markRebirth = true })
+    log:Write(LOG_INFO, "RealDataLoader: 加载了 " .. count .. " 名重生球员")
     return count
 end
 

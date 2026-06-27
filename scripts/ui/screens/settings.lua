@@ -1960,6 +1960,14 @@ function Settings._buildDifficultyAndSaveCard()
         }
     end
 
+    if #params % 2 == 0 then
+        diffGridRows[#diffGridRows + 1] = UI.Panel {
+            width = "100%", height = 1, marginBottom = 6,
+            backgroundColor = Theme.COLORS.BORDER,
+        }
+        diffGridRows[#diffGridRows + 1] = compensationPanel
+    end
+
     -- 存档设置（左栏）
     local saveChildren = {
         Settings._toggleRow("自动保存", _settings.autoSave, function(v)
@@ -1990,7 +1998,7 @@ function Settings._buildDifficultyAndSaveCard()
         children = {
             Settings._sectionTitle("规则定制"),
             UI.Label {
-                text = "五项独立调节，默认均为「正常」。除转会外，其余影响整个联赛环境。",
+                text = "六项独立调节，默认均为「正常」。除转会外，其余影响整个联赛环境。",
                 fontSize = 10,
                 color = Theme.COLORS.TEXT_MUTED,
                 marginBottom = 8,

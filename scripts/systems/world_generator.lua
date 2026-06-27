@@ -428,9 +428,12 @@ end
 
 -- 生成完整世界（使用真实联赛数据）
 ---@param gameState table
----@param opts table|nil { includeCSL = boolean, includeSecondDivisions = boolean }
+---@param opts table|nil { includeCSL = boolean, includeSecondDivisions = boolean, enableReincarnation = boolean }
 function WorldGenerator.generate(gameState, opts)
     opts = opts or {}
+    if opts.enableReincarnation == nil then
+        opts.enableReincarnation = true
+    end
     gameState.newGameOptions = opts
     log:Write(LOG_INFO, "WorldGenerator: 开始加载联赛真实数据...")
 
@@ -485,6 +488,11 @@ function WorldGenerator.generate(gameState, opts)
     -- 加载青训妖人名单，随机分配到各俱乐部青训队
     RealDataLoader.loadWonderkids(gameState)
 
+    if opts.enableReincarnation then
+        -- 加载重生球员（独立名单，入队逻辑与小妖相同）
+        RealDataLoader.loadRebirthPlayers(gameState)
+    end
+
     -- 为所有球队填充青训至10人（已有 wonderkids 的球队只补齐差额）
     YouthManager.fillAllTeamsYouth(gameState)
     gameState._aiYouthRosterBootstrapped = true
@@ -506,7 +514,9 @@ function WorldGenerator.generate(gameState, opts)
     EuropaLeague.initialize(gameState)
 
     local ReincarnationManager = require("scripts/systems/reincarnation_manager")
-    ReincarnationManager.initNewGame(gameState)
+    if ReincarnationManager.isEnabled(gameState) then
+        ReincarnationManager.initNewGame(gameState)
+    end
 
     log:Write(LOG_INFO, "WorldGenerator: 世界生成完成! 球员:" .. WorldGenerator._countPlayers(gameState))
 

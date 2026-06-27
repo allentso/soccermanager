@@ -1,5 +1,5 @@
 -- systems/difficulty_settings.lua
--- 规则定制：五轴独立 3 档位（1/2/3），默认均为中间档
+-- 规则定制：多轴独立 3 档位（1/2/3），默认均为中间档
 
 local Constants = require("scripts/app/constants")
 
@@ -16,6 +16,7 @@ DifficultySettings.DEFAULTS = {
     youthTier = 2,     -- 青训：1=起点低 2=正常 3=起点高
     fitnessTier = 2,   -- 体力：1=严苛 2=正常 3=宽松
     growthTier = 2,    -- 成长：1=慢 2=正常 3=快
+    financeTier = 2,   -- 经济：1=宽松 2=正常 3=严苛
 }
 
 -- 参数描述（UI 展示：每项独立 tierLabels / tierHints）
@@ -75,6 +76,17 @@ DifficultySettings.PARAMS = {
             "成长偏快，出场不足时惩罚更轻",
         },
     },
+    {
+        key = "financeTier",
+        name = "经济压力",
+        desc = "赞助、转播、票房、奖金与运营维护的整体压力",
+        tierLabels = { "宽松", "正常", "严苛" },
+        tierHints = {
+            "收入更接近旧版，维护成本更低",
+            "当前经济平衡（推荐）",
+            "收入更紧，维护成本更高",
+        },
+    },
 }
 
 ------------------------------------------------------
@@ -100,7 +112,7 @@ function DifficultySettings.get()
     end
 
     -- 校验值域：防止存档损坏或手动修改导致非法值
-    for _, key in ipairs({"transferTier", "matchTier", "youthTier", "fitnessTier", "growthTier"}) do
+    for _, key in ipairs({"transferTier", "matchTier", "youthTier", "fitnessTier", "growthTier", "financeTier"}) do
         local v = diff[key]
         if type(v) ~= "number" or v < 1 or v > 3 then
             diff[key] = DifficultySettings.DEFAULTS[key] or 2
@@ -370,6 +382,44 @@ function DifficultySettings.getGrowthModifiers()
         seasonEnd = t.seasonEndGrowth,
         decline = t.decline,
     }
+end
+
+--- 经济：档位越高=经营压力越大；tier=2 保持当前平衡
+function DifficultySettings.getFinanceModifiers()
+    local diff = DifficultySettings.get()
+    local tier = diff.financeTier or 2
+
+    local configs = {
+        {
+            sponsor = 1.25,
+            sponsorContract = 1.35,
+            broadcast = 1.35,
+            merchandise = 1.25,
+            matchday = 1.15,
+            prize = 1.50,
+            maintenance = 0.85,
+        },
+        {
+            sponsor = 1.0,
+            sponsorContract = 1.0,
+            broadcast = 1.0,
+            merchandise = 1.0,
+            matchday = 1.0,
+            prize = 1.0,
+            maintenance = 1.0,
+        },
+        {
+            sponsor = 0.85,
+            sponsorContract = 0.80,
+            broadcast = 0.80,
+            merchandise = 0.85,
+            matchday = 0.90,
+            prize = 0.75,
+            maintenance = 1.15,
+        },
+    }
+
+    return configs[tier] or configs[2]
 end
 
 ------------------------------------------------------

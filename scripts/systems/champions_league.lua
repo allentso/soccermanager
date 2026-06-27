@@ -429,6 +429,7 @@ function ChampionsLeague.migrateIfNeeded(gameState)
             end
 
             -- 重建比赛日日期
+            local matchdays = lp.matchdays or 8
             local leagueStart = {
                 year = ucl.season or gameState.season,
                 month = UCL_SCHEDULE.league_start.month,
