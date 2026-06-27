@@ -51,8 +51,8 @@ local NATION_NAMES = {
     MOZ = "莫桑比克", CEN = "中非", CAP = "佛得角", COM = "科摩罗",
     EQU = "赤道几内亚", THE = "冈比亚", MAL = "马耳他",
     -- 亚洲及大洋洲
-    JP = "日本", KR = "韩国", AU = "澳大利亚", NZ = "新西兰",
-    IR = "伊朗", CN = "中国", JOR = "约旦", UZB = "乌兹别克斯坦",
+    CN = "中国", CHN = "中国", JP = "日本", KR = "韩国", AU = "澳大利亚", NZ = "新西兰",
+    IR = "伊朗", JOR = "约旦", UZB = "乌兹别克斯坦",
     PHI = "菲律宾",
     -- FIFA 三字母码别名（青训系统使用）
     BRA = "巴西", ARG = "阿根廷", FRA = "法国", GER = "德国",
@@ -64,6 +64,21 @@ local NATION_NAMES = {
 --- 获取国籍中文名
 function ScoutManager.getNationName(code)
     return NATION_NAMES[code] or code
+end
+
+--- 判断球员国籍是否匹配搜索关键词（支持中文名、代码及别名）
+function ScoutManager.nationalityMatchesSearch(natCode, lowerQuery)
+    if not natCode or lowerQuery == "" then return false end
+    local lowerCode = natCode:lower()
+    if lowerCode:find(lowerQuery, 1, true) then return true end
+    local norm = Nationality.normalize(natCode)
+    if norm:lower():find(lowerQuery, 1, true) then return true end
+    for code, name in pairs(NATION_NAMES) do
+        if Nationality.matches(code, natCode) and name:lower():find(lowerQuery, 1, true) then
+            return true
+        end
+    end
+    return false
 end
 
 --- 获取可用国籍列表（从当前球员数据中统计，返回全部国籍）

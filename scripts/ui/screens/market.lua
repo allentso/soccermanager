@@ -418,7 +418,7 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange,
         children = {
             UI.TextField {
                 width = "100%", height = 34,
-                placeholder = "搜索球员/球队名称...",
+                placeholder = "搜索球员/球队/国籍...",
                 value = searchQuery,
                 fontSize = 12,
                 borderRadius = 8,
@@ -519,10 +519,11 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange,
                 local playerAge = p:getAge(gameState.date.year)
                 if p.overall >= ovrMin and p.overall <= ovrMax
                     and playerAge >= ageMin and playerAge <= ageMax then
-                    -- 搜索过滤
+                    -- 搜索过滤（球员名、球队名、国籍）
                     if lowerQuery == "" or
                        p.displayName:lower():find(lowerQuery, 1, true) or
-                       (gameState.teams[p.teamId] and gameState.teams[p.teamId].name:lower():find(lowerQuery, 1, true)) then
+                       (gameState.teams[p.teamId] and gameState.teams[p.teamId].name:lower():find(lowerQuery, 1, true)) or
+                       ScoutManager.nationalityMatchesSearch(p.nationality, lowerQuery) then
                         table.insert(availablePlayers, p)
                     end
                 end

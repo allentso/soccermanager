@@ -235,10 +235,12 @@ function SelectTeam.create(params)
                 }
             },
 
-            -- 联赛切换标签栏
-            UI.Panel {
+            -- 联赛切换标签栏（横向滑动）
+            UI.ScrollView {
                 width = "100%",
                 height = 42,
+                scrollX = true,
+                scrollY = false,
                 flexDirection = "row",
                 alignItems = "center",
                 paddingLeft = 10,
