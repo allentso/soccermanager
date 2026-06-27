@@ -1065,7 +1065,8 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
 
     -- 位置选择（兼容位置）
     if slotPos ~= "GK" then
-        local compatible = FormationShape.getCompatiblePositions(slotPos)
+        local slotZone = shapeAnalysis and shapeAnalysis.slotZones and shapeAnalysis.slotZones[slotIdx]
+        local compatible = FormationShape.getCompatiblePositions(slotPos, slotZone)
         local posBtns = {}
         for _, pos in ipairs(compatible) do
             local isActive = slotPos == pos
@@ -1189,6 +1190,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         }
         local x = FormationShape.getSlotCoords(team, slotIdx)
         local isWideSlot = slotPos == "LB" or slotPos == "RB"
+            or slotPos == "LM" or slotPos == "RM"
             or slotPos == "LW" or slotPos == "RW"
             or x < 32 or x > 68
         if isWideSlot then

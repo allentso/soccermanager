@@ -149,6 +149,26 @@ local function generateAttributes(position, overall, age)
         attrs.leadership = attr(2.5)
         attrs.handling = attr(0.3)
         attrs.reflexes = attr(0.3)
+    elseif position == "LM" or position == "RM" then
+        attrs.passing = attr(3.0)
+        attrs.stamina = attr(3.0)
+        attrs.speed = attr(3.0)
+        attrs.dribbling = attr(2.8)
+        attrs.vision = attr(2.5)
+        attrs.decisions = attr(2.5)
+        attrs.tackling = attr(2.0)
+        attrs.defending = attr(1.8)
+        attrs.shooting = attr(1.8)
+        attrs.positioning = attr(2.2)
+        attrs.composure = attr(2.0)
+        attrs.teamwork = attr(3.0)
+        attrs.agility = attr(2.5)
+        attrs.strength = attr(1.8)
+        attrs.aerial = attr(1.2)
+        attrs.aggression = attr(1.8)
+        attrs.leadership = attr(1.8)
+        attrs.handling = attr(0.3)
+        attrs.reflexes = attr(0.3)
     elseif position == "LW" or position == "RW" then
         attrs.speed = attr(3.5)
         attrs.dribbling = attr(3.5)
@@ -258,7 +278,7 @@ local function generateSquad(gameState, teamId, country, reputation)
     local defPos = {"CB", "CB", "CB", "LB", "LB", "RB", "RB"}
     for _, p in ipairs(defPos) do table.insert(positions, p) end
     -- 7 MID
-    local midPos = {"CM", "CM", "CM", "CDM", "CAM", "CM", "CAM"}
+    local midPos = {"CM", "CM", "CM", "CDM", "CAM", "LM", "RM"}
     for _, p in ipairs(midPos) do table.insert(positions, p) end
     -- 6 FWD
     local fwdPos = {"ST", "ST", "ST", "LW", "RW", "ST"}

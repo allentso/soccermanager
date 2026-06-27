@@ -1638,7 +1638,7 @@ local function _getNeededPositions(existingPlayers, count)
     local targets = {
         {group = "GK", target = 3, positions = {"GK"}},
         {group = "DEF", target = 8, positions = {"CB", "CB", "CB", "CB", "LB", "LB", "RB", "RB"}},
-        {group = "MID", target = 7, positions = {"CM", "CM", "CM", "CDM", "CDM", "CAM", "CAM"}},
+        {group = "MID", target = 7, positions = {"CM", "CM", "CM", "CDM", "CAM", "LM", "RM"}},
         {group = "FWD", target = 5, positions = {"ST", "ST", "LW", "RW", "ST"}},
     }
 
@@ -1719,6 +1719,12 @@ local function _generateAttributes(position, ovr)
         attrs.vision = high - RandomInt(0, 5)
         attrs.dribbling = high - RandomInt(0, 8)
         attrs.shooting = high - RandomInt(0, 10)
+    elseif position == "LM" or position == "RM" then
+        attrs.passing = high - RandomInt(0, 6)
+        attrs.stamina = high - RandomInt(0, 6)
+        attrs.speed = high - RandomInt(0, 8)
+        attrs.dribbling = high - RandomInt(0, 8)
+        attrs.tackling = high - RandomInt(0, 12)
     elseif position == "LW" or position == "RW" then
         attrs.pace = high - RandomInt(0, 5)
         attrs.dribbling = high - RandomInt(0, 5)
@@ -2106,7 +2112,7 @@ function WorldCup.getAvailablePlayers(gameState, nationCode)
     local groupFill = {
         {group = "GK",  current = posCount.GK,  positions = {"GK"}},
         {group = "DEF", current = posCount.DEF, positions = {"CB", "LB", "RB", "CB", "LB"}},
-        {group = "MID", current = posCount.MID, positions = {"CM", "CDM", "CAM", "CM", "CDM"}},
+        {group = "MID", current = posCount.MID, positions = {"CM", "CDM", "CAM", "LM", "RM"}},
         {group = "FWD", current = posCount.FWD, positions = {"ST", "LW", "RW", "ST", "ST"}},
     }
     for _, g in ipairs(groupFill) do

@@ -319,6 +319,11 @@ function Player:calculateOverall()
             vision = 2.5, dribbling = 2.5, passing = 2.0,
             shooting = 2.0, composure = 1.5, decisions = 1.0, agility = 0.5,
         }
+    elseif pos == "LM" or pos == "RM" then
+        posWeights = {
+            passing = 2.5, stamina = 2.0, dribbling = 2.0,
+            speed = 1.8, vision = 1.5, tackling = 1.2, teamwork = 1.0,
+        }
     elseif pos == "LW" or pos == "RW" then
         posWeights = {
             dribbling = 3.0, agility = 2.0, shooting = 2.0,
@@ -410,6 +415,8 @@ function Player.calculateOverallFromAttrs(pos, a)
         posWeights = { passing = 2.5, vision = 2.0, dribbling = 2.0, stamina = 2.0, shooting = 1.5, decisions = 1.5, composure = 1.0 }
     elseif pos == "CAM" then
         posWeights = { vision = 2.5, dribbling = 2.5, passing = 2.0, shooting = 2.0, composure = 1.5, decisions = 1.0, agility = 0.5 }
+    elseif pos == "LM" or pos == "RM" then
+        posWeights = { passing = 2.5, stamina = 2.0, dribbling = 2.0, speed = 1.8, vision = 1.5, tackling = 1.2, teamwork = 1.0 }
     elseif pos == "LW" or pos == "RW" then
         posWeights = { dribbling = 3.0, agility = 2.0, shooting = 2.0, speed = 1.5, passing = 1.5, composure = 1.0, vision = 1.0 }
     elseif pos == "ST" then

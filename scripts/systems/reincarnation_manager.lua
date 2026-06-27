@@ -444,6 +444,12 @@ local function generateRebirthAttributes(position, overall, attrBonus)
         attrs.passing = attrs.passing + RandomInt(2, 4)
         attrs.vision = attrs.vision + RandomInt(1, 3)
         attrs.dribbling = attrs.dribbling + RandomInt(1, 3)
+    elseif position == "LM" or position == "RM" then
+        attrs.passing = attrs.passing + RandomInt(1, 3)
+        attrs.speed = attrs.speed + RandomInt(1, 3)
+        attrs.stamina = attrs.stamina + RandomInt(1, 3)
+        attrs.dribbling = attrs.dribbling + RandomInt(1, 2)
+        attrs.tackling = attrs.tackling + RandomInt(0, 2)
     elseif position == "LW" or position == "RW" then
         attrs.speed = attrs.speed + RandomInt(2, 4)
         attrs.dribbling = attrs.dribbling + RandomInt(2, 3)

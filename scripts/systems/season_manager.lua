@@ -1131,7 +1131,7 @@ end
 --- 为新球队生成阵容
 function SeasonManager._generateSquadForTeam(gameState, team, leagueKey)
     local positions = {"GK", "GK", "CB", "CB", "CB", "LB", "RB", "CM", "CM", "CDM",
-                       "CAM", "LW", "RW", "ST", "ST", "CB", "CM", "RW"}
+                       "CAM", "LM", "RM", "ST", "ST", "CB", "CM", "RW"}
 
     -- 二级联赛球员能力范围（低于顶级联赛）
     local baseMin, baseMax = 5, 12

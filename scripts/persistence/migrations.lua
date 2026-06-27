@@ -218,7 +218,7 @@ function Migrations.v4_to_v5(gameStateData)
         DefensiveMidfielder = "CDM",
         CentralMidfielder = "CM",
         AttackingMidfielder = "CAM",
-        LeftMidfielder = "LW", RightMidfielder = "RW",
+        LeftMidfielder = "LM", RightMidfielder = "RM",
         LeftWinger = "LW", RightWinger = "RW",
         LeftWing = "LW", RightWing = "RW",
         Striker = "ST",
@@ -687,7 +687,7 @@ function Migrations.v12_to_v13(gameStateData)
     print("[SaveMigration] v12→v13: 修正了 " .. migrated .. " 名 CentreForward 传奇球员的位置映射(CM→ST)")
 end
 
---- v13 → v14: 统一球员位置协议，只保留 GK/CB/LB/RB/CDM/CM/CAM/LW/RW/ST
+--- v13 → v14: 统一球员位置协议，保留边中场 LM/RM，移除 CF 等旧别名
 --- 位置训练迁移只改 target 代码，不重置已有训练进度。
 function Migrations.v13_to_v14(gameStateData)
     local Constants = require("scripts/app/constants")

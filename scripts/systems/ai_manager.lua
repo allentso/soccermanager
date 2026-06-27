@@ -290,7 +290,7 @@ function AIManager._getPositionGroup(position)
     local groups = {
         GK = "goalkeeper",
         CB = "defense", RB = "defense", LB = "defense",
-        CDM = "midfield", CM = "midfield", CAM = "midfield",
+        CDM = "midfield", CM = "midfield", CAM = "midfield", LM = "midfield", RM = "midfield",
         RW = "attack", LW = "attack", ST = "attack",
     }
     return groups[position] or "midfield"

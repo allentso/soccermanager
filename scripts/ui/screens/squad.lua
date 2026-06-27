@@ -45,7 +45,7 @@ local SORT_OPTIONS = {
 local POS_GROUP_MAP = {
     GK = "GK",
     CB = "DEF", LB = "DEF", RB = "DEF",
-    CDM = "MID", CM = "MID", CAM = "MID",
+    CDM = "MID", CM = "MID", CAM = "MID", LM = "MID", RM = "MID",
     LW = "FWD", RW = "FWD", ST = "FWD",
 }
 

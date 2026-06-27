@@ -1584,7 +1584,7 @@ function FinanceManager.checkSquadSafety(gameState, playerId)
                     gkCount = gkCount + 1
                 elseif pos == "CB" or pos == "LB" or pos == "RB" then
                     defCount = defCount + 1
-                elseif pos == "CM" or pos == "CDM" or pos == "CAM" then
+                elseif pos == "CM" or pos == "CDM" or pos == "CAM" or pos == "LM" or pos == "RM" then
                     midCount = midCount + 1
                 else
                     fwdCount = fwdCount + 1

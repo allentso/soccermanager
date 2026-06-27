@@ -154,19 +154,9 @@ function Dashboard._getDaysToNextMatch(gameState)
     return days
 end
 
---- 夏/冬窗期间若下一场比赛在关窗之后，不提供「跳到比赛日」（优先留时间操作转会）
+--- 距下一场比赛 2 天以上时显示「跳到比赛日」（冬夏窗同样可用）
 function Dashboard._shouldOfferSkipToMatch(gameState, daysToMatch)
-    if not daysToMatch or daysToMatch <= 1 then return false end
-    if not TransferManager.isInTransferWindow(gameState) then return true end
-    local month = gameState.date.month
-    -- 夏窗：赛季初留时间处理转会，不提供一键跳到首场联赛
-    if month >= 7 and month <= 8 then
-        return false
-    end
-    -- 冬窗：仅当下一场比赛在关窗前才允许快进
-    local daysToClose = TransferManager.daysUntilWindowClose(gameState)
-    if daysToClose >= 999 then return true end
-    return daysToMatch <= daysToClose
+    return daysToMatch and daysToMatch > 1
 end
 
 ------------------------------------------------------
@@ -834,7 +824,7 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
             end,
         })
     elseif offerSkipToMatch then
-        -- 跳到比赛日按钮（2天以上显示；夏/冬窗且首场在关窗后时不显示）
+        -- 跳到比赛日按钮（2天以上显示，位于「继续」左侧）
         table.insert(children, UI.Button {
             text = ">>" .. daysToMatch .. "天",
             width = 64,

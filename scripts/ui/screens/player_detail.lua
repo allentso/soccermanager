@@ -1639,6 +1639,12 @@ function PlayerDetail._getKeyAttributes(player)
             {label="站位", key="positioning", value=a.positioning}, {label="速度", key="speed", value=a.speed},
             {label="盘带", key="dribbling", value=a.dribbling}, {label="制空", key="aerial", value=a.aerial},
         }
+    elseif pos == "LM" or pos == "RM" then
+        return {
+            {label="传球", key="passing", value=a.passing}, {label="体能", key="stamina", value=a.stamina},
+            {label="速度", key="speed", value=a.speed}, {label="盘带", key="dribbling", value=a.dribbling},
+            {label="视野", key="vision", value=a.vision}, {label="抢断", key="tackling", value=a.tackling},
+        }
     elseif pos == "LW" or pos == "RW" then
         return {
             {label="速度", key="speed", value=a.speed}, {label="盘带", key="dribbling", value=a.dribbling},

@@ -21,8 +21,8 @@ local POSITION_MAP = {
     DefensiveMidfielder = "CDM",
     CentralMidfielder = "CM",
     AttackingMidfielder = "CAM",
-    LeftMidfielder = "LW",
-    RightMidfielder = "RW",
+    LeftMidfielder = "LM",
+    RightMidfielder = "RM",
     LeftWinger = "LW",
     RightWinger = "RW",
     LeftWing = "LW",       -- JSON变体写法
@@ -104,12 +104,12 @@ end
 
 -- 映射位置列表
 local function mapPositions(mainPos, altPositions)
-    local main = Constants.normalizePosition(POSITION_MAP[mainPos]) or "CM"
+    local main = Constants.normalizePosition(POSITION_MAP[mainPos] or mainPos) or "CM"
     local positions = {main}
     local seen = {[main] = true}
     if altPositions then
         for _, ap in ipairs(altPositions) do
-            local mapped = Constants.normalizePosition(POSITION_MAP[ap])
+            local mapped = Constants.normalizePosition(POSITION_MAP[ap] or ap)
             if mapped and not seen[mapped] then
                 seen[mapped] = true
                 table.insert(positions, mapped)

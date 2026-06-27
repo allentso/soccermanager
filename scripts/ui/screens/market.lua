@@ -3094,7 +3094,7 @@ Market._exploreContainerRef = nil
 Market._exploreGameState = nil
 Market._exploreScouts = nil
 
-local SCOUT_POSITIONS = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"}
+local SCOUT_POSITIONS = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST"}
 local AGE_RANGES = {
     { key = "any",   label = "不限",       min = nil, max = nil },
     { key = "u21",   label = "U21",        min = 16,  max = 21 },

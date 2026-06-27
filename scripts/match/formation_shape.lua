@@ -112,18 +112,20 @@ FormationShape.ZONE_LABELS = {
 FormationShape.SLOT_COMPATIBILITY = {
     GK = { GK = 1.0 },
     CB = { CB = 1.0, RB = 0.6, LB = 0.6, CDM = 0.5 },
-    RB = { RB = 1.0, CB = 0.6, RW = 0.7, LB = 0.8 },
-    LB = { LB = 1.0, CB = 0.6, LW = 0.7, RB = 0.8 },
+    RB = { RB = 1.0, CB = 0.6, RM = 0.7, RW = 0.5 },
+    LB = { LB = 1.0, CB = 0.6, LM = 0.7, LW = 0.5 },
     CDM = { CDM = 1.0, CM = 0.8, CB = 0.5 },
-    CM = { CM = 1.0, CDM = 0.8, CAM = 0.7, RW = 0.6, LW = 0.6 },
-    CAM = { CAM = 1.0, CM = 0.7, RW = 0.6, LW = 0.6, ST = 0.5 },
-    RW = { RW = 1.0, ST = 0.6, CAM = 0.6, LW = 0.7, CM = 0.6, RB = 0.5 },
-    LW = { LW = 1.0, ST = 0.6, CAM = 0.6, RW = 0.7, CM = 0.6, LB = 0.5 },
+    CM = { CM = 1.0, CDM = 0.8, CAM = 0.7, RM = 0.6, LM = 0.6 },
+    CAM = { CAM = 1.0, CM = 0.7, RM = 0.6, LM = 0.6, ST = 0.5 },
+    RM = { RM = 1.0, CM = 0.7, CAM = 0.6, RW = 0.8, RB = 0.5 },
+    LM = { LM = 1.0, CM = 0.7, CAM = 0.6, LW = 0.8, LB = 0.5 },
+    RW = { RW = 1.0, RM = 0.8, ST = 0.6, CAM = 0.6, RB = 0.5 },
+    LW = { LW = 1.0, LM = 0.8, ST = 0.6, CAM = 0.6, LB = 0.5 },
     ST = { ST = 1.0, CAM = 0.6, RW = 0.5, LW = 0.5 },
 }
 
 FormationShape.POSITION_ORDER = {
-    "GK", "LB", "CB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST",
+    "GK", "LB", "CB", "RB", "CDM", "LM", "CM", "RM", "CAM", "LW", "RW", "ST",
 }
 
 -- 按实际槽位 DEF/MID/FWD 数量自动归类
@@ -185,14 +187,14 @@ FormationShape.FORMATION_TO_ARCHETYPE = {
 local TEMPLATE_BUCKET = {
     GK = "GK",
     CB = "DEF", LB = "DEF", RB = "DEF",
-    CDM = "MID", CM = "MID", CAM = "MID",
+    CDM = "MID", CM = "MID", CAM = "MID", LM = "MID", RM = "MID",
     RW = "FWD", LW = "FWD", ST = "FWD",
 }
 
 local POS_LINE = {
     GK = "GK",
     CB = "DEF", LB = "DEF", RB = "DEF",
-    CDM = "MID", CM = "MID", CAM = "MID",
+    CDM = "MID", CM = "MID", CAM = "MID", LM = "MID", RM = "MID",
     LW = "FWD", RW = "FWD", ST = "FWD",
 }
 
@@ -242,8 +244,8 @@ local function structureLineForSlot(team, slotIdx, actualPos, useFullCustom)
     end
 
     local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
-    if isWideMidTemplateSlot(team, slotIdx) and (defaultPos == "LW" or defaultPos == "RW") then
-        return "MID"
+    if isWideMidTemplateSlot(team, slotIdx) then
+        return POS_LINE[actualPos] or "MID"
     end
 
     local defaultBucket = TEMPLATE_BUCKET[defaultPos]
@@ -398,8 +400,8 @@ end
 
 -- 位置的侧边归属：RIGHT=球场右路, LEFT=球场左路, CENTER=中路
 local POS_SIDE = {
-    RB = "RIGHT", RW = "RIGHT",
-    LB = "LEFT",  LW = "LEFT",
+    RB = "RIGHT", RM = "RIGHT", RW = "RIGHT",
+    LB = "LEFT",  LM = "LEFT",  LW = "LEFT",
 }
 
 -- 位置纵深层级（5层：后2 / 后1 / 中1 / 前2 / 前1）
@@ -410,7 +412,7 @@ local POS_DEPTH_TIER = {
     GK = 0,
     CB = 1, RB = 1, LB = 1,
     CDM = 2,
-    CM = 3,
+    CM = 3, RM = 3, LM = 3,
     CAM = 4, RW = 4, LW = 4,
     ST = 5,
 }
@@ -463,10 +465,10 @@ function FormationShape.getCompatiblePositions(slotPos, slotZone)
                     -- 中路槽位：过滤掉纯边路位置
                     if posSide then dominated = true end
                 elseif zoneLane == "LEFT" then
-                    -- zone LEFT = 低x = 球场右路：过滤掉左路位置
+                    -- 低 x 是己方右路，不能给左路位置。
                     if posSide == "LEFT" then dominated = true end
                 elseif zoneLane == "RIGHT" then
-                    -- zone RIGHT = 高x = 球场左路：过滤掉右路位置
+                    -- 高 x 是己方左路，不能给右路位置。
                     if posSide == "RIGHT" then dominated = true end
                 end
             end
@@ -563,7 +565,9 @@ local function countStructureLines(team, slots)
         local defaultPos = FormationShape.getDefaultSlotPosition(team, i)
         local line = structureLineForSlot(team, i, pos, useFullCustom)
         lines[line] = (lines[line] or 0) + 1
-        if isWideMidTemplateSlot(team, i) and (defaultPos == "LW" or defaultPos == "RW") then
+        if isWideMidTemplateSlot(team, i)
+            and (defaultPos == "LM" or defaultPos == "RM")
+            and (pos == "LW" or pos == "RW") then
             countMode = "hybrid"
         end
     end
@@ -799,7 +803,7 @@ local function buildAnalysis(team, slotsOverride)
         end
     end
     if countMode == "hybrid" then
-        table.insert(effectLines, "翼卫前置为边锋，前场线按边锋重算")
+        table.insert(effectLines, "边中场前置为边锋，前场线按边锋重算")
     elseif countMode == "custom" then
         table.insert(effectLines, "深度自定义：按实际位置重算结构")
     end

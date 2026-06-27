@@ -266,7 +266,7 @@ local YOUTH_NATIONALITIES = {
 
 -- 青训普通球员位置权重：按 22 人一线队结构折算，避免长期等概率抽导致 GK/CAM/CDM 过量、
 -- CB/ST 等多人位置不足。
-local YOUTH_POSITION_ORDER = {"GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST"}
+local YOUTH_POSITION_ORDER = {"GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LM", "RM", "LW", "RW", "ST"}
 local YOUTH_POSITION_WEIGHTS = {
     GK = 2,
     CB = 3,
@@ -275,8 +275,10 @@ local YOUTH_POSITION_WEIGHTS = {
     CM = 3,
     CDM = 1,
     CAM = 1,
-    LW = 2,
-    RW = 2,
+    LM = 1,
+    RM = 1,
+    LW = 1,
+    RW = 1,
     ST = 4,
 }
 local YOUTH_POSITION_WEIGHT_TOTAL = 0
@@ -328,8 +330,8 @@ local POSITION_MAP = {
     DefensiveMidfielder = "CDM",
     CentralMidfielder = "CM",
     AttackingMidfielder = "CAM",
-    LeftMidfielder = "LW",
-    RightMidfielder = "RW",
+    LeftMidfielder = "LM",
+    RightMidfielder = "RM",
     LeftWing = "LW",
     RightWing = "RW",
     Striker = "ST",
@@ -1411,6 +1413,12 @@ function YouthManager._generateAttributes(position, overall)
         attrs.passing = attrs.passing + RandomInt(2, 4)
         attrs.vision = attrs.vision + RandomInt(1, 3)
         attrs.dribbling = attrs.dribbling + RandomInt(1, 3)
+    elseif position == "LM" or position == "RM" then
+        attrs.passing = attrs.passing + RandomInt(1, 3)
+        attrs.speed = attrs.speed + RandomInt(1, 3)
+        attrs.stamina = attrs.stamina + RandomInt(1, 3)
+        attrs.dribbling = attrs.dribbling + RandomInt(1, 2)
+        attrs.tackling = attrs.tackling + RandomInt(0, 2)
     elseif position == "LW" or position == "RW" then
         attrs.speed = attrs.speed + RandomInt(2, 4)
         attrs.dribbling = attrs.dribbling + RandomInt(2, 3)

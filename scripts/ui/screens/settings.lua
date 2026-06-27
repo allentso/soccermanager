@@ -851,7 +851,7 @@ function Settings._cheatYouthProdigy()
     if not team then return end
 
     -- 生成一个高潜力青训球员
-    local positions = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"}
+    local positions = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST"}
     local pos = positions[RandomInt(1, #positions)]
     local age = RandomInt(16, 17)
 
@@ -1452,7 +1452,7 @@ function Settings._claimCompensationLegend()
         DefensiveMidfielder = "CDM",
         CentralMidfielder = "CM",
         AttackingMidfielder = "CAM",
-        LeftMidfielder = "LW", RightMidfielder = "RW",
+        LeftMidfielder = "LM", RightMidfielder = "RM",
         LeftWinger = "LW", RightWinger = "RW",
         LeftWing = "LW", RightWing = "RW",
         Striker = "ST", CentreForward = "ST", CenterForward = "ST",

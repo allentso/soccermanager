@@ -182,23 +182,23 @@ Constants.LAYOUT_TO_STORAGE_KEY = {
 }
 
 Constants.FORMATION_PRESET_SLOTS = {
-    ["4-4-2:flat"]     = {"GK", "RB", "CB", "CB", "LB", "RW", "CM", "CM", "LW", "ST", "ST"},
-    ["4-4-2:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RW", "CDM", "CAM", "LW", "ST", "ST"},
+    ["4-4-2:flat"]     = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"},
+    ["4-4-2:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST", "ST"},
     ["4-3-3:hold"]     = {"GK", "RB", "CB", "CB", "LB", "CM", "CDM", "CM", "RW", "ST", "LW"},
     ["4-3-3:attack"]   = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "CAM", "RW", "ST", "LW"},
     ["4-2-3-1:wide"]   = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "LW", "ST"},
     ["4-2-3-1:narrow"] = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "CAM", "CAM", "ST"},
-    ["3-4-3:flat"]     = {"GK", "CB", "CB", "CB", "RW", "CM", "CM", "LW", "RW", "ST", "LW"},
-    ["3-4-3:stagger"]  = {"GK", "CB", "CB", "CB", "RW", "CDM", "CAM", "LW", "RW", "ST", "LW"},
-    ["3-5-2:default"]  = {"GK", "CB", "CB", "CB", "RW", "CM", "CDM", "CM", "LW", "ST", "ST"},
-    ["3-5-2:attack"]   = {"GK", "CB", "CB", "CB", "RW", "CM", "CM", "CAM", "LW", "ST", "ST"},
+    ["3-4-3:flat"]     = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "LM", "RW", "ST", "LW"},
+    ["3-4-3:stagger"]  = {"GK", "CB", "CB", "CB", "RM", "CDM", "CAM", "LM", "RW", "ST", "LW"},
+    ["3-5-2:default"]  = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"},
+    ["3-5-2:attack"]   = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "CAM", "LM", "ST", "ST"},
     ["5-3-2:flat"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CM", "ST", "ST"},
     ["5-3-2:hold"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CDM", "CM", "ST", "ST"},
     ["4-2-4:flat"]     = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "RW", "ST", "ST", "LW"},
-    ["4-5-1:default"]  = {"GK", "RB", "CB", "CB", "LB", "RW", "CM", "CDM", "CM", "LW", "ST"},
-    ["4-5-1:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RW", "CDM", "CAM", "CM", "LW", "ST"},
-    ["5-4-1:flat"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "RW", "CM", "CM", "LW", "ST"},
-    ["5-4-1:stagger"]  = {"GK", "RB", "CB", "CB", "CB", "LB", "RW", "CDM", "CAM", "LW", "ST"},
+    ["4-5-1:default"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CDM", "CM", "LM", "ST"},
+    ["4-5-1:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "CM", "LM", "ST"},
+    ["5-4-1:flat"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST"},
+    ["5-4-1:stagger"]  = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST"},
 }
 
 -- 旧存档/代码中的 storageKey → layoutKey
@@ -286,6 +286,7 @@ Constants.POSITIONS = {
     GK = "GK",
     CB = "CB", LB = "LB", RB = "RB",
     CDM = "CDM", CM = "CM", CAM = "CAM",
+    LM = "LM", RM = "RM",
     LW = "LW", RW = "RW", ST = "ST"
 }
 
@@ -293,6 +294,7 @@ Constants.POSITIONS = {
 Constants.POSITION_NAMES = {
     GK = "门将", CB = "中卫", LB = "左后卫", RB = "右后卫",
     CDM = "后腰", CM = "中场", CAM = "前腰",
+    LM = "左中场", RM = "右中场",
     LW = "左边锋", RW = "右边锋", ST = "前锋"
 }
 
@@ -300,17 +302,19 @@ Constants.POSITION_NAMES = {
 Constants.POSITION_GROUPS = {
     GK = {"GK"},
     DEF = {"CB", "LB", "RB"},
-    MID = {"CDM", "CM", "CAM"},
+    MID = {"CDM", "CM", "CAM", "LM", "RM"},
     FWD = {"LW", "RW", "ST"}
 }
 
-Constants.STANDARD_POSITIONS = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"}
+Constants.STANDARD_POSITIONS = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST"}
 Constants.NON_STANDARD_POSITION_MAP = {
-    LM = "LW",
-    RM = "RW",
     CF = "ST",
-    LeftMidfielder = "LW",
-    RightMidfielder = "RW",
+    LeftMidfielder = "LM",
+    RightMidfielder = "RM",
+    LeftWinger = "LW",
+    RightWinger = "RW",
+    LeftWing = "LW",
+    RightWing = "RW",
     CentreForward = "ST",
     CenterForward = "ST",
 }
@@ -406,6 +410,24 @@ Constants.POSITION_ROLES = {
         { key = "playmaker",  name = "古典前腰",   desc = "持球组织，最后一传",
           modifiers = { passing = 1.3, vision = 1.3, dribbling = 1.1, speed = 0.85 },
           posOffset = {0, -4} },
+    },
+    RM = {
+        { key = "default",    name = "标准右中场", desc = "边路攻守均衡" },
+        { key = "wide",       name = "贴边中场",   desc = "拉开宽度，优先传中与协防",
+          modifiers = { passing = 1.2, stamina = 1.15, speed = 1.1, shooting = 0.9 },
+          posOffset = {4, 0} },
+        { key = "playmaker",  name = "边路组织者", desc = "内收参与组织，提供斜传",
+          modifiers = { passing = 1.25, vision = 1.2, dribbling = 1.05, speed = 0.95 },
+          posOffset = {-6, 0} },
+    },
+    LM = {
+        { key = "default",    name = "标准左中场", desc = "边路攻守均衡" },
+        { key = "wide",       name = "贴边中场",   desc = "拉开宽度，优先传中与协防",
+          modifiers = { passing = 1.2, stamina = 1.15, speed = 1.1, shooting = 0.9 },
+          posOffset = {-4, 0} },
+        { key = "playmaker",  name = "边路组织者", desc = "内收参与组织，提供斜传",
+          modifiers = { passing = 1.25, vision = 1.2, dribbling = 1.05, speed = 0.95 },
+          posOffset = {6, 0} },
     },
     RW = {
         { key = "default",    name = "标准右边锋", desc = "突破与射门兼具" },
