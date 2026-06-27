@@ -609,6 +609,10 @@ function RealDataLoader.loadAllLeagues(gameState, opts)
     log:Write(LOG_INFO, "RealDataLoader: 加载完成! 联赛:" .. RealDataLoader._countLeagues(gameState) ..
         " 球队:" .. totalTeams .. " 球员:" .. totalPlayers)
 
+    if gameState.rebuildTeamLeagueIndex then
+        gameState:rebuildTeamLeagueIndex()
+    end
+
     local TeamRivalries = require("scripts/data/team_rivalries")
     local rivalryCount = TeamRivalries.initializeIfNeeded(gameState)
     log:Write(LOG_INFO, "RealDataLoader: 死敌关系 " .. tostring(rivalryCount) .. " 对")
@@ -628,6 +632,10 @@ end
 --- @return table|nil league
 --- @return string|nil leagueKey
 function RealDataLoader.getTeamLeague(gameState, teamId)
+    if not gameState then return nil, nil end
+    if gameState.getTeamLeague then
+        return gameState:getTeamLeague(teamId)
+    end
     if not gameState.leagues then return nil, nil end
     for key, league in pairs(gameState.leagues) do
         for _, tid in ipairs(league.teamIds) do
@@ -1090,6 +1098,12 @@ function RealDataLoader.unloadOptionalLeague(gameState, leagueKey)
     -- 移除联赛
     gameState.leagues[leagueKey] = nil
 
+    if gameState.rebuildTeamLeagueIndex then
+        gameState:rebuildTeamLeagueIndex()
+    end
+    local TurnProcessor = require("scripts/core/turn_processor")
+    TurnProcessor.invalidateFixtureCaches(gameState)
+
     log:Write(LOG_INFO, "RealDataLoader: 已卸载联赛 " .. leagueKey)
     return true
 end
@@ -1129,6 +1143,11 @@ function RealDataLoader.loadAllSecondDivisions(gameState)
         for leagueKey in pairs(RealDataLoader.SECOND_DIVISION_LEAGUES) do
             WorldGenerator.bootstrapLeagueTeams(gameState, leagueKey)
         end
+        if gameState.rebuildTeamLeagueIndex then
+            gameState:rebuildTeamLeagueIndex()
+        end
+        local TurnProcessor = require("scripts/core/turn_processor")
+        TurnProcessor.invalidateFixtureCaches(gameState)
     end
 
     return loaded > 0

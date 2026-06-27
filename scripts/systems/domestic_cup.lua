@@ -9,9 +9,93 @@ local RealDataLoader = require("scripts/data/real_data_loader")
 
 local DomesticCup = {}
 
-------------------------------------------------------
--- 各联赛杯赛配置
-------------------------------------------------------
+local function _cupDateKey(date)
+    if type(date) ~= "table" then return nil end
+    local y = tonumber(date.year)
+    local m = tonumber(date.month)
+    local d = tonumber(date.day)
+    if not y or not m or not d then return nil end
+    return string.format("%04d-%02d-%02d", y, m, d)
+end
+
+local function _cupDateBefore(a, b)
+    if a.year ~= b.year then return a.year < b.year end
+    if a.month ~= b.month then return a.month < b.month end
+    return a.day < b.day
+end
+
+function DomesticCup.invalidateFixtureCaches(gameState)
+    if not gameState then return end
+    gameState._domesticCupFixtureDateIndex = nil
+    gameState._domesticCupScheduledMeta = nil
+end
+
+function DomesticCup._ensureCupFixtureDateIndex(gameState)
+    if gameState._domesticCupFixtureDateIndex then
+        return gameState._domesticCupFixtureDateIndex
+    end
+
+    local index = {}
+    for leagueKey, cup in pairs(gameState.domesticCups or {}) do
+        local cupKey = cup.leagueKey or leagueKey
+        for _, roundFixtures in ipairs(cup.rounds or {}) do
+            for _, f in ipairs(roundFixtures) do
+                f._cupLeague = f._cupLeague or cupKey
+                local key = f.date and _cupDateKey(f.date)
+                if key then
+                    local bucket = index[key]
+                    if not bucket then
+                        bucket = {}
+                        index[key] = bucket
+                    end
+                    bucket[#bucket + 1] = f
+                end
+            end
+        end
+    end
+    gameState._domesticCupFixtureDateIndex = index
+    return index
+end
+
+local function _ensureCupScheduledMeta(gameState)
+    if gameState._domesticCupScheduledMeta then
+        return gameState._domesticCupScheduledMeta
+    end
+
+    local meta = { anyOverduePossible = false, earliestDate = nil, scheduledCount = 0 }
+    for _, cup in pairs(gameState.domesticCups or {}) do
+        if cup.phase == "completed" then goto next_cup end
+        for _, roundFixtures in ipairs(cup.rounds or {}) do
+            for _, fixture in ipairs(roundFixtures) do
+                if fixture.status == "scheduled" and fixture.date then
+                    meta.scheduledCount = meta.scheduledCount + 1
+                    if not meta.earliestDate or _cupDateBefore(fixture.date, meta.earliestDate) then
+                        meta.earliestDate = {
+                            year = fixture.date.year,
+                            month = fixture.date.month,
+                            day = fixture.date.day,
+                        }
+                    end
+                end
+            end
+        end
+        ::next_cup::
+    end
+    gameState._domesticCupScheduledMeta = meta
+    return meta
+end
+
+local function _cupMayHaveOverdueFixtures(meta, currentDate)
+    if not meta or meta.scheduledCount <= 0 or not meta.earliestDate then
+        return false
+    end
+    return _cupDateBefore(meta.earliestDate, currentDate)
+end
+
+function DomesticCup._invalidateCupScheduledMeta(gameState)
+    if not gameState then return end
+    gameState._domesticCupScheduledMeta = nil
+end
 DomesticCup.CUP_CONFIG = {
     EPL = {
         name = "足总杯",
@@ -134,6 +218,7 @@ end
 
 function DomesticCup.initialize(gameState)
     gameState.domesticCups = {}
+    DomesticCup.invalidateFixtureCaches(gameState)
 
     for leagueKey, lg in pairs(gameState.leagues) do
         local config = DomesticCup.CUP_CONFIG[leagueKey]
@@ -316,6 +401,7 @@ function DomesticCup.migrateIfNeeded(gameState)
     if simulatedCount > 0 then
         print("[DomesticCup] Migration: auto-simulated " .. simulatedCount .. " overdue fixtures")
     end
+    DomesticCup.invalidateFixtureCaches(gameState)
 end
 
 ------------------------------------------------------
@@ -326,19 +412,19 @@ function DomesticCup.getFixturesForDate(gameState, date)
     local cups = gameState.domesticCups
     if not cups then return result end
 
-    for _, cup in pairs(cups) do
-        if cup.phase ~= "completed" then
-            for _, roundFixtures in ipairs(cup.rounds) do
-                for _, f in ipairs(roundFixtures) do
-                    if f.status == "scheduled" and
-                       f.date.year == date.year and
-                       f.date.month == date.month and
-                       f.date.day == date.day then
-                        f._isDomesticCup = true
-                        f._cupLeague = cup.leagueKey
-                        table.insert(result, f)
-                    end
-                end
+    local key = _cupDateKey(date)
+    if not key then return result end
+
+    local bucket = DomesticCup._ensureCupFixtureDateIndex(gameState)[key]
+    if not bucket then return result end
+
+    for _, f in ipairs(bucket) do
+        if f.status == "scheduled" then
+            local cupKey = f._cupLeague
+            local cup = cupKey and cups[cupKey]
+            if cup and cup.phase ~= "completed" then
+                f._isDomesticCup = true
+                table.insert(result, f)
             end
         end
     end
@@ -352,6 +438,8 @@ function DomesticCup.applyResult(gameState, fixture, report)
     fixture.homeGoals = report.homeGoals
     fixture.awayGoals = report.awayGoals
     fixture.status = "finished"
+    DomesticCup._invalidateCupScheduledMeta(gameState)
+    gameState._domesticCupFixtureDateIndex = nil
 
     -- 存储加时/点球数据
     if report.extraTime then
@@ -622,9 +710,15 @@ function DomesticCup.catchUpOverdueFixtures(gameState, currentDate)
     local cups = gameState.domesticCups
     if not cups then return {} end
 
+    local scheduledMeta = _ensureCupScheduledMeta(gameState)
+    if not _cupMayHaveOverdueFixtures(scheduledMeta, currentDate) then
+        return {}
+    end
+
     local playerTeamId = gameState.playerTeamId
     local playerOverdue = {}
     local MatchEngine = require("scripts/match/match_engine")
+    local simulatedAny = false
 
     for _, cup in pairs(cups) do
         if cup.phase == "completed" then goto next_cup end
@@ -632,41 +726,32 @@ function DomesticCup.catchUpOverdueFixtures(gameState, currentDate)
         for _, roundFixtures in ipairs(cup.rounds) do
             for _, fixture in ipairs(roundFixtures) do
                 if fixture.status == "scheduled" and fixture.date then
-                    local isBefore = false
-                    if fixture.date.year < currentDate.year then isBefore = true
-                    elseif fixture.date.year == currentDate.year then
-                        if fixture.date.month < currentDate.month then isBefore = true
-                        elseif fixture.date.month == currentDate.month then
-                            isBefore = fixture.date.day < currentDate.day
-                        end
-                    end
+                    if not _cupDateBefore(fixture.date, currentDate) then goto continue_fixture end
 
-                    if isBefore then
-                        fixture._isDomesticCup = true
-                        fixture._cupLeague = cup.leagueKey
-                        local isPlayerMatch = playerTeamId and
-                            (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
+                    fixture._isDomesticCup = true
+                    fixture._cupLeague = cup.leagueKey
+                    local isPlayerMatch = playerTeamId and
+                        (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
 
-                        if isPlayerMatch and not gameState._cheatAutoPlay then
-                            fixture._pendingPlayerMatch = true
-                            table.insert(playerOverdue, fixture)
-                        else
-                            -- AI 比赛自动模拟
-                            local report = MatchEngine.simulate(gameState, fixture)
-                            if report then
-                                DomesticCup.applyResult(gameState, fixture, report)
-                            end
+                    if isPlayerMatch and not gameState._cheatAutoPlay then
+                        fixture._pendingPlayerMatch = true
+                        table.insert(playerOverdue, fixture)
+                    else
+                        local report = MatchEngine.simulate(gameState, fixture)
+                        if report then
+                            DomesticCup.applyResult(gameState, fixture, report)
+                            simulatedAny = true
                         end
                     end
                 end
+                ::continue_fixture::
             end
         end
 
         ::next_cup::
     end
 
-    -- 补模拟后检查阶段推进
-    if #playerOverdue > 0 or true then
+    if simulatedAny or #playerOverdue > 0 then
         DomesticCup.checkPhaseAdvance(gameState)
     end
 

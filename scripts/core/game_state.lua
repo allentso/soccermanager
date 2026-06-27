@@ -676,6 +676,7 @@ function GameState:deserialize(data)
     for _, lg in pairs(self.leagues) do
         lg:syncTeamPositions(self)
     end
+    self:rebuildTeamLeagueIndex()
 
     -- 记录系统：确保结构完整，旧存档从 worldHistory / UCL / 世界杯历史回溯
     local RecordsManager = require("scripts/systems/records_manager")
@@ -728,12 +729,32 @@ function GameState:getAllLeagues()
     return result
 end
 
--- 查找球队所在联赛
-function GameState:getTeamLeague(teamId)
-    for key, lg in pairs(self.leagues) do
-        for _, tid in ipairs(lg.teamIds) do
-            if tid == teamId then return lg, key end
+--- 重建 teamId -> { key, league } 运行时索引（不入档）
+function GameState:rebuildTeamLeagueIndex()
+    local index = {}
+    for key, lg in pairs(self.leagues or {}) do
+        for _, tid in ipairs(lg.teamIds or {}) do
+            index[tid] = { key = key, league = lg }
         end
+    end
+    self._teamLeagueIndex = index
+    return index
+end
+
+function GameState:invalidateTeamLeagueIndex()
+    self._teamLeagueIndex = nil
+end
+
+--- 查找球队所在联赛（O(1) 索引，降级/动态加载后需 rebuildTeamLeagueIndex）
+function GameState:getTeamLeague(teamId)
+    if not teamId then return nil, nil end
+    local index = self._teamLeagueIndex
+    if not index then
+        index = self:rebuildTeamLeagueIndex()
+    end
+    local entry = index[teamId]
+    if entry then
+        return entry.league, entry.key
     end
     return nil, nil
 end

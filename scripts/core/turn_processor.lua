@@ -30,9 +30,34 @@ local NewsGenerator = require("scripts/systems/news_generator")
 local AIManager = require("scripts/systems/ai_manager")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
 local Housekeeping = require("scripts/persistence/housekeeping")
+local PlaceholderEngine = require("scripts/match/placeholder_engine")
 local DomesticCup = require("scripts/systems/domestic_cup")
 
 local TurnProcessor = {}
+
+--- 次级联赛非玩家 AI 比赛轻量模拟（默认关闭，启用前需单独回归校准）
+TurnProcessor.USE_LITE_SIM_FOR_TIER2_AI = false
+
+function TurnProcessor._shouldUseLiteSimForFixture(gameState, fixture)
+    if not TurnProcessor.USE_LITE_SIM_FOR_TIER2_AI then return false end
+    if fixture._isDomesticCup or fixture._isUCL or fixture._isUEL or fixture._isWC or fixture._isEuro then
+        return false
+    end
+    local playerTeamId = gameState.playerTeamId
+    if playerTeamId and (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId) then
+        return false
+    end
+    local lg = gameState.getTeamLeague and gameState:getTeamLeague(fixture.homeTeamId)
+    if not lg or (lg.tier or 1) <= 1 then return false end
+    return true
+end
+
+function TurnProcessor._simulateFixture(gameState, fixture)
+    if TurnProcessor._shouldUseLiteSimForFixture(gameState, fixture) then
+        return PlaceholderEngine.simulate(gameState, fixture)
+    end
+    return MatchEngine.simulate(gameState, fixture)
+end
 
 local function _dateKey(date)
     if type(date) ~= "table" then return nil end
@@ -47,6 +72,80 @@ function TurnProcessor.invalidateFixtureCaches(gameState)
     if not gameState then return end
     gameState._leagueFixtureDateIndex = nil
     gameState._cachedNextMatch = nil
+    gameState._leagueScheduledMeta = nil
+    if DomesticCup.invalidateFixtureCaches then
+        DomesticCup.invalidateFixtureCaches(gameState)
+    end
+end
+
+local function _profileBegin(gameState, name)
+    if not gameState or not gameState._profileTurn then return end
+    gameState._profileTurn._stack = gameState._profileTurn._stack or {}
+    table.insert(gameState._profileTurn._stack, { name = name, t0 = os.clock() })
+end
+
+local function _profileEnd(gameState)
+    if not gameState or not gameState._profileTurn then return end
+    local stack = gameState._profileTurn._stack
+    if not stack or #stack == 0 then return end
+    local entry = table.remove(stack)
+    local ms = (os.clock() - entry.t0) * 1000
+    gameState._profileTurn.phases = gameState._profileTurn.phases or {}
+    gameState._profileTurn.phases[entry.name] = (gameState._profileTurn.phases[entry.name] or 0) + ms
+end
+
+function TurnProcessor.beginProfile(gameState)
+    gameState._profileTurn = { phases = {}, counters = {}, _stack = {} }
+end
+
+function TurnProcessor.endProfile(gameState)
+    local profile = gameState._profileTurn
+    gameState._profileTurn = nil
+    return profile
+end
+
+function TurnProcessor.recordProfileCounter(gameState, key, delta)
+    if not gameState or not gameState._profileTurn then return end
+    gameState._profileTurn.counters = gameState._profileTurn.counters or {}
+    gameState._profileTurn.counters[key] = (gameState._profileTurn.counters[key] or 0) + (delta or 1)
+end
+
+local function _ensureLeagueScheduledMeta(gameState)
+    if gameState._leagueScheduledMeta then
+        return gameState._leagueScheduledMeta
+    end
+
+    local meta = {}
+    for leagueKey, lg in pairs(gameState.leagues or {}) do
+        local entry = { scheduledCount = 0, earliestDate = nil }
+        for _, f in ipairs(lg.fixtures or {}) do
+            if f.status == "scheduled" and f.date then
+                entry.scheduledCount = entry.scheduledCount + 1
+                if not entry.earliestDate or TurnProcessor._isDateBefore(f.date, entry.earliestDate) then
+                    entry.earliestDate = {
+                        year = f.date.year,
+                        month = f.date.month,
+                        day = f.date.day,
+                    }
+                end
+            end
+        end
+        meta[leagueKey] = entry
+    end
+    gameState._leagueScheduledMeta = meta
+    return meta
+end
+
+function TurnProcessor.invalidateLeagueScheduledMeta(gameState)
+    if not gameState then return end
+    gameState._leagueScheduledMeta = nil
+end
+
+local function _leagueMayHaveOverdueFixtures(entry, currentDate)
+    if not entry or entry.scheduledCount <= 0 or not entry.earliestDate then
+        return false
+    end
+    return TurnProcessor._isDateBefore(entry.earliestDate, currentDate)
 end
 
 local function _ensureLeagueFixtureDateIndex(gameState)
@@ -74,11 +173,14 @@ end
 
 -- 推进一天
 function TurnProcessor.advanceDay(gameState)
+    _profileBegin(gameState, "advanceDay_total")
+
     -- 读档后 date/month 等可能为字符串，先规范化避免 string.format 崩溃
     if gameState.normalizeRuntimeScalars then
         gameState:normalizeRuntimeScalars()
     end
 
+    _profileBegin(gameState, "migrate_and_fix")
     -- 存档迁移：旧格式欧冠 → 新瑞士制（仅首次触发）
     ChampionsLeague.migrateIfNeeded(gameState)
 
@@ -91,12 +193,14 @@ function TurnProcessor.advanceDay(gameState)
     -- 存档修复：旧存档赛程早于 8 月赛季起点（旧版中超 3 月 JSON 等）
     local RealDataLoader = require("scripts/data/real_data_loader")
     RealDataLoader.fixMisalignedLeagueFixtures(gameState)
+    _profileEnd(gameState)
 
     -- 推进日期
     local newDate = League._addDays(gameState.date, 1)
     gameState.date = newDate
     gameState.dayOfWeek = (gameState.dayOfWeek % 7) + 1
 
+    _profileBegin(gameState, "collect_fixtures")
     -- 检查所有联赛当天是否有比赛
     local todayFixtures = TurnProcessor.getFixturesForDate(gameState, newDate)
 
@@ -165,23 +269,33 @@ function TurnProcessor.advanceDay(gameState)
     for _, f in ipairs(cupFixtures) do
         table.insert(todayFixtures, f)
     end
+    _profileEnd(gameState)
 
     if #todayFixtures > 0 then
         -- 比赛日
         gameState.turnState = "match_day"
+        _profileBegin(gameState, "processMatchDay")
         TurnProcessor.processMatchDay(gameState, todayFixtures)
+        _profileEnd(gameState)
     else
         -- 非比赛日
         gameState.turnState = "idle"
+        _profileBegin(gameState, "processNonMatchDay")
         TurnProcessor.processNonMatchDay(gameState)
+        _profileEnd(gameState)
     end
 
     -- 每日体能恢复（全球比赛日也会执行，轮空/未出场球员不再被跳过）
+    _profileBegin(gameState, "processDailyFitnessRecovery")
     TurnProcessor.processDailyFitnessRecovery(gameState)
+    _profileEnd(gameState)
 
     -- 周期性处理（无论比赛日/非比赛日都必须执行，防止月初有比赛时跳过收入）
+    _profileBegin(gameState, "_processPeriodicEvents")
     TurnProcessor._processPeriodicEvents(gameState)
+    _profileEnd(gameState)
 
+    _profileBegin(gameState, "phaseAdvance")
     -- 检查欧冠阶段推进
     ChampionsLeague.checkPhaseAdvance(gameState)
 
@@ -194,6 +308,7 @@ function TurnProcessor.advanceDay(gameState)
 
     -- 检查国内杯赛阶段推进
     DomesticCup.checkPhaseAdvance(gameState)
+    _profileEnd(gameState)
 
     -- 检查玩家所在联赛是否赛季结束（加 guard 防止重复触发）
     -- 必须同时满足：联赛完成 + 欧冠完成（或不存在）+ 杯赛完成 + 国际大赛已结束（或不存在）
@@ -216,6 +331,7 @@ function TurnProcessor.advanceDay(gameState)
     end
 
     EventBus.emit("day_advanced", newDate)
+    _profileEnd(gameState)
     return todayFixtures
 end
 
@@ -321,9 +437,17 @@ end
 function TurnProcessor._catchUpOverdueLeagueFixtures(gameState, currentDate)
     local playerTeamId = gameState.playerTeamId
     local playerOverdue = {}
+    local scheduledMeta = _ensureLeagueScheduledMeta(gameState)
+    local scanned = 0
+    local simulated = 0
 
-    for _, lg in pairs(gameState.leagues or {}) do
+    for leagueKey, lg in pairs(gameState.leagues or {}) do
+        if not _leagueMayHaveOverdueFixtures(scheduledMeta[leagueKey], currentDate) then
+            goto skip_league
+        end
+
         for _, fixture in ipairs(lg.fixtures or {}) do
+            scanned = scanned + 1
             if fixture.status == "scheduled" and fixture.date and TurnProcessor._isDateBefore(fixture.date, currentDate) then
                 local isPlayerMatch = playerTeamId and
                     (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
@@ -334,16 +458,21 @@ function TurnProcessor._catchUpOverdueLeagueFixtures(gameState, currentDate)
                     goto continue_fixture
                 end
 
-                local report = MatchEngine.simulate(gameState, fixture)
+                local report = TurnProcessor._simulateFixture(gameState, fixture)
                 if report then
                     MatchEngine.applyResult(gameState, fixture, report)
+                    simulated = simulated + 1
                 end
             end
 
             ::continue_fixture::
         end
+
+        ::skip_league::
     end
 
+    TurnProcessor.recordProfileCounter(gameState, "overdueLeagueScanned", scanned)
+    TurnProcessor.recordProfileCounter(gameState, "overdueLeagueSimulated", simulated)
     return playerOverdue
 end
 
@@ -364,21 +493,28 @@ end
 function TurnProcessor.simulateNonPlayerOverdueLeagueFixtures(gameState)
     local currentDate = gameState.date
     local playerTeamId = gameState.playerTeamId
+    local scheduledMeta = _ensureLeagueScheduledMeta(gameState)
 
-    for _, lg in pairs(gameState.leagues or {}) do
+    for leagueKey, lg in pairs(gameState.leagues or {}) do
+        if not _leagueMayHaveOverdueFixtures(scheduledMeta[leagueKey], currentDate) then
+            goto skip_league
+        end
+
         for _, fixture in ipairs(lg.fixtures or {}) do
             if fixture.status == "scheduled" and fixture.date
                 and TurnProcessor._isDateBefore(fixture.date, currentDate) then
                 local isPlayerMatch = playerTeamId and
                     (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
                 if not isPlayerMatch or gameState._cheatAutoPlay then
-                    local report = MatchEngine.simulate(gameState, fixture)
+                    local report = TurnProcessor._simulateFixture(gameState, fixture)
                     if report then
                         MatchEngine.applyResult(gameState, fixture, report)
                     end
                 end
             end
         end
+
+        ::skip_league::
     end
 end
 
@@ -400,7 +536,7 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
             goto continue_fixture
         end
 
-        local report = MatchEngine.simulate(gameState, fixture)
+        local report = TurnProcessor._simulateFixture(gameState, fixture)
 
         if report then
             if fixture._isEuro then
@@ -483,8 +619,22 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
         end
     end
 
-    -- 同步各联赛球队排名到 team.leaguePosition（转播分成等公式依赖此字段）
-    for _, lg in pairs(gameState.leagues or {}) do
+    -- 同步当天有完赛联赛的球队排名（转播分成等公式依赖 leaguePosition）
+    local leaguesToSync = {}
+    for _, fixture in ipairs(fixtures) do
+        if fixture.status == "finished"
+            and not fixture._isDomesticCup
+            and not fixture._isUCL
+            and not fixture._isUEL
+            and not fixture._isWC
+            and not fixture._isEuro then
+            local lg = gameState:getTeamLeague(fixture.homeTeamId)
+            if lg then
+                leaguesToSync[lg] = true
+            end
+        end
+    end
+    for lg in pairs(leaguesToSync) do
         lg:syncTeamPositions(gameState)
     end
 
@@ -1254,6 +1404,85 @@ local UCL_KNOCKOUT_PHASES = { "playoff", "r16", "qf", "sf", "final" }
 local WC_KNOCKOUT_PHASES = { "r32", "r16", "qf", "sf", "third", "final" }
 local EURO_KNOCKOUT_PHASES = { "r16", "qf", "sf", "final" }
 
+local function _markTournamentFixturesOnDate(tournament, date, markFixture)
+    if not tournament then return end
+
+    if tournament.leaguePhase and tournament.leaguePhase.fixtures then
+        for _, f in ipairs(tournament.leaguePhase.fixtures) do
+            if f.date and _datesEqual(f.date, date) then
+                markFixture(f)
+            end
+        end
+    end
+
+    if tournament.knockout then
+        for _, phase in ipairs(UCL_KNOCKOUT_PHASES) do
+            local fixtures = tournament.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.date and _datesEqual(f.date, date) then
+                        markFixture(f)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function _markEuroFixturesOnDate(euro, date, markFixture)
+    if not euro then return end
+
+    if euro.groups then
+        for _, group in pairs(euro.groups) do
+            for _, f in ipairs(group.fixtures or {}) do
+                if f.date and _datesEqual(f.date, date) then
+                    markFixture(f)
+                end
+            end
+        end
+    end
+
+    if euro.knockout then
+        for _, phase in ipairs(EURO_KNOCKOUT_PHASES) do
+            local fixtures = euro.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.date and _datesEqual(f.date, date) then
+                        markFixture(f)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function _markWorldCupFixturesOnDate(wc, date, markFixture)
+    if not wc then return end
+
+    if wc.groups then
+        for _, group in pairs(wc.groups) do
+            for _, f in ipairs(group.fixtures or {}) do
+                if f.date and _datesEqual(f.date, date) then
+                    markFixture(f)
+                end
+            end
+        end
+    end
+
+    if wc.knockout then
+        for _, phase in ipairs(WC_KNOCKOUT_PHASES) do
+            local fixtures = wc.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.date and _datesEqual(f.date, date) then
+                        markFixture(f)
+                    end
+                end
+            end
+        end
+    end
+end
+
 --- 收集指定日期已完成比赛的出场球员
 function TurnProcessor._getPlayersWhoPlayedOnDate(gameState, date)
     local played = {}
@@ -1281,81 +1510,17 @@ function TurnProcessor._getPlayersWhoPlayedOnDate(gameState, date)
         end
     end
 
-    local ucl = gameState.championsLeague
-    if ucl and ucl.leaguePhase and ucl.leaguePhase.fixtures then
-        for _, f in ipairs(ucl.leaguePhase.fixtures) do
+    local cupIndex = DomesticCup._ensureCupFixtureDateIndex and DomesticCup._ensureCupFixtureDateIndex(gameState)
+    if cupIndex and key then
+        for _, f in ipairs(cupIndex[key] or {}) do
             markFixture(f)
         end
     end
-    if ucl and ucl.knockout then
-        for _, phase in ipairs(UCL_KNOCKOUT_PHASES) do
-            local fixtures = ucl.knockout[phase]
-            if fixtures then
-                for _, f in ipairs(fixtures) do
-                    markFixture(f)
-                end
-            end
-        end
-    end
 
-    local uel = gameState.europaLeague
-    if uel and uel.leaguePhase and uel.leaguePhase.fixtures then
-        for _, f in ipairs(uel.leaguePhase.fixtures) do
-            markFixture(f)
-        end
-    end
-    if uel and uel.knockout then
-        for _, phase in ipairs(UCL_KNOCKOUT_PHASES) do
-            local fixtures = uel.knockout[phase]
-            if fixtures then
-                for _, f in ipairs(fixtures) do
-                    markFixture(f)
-                end
-            end
-        end
-    end
-
-    local euro = gameState.euroCup
-    if euro and euro.groups then
-        for _, group in pairs(euro.groups) do
-            if group.fixtures then
-                for _, f in ipairs(group.fixtures) do
-                    markFixture(f)
-                end
-            end
-        end
-    end
-    if euro and euro.knockout then
-        for _, phase in ipairs(EURO_KNOCKOUT_PHASES) do
-            local fixtures = euro.knockout[phase]
-            if fixtures then
-                for _, f in ipairs(fixtures) do
-                    markFixture(f)
-                end
-            end
-        end
-    end
-
-    local wc = gameState.worldCup
-    if wc and wc.groups then
-        for _, group in pairs(wc.groups) do
-            if group.fixtures then
-                for _, f in ipairs(group.fixtures) do
-                    markFixture(f)
-                end
-            end
-        end
-    end
-    if wc and wc.knockout then
-        for _, phase in ipairs(WC_KNOCKOUT_PHASES) do
-            local fixtures = wc.knockout[phase]
-            if fixtures then
-                for _, f in ipairs(fixtures) do
-                    markFixture(f)
-                end
-            end
-        end
-    end
+    _markTournamentFixturesOnDate(gameState.championsLeague, date, markFixture)
+    _markTournamentFixturesOnDate(gameState.europaLeague, date, markFixture)
+    _markEuroFixturesOnDate(gameState.euroCup, date, markFixture)
+    _markWorldCupFixturesOnDate(gameState.worldCup, date, markFixture)
 
     return played
 end
@@ -1364,10 +1529,10 @@ end
 function TurnProcessor.processDailyFitnessRecovery(gameState)
     local yesterday = League._addDays(gameState.date, -1)
     local playedYesterday = TurnProcessor._getPlayersWhoPlayedOnDate(gameState, yesterday)
+    local fitnessMods = DifficultySettings.getFitnessModifiers()
 
     for _, p in pairs(gameState.players) do
         if not p.injured and p.fitness < 100 then
-            local fitnessMods = DifficultySettings.getFitnessModifiers()
             local minRecover, maxRecover
             if playedYesterday[p.id] then
                 minRecover, maxRecover = fitnessMods.recoveryPostMatch[1], fitnessMods.recoveryPostMatch[2]

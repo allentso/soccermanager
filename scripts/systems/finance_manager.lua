@@ -30,13 +30,10 @@ FinanceManager.LEAGUE_TIER_ECONOMY = {
 }
 
 function FinanceManager.getLeagueTier(gameState, teamId)
-    if not gameState or not teamId or not gameState.leagues then return 1 end
-    for _, league in pairs(gameState.leagues) do
-        for _, tid in ipairs(league.teamIds or {}) do
-            if tid == teamId then
-                return league.tier or 1
-            end
-        end
+    if not gameState or not teamId then return 1 end
+    if gameState.getTeamLeague then
+        local lg = gameState:getTeamLeague(teamId)
+        if lg then return lg.tier or 1 end
     end
     return 1
 end

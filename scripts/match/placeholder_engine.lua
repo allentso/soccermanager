@@ -1168,17 +1168,10 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
     fixture.playerRatings = report.playerRatings
     fixture.stats = report.stats
 
-    -- 更新正确联赛的积分榜（查找fixture所属联赛）
-    local targetLeague = nil
-    for _, lg in pairs(gameState.leagues or {}) do
-        for _, tid in ipairs(lg.teamIds) do
-            if tid == fixture.homeTeamId then
-                targetLeague = lg
-                break
-            end
-        end
-        if targetLeague then break end
-    end
+    local TurnProcessor = require("scripts/core/turn_processor")
+    TurnProcessor.invalidateLeagueScheduledMeta(gameState)
+
+    local targetLeague = gameState.getTeamLeague and gameState:getTeamLeague(fixture.homeTeamId)
     if targetLeague then
         targetLeague:updateStanding(fixture)
     elseif gameState.league then

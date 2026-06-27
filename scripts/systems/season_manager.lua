@@ -898,6 +898,12 @@ function SeasonManager._processPromotionRelegation(gameState)
     if #promotionNews > 0 then
         SeasonManager._generatePromotionRelegationNews(gameState, promotionNews)
     end
+
+    if gameState.rebuildTeamLeagueIndex then
+        gameState:rebuildTeamLeagueIndex()
+    end
+    local TurnProcessor = require("scripts/core/turn_processor")
+    TurnProcessor.invalidateFixtureCaches(gameState)
 end
 
 function SeasonManager._removeTeamFromLeagueList(teamIds, teamId)
@@ -1401,6 +1407,12 @@ function SeasonManager._startNewSeason(gameState)
     gameState._fixMisalignedLeagueFixturesDone = nil
     gameState._stuckProgressRepairDone = nil
     SeasonManager.ensurePlayerLeagueIntegrity(gameState)
+
+    if gameState.rebuildTeamLeagueIndex then
+        gameState:rebuildTeamLeagueIndex()
+    end
+    local TurnProcessor = require("scripts/core/turn_processor")
+    TurnProcessor.invalidateFixtureCaches(gameState)
 
     -- 清理旧的转会报价
     if gameState.transfers then

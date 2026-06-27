@@ -33,7 +33,37 @@ function League.new(data)
         self.standings = {}
     end
 
+    self._standingsDirty = true
+    self._sortedStandingsCache = nil
+    self._positionByTeamId = nil
+
     return self
+end
+
+function League:_markStandingsDirty()
+    self._standingsDirty = true
+    self._sortedStandingsCache = nil
+    self._positionByTeamId = nil
+end
+
+function League:_rebuildStandingsCache()
+    local sorted = {}
+    for _, s in pairs(self.standings) do
+        table.insert(sorted, s)
+    end
+    table.sort(sorted, function(a, b)
+        if a.points ~= b.points then return a.points > b.points end
+        if a.goalDifference ~= b.goalDifference then return a.goalDifference > b.goalDifference end
+        return a.goalsFor > b.goalsFor
+    end)
+    local positions = {}
+    for i, s in ipairs(sorted) do
+        positions[s.teamId] = i
+    end
+    self._sortedStandingsCache = sorted
+    self._positionByTeamId = positions
+    self._standingsDirty = false
+    return sorted, positions
 end
 
 -- 生成双循环赛程
@@ -133,6 +163,7 @@ function League:generateFixtures(startDate)
     end
 
     self.currentRound = 1
+    self:_markStandingsDirty()
 end
 
 -- 初始化积分榜
@@ -151,6 +182,7 @@ function League:initStandings()
             points = 0,
         }
     end
+    self:_markStandingsDirty()
 end
 
 -- 更新积分榜（比赛结束后调用）
@@ -183,29 +215,23 @@ function League:updateStanding(fixture)
 
     home.goalDifference = home.goalsFor - home.goalsAgainst
     away.goalDifference = away.goalsFor - away.goalsAgainst
+    self:_markStandingsDirty()
 end
 
 -- 获取排序后的积分榜
 function League:getSortedStandings()
-    local sorted = {}
-    for _, s in pairs(self.standings) do
-        table.insert(sorted, s)
+    if self._standingsDirty or not self._sortedStandingsCache then
+        self:_rebuildStandingsCache()
     end
-    table.sort(sorted, function(a, b)
-        if a.points ~= b.points then return a.points > b.points end
-        if a.goalDifference ~= b.goalDifference then return a.goalDifference > b.goalDifference end
-        return a.goalsFor > b.goalsFor
-    end)
-    return sorted
+    return self._sortedStandingsCache
 end
 
 -- 获取球队排名
 function League:getTeamPosition(teamId)
-    local sorted = self:getSortedStandings()
-    for i, s in ipairs(sorted) do
-        if s.teamId == teamId then return i end
+    if self._standingsDirty or not self._positionByTeamId then
+        self:_rebuildStandingsCache()
     end
-    return 0
+    return self._positionByTeamId[teamId] or 0
 end
 
 --- 将积分榜排名同步到各球队的 leaguePosition 字段
