@@ -3,6 +3,7 @@
 
 local Constants = require("scripts/app/constants")
 local JsonLoader = require("scripts/data/json_loader")
+local NameLocalizer = require("scripts/data/name_localizer")
 local TeamIconRegistry = require("scripts/data/team_icon_registry")
 local League = require("scripts/domain/league")
 
@@ -283,7 +284,7 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         local wb = cslRepMap and RealDataLoader._reputationToWageBudget(rep)
             or (tData.wage_budget or 200000)
         local team = gameState:addTeam({
-            name = tData.name_cn or tData.name,
+            name = tData.name_cn or NameLocalizer.getTeamNameCn(tData.id, tData.name),
             shortName = tData.short_name or "",
             jsonTeamId = tData.id,
             iconPath = TeamIconRegistry.getPathByJsonId(tData.id),
@@ -329,14 +330,10 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         -- 解析teamId
         local gameTeamId = teamIdMap[pData.team_id]
 
-        -- 名字处理：优先使用中文简称（姓氏部分），以便阵型预览清晰辨识
-        local fullNameCn = pData.full_name_cn or ""
+        -- 名字处理：优先使用中文数据；缺失时使用本地化音译兜底。
+        local fullNameCn, shortName = NameLocalizer.localizePlayerIdentity(pData)
         local matchName = pData.match_name or ""
         local fullName = pData.full_name or ""
-        -- shortName: 从中文全名取最后一段（·分隔），如"加布里埃尔·热苏斯" → "热苏斯"
-        local shortName = fullNameCn:match("·(.+)$") or fullNameCn
-        -- 如果 shortName 和 fullNameCn 相同（无·分隔），则本身就是单名
-        if shortName == "" then shortName = matchName ~= "" and matchName or fullName end
 
         local player = gameState:addPlayer({
             firstName = fullNameCn ~= "" and fullNameCn or (fullName ~= "" and fullName or "Unknown"),
@@ -831,11 +828,9 @@ function RealDataLoader.loadLegends(gameState)
         local birthYear = extractBirthYear(pData.date_of_birth)
 
         -- 名字处理（同主加载逻辑）
-        local fullNameCn = pData.full_name_cn or ""
+        local fullNameCn, shortName = NameLocalizer.localizePlayerIdentity(pData)
         local matchName = pData.match_name or ""
         local fullName = pData.full_name or ""
-        local shortName = fullNameCn:match("·(.+)$") or fullNameCn
-        if shortName == "" then shortName = matchName ~= "" and matchName or fullName end
 
         -- 传奇球员作为自由球员加入（teamId = nil）
         local player = gameState:addPlayer({
@@ -920,11 +915,9 @@ function RealDataLoader.loadWonderkids(gameState)
         local attrs = convertAttributes(pData.attributes or {})
         local birthYear = extractBirthYear(pData.date_of_birth)
 
-        local fullNameCn = pData.full_name_cn or ""
+        local fullNameCn, shortName = NameLocalizer.localizePlayerIdentity(pData)
         local matchName = pData.match_name or ""
         local fullName = pData.full_name or ""
-        local shortName = fullNameCn:match("·(.+)$") or fullNameCn
-        if shortName == "" then shortName = matchName ~= "" and matchName or fullName end
 
         local player = gameState:addPlayer({
             firstName = fullNameCn ~= "" and fullNameCn or (fullName ~= "" and fullName or "Unknown"),
