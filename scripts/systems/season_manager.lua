@@ -720,12 +720,15 @@ end
 
 --- 处理所有联赛的升降级
 function SeasonManager._processPromotionRelegation(gameState)
-    if not gameState.secondDivision then
+    local RealDataLoader = require("scripts/data/real_data_loader")
+    local JobManager = require("scripts/systems/job_manager")
+    local usesLegacySecondPool = not RealDataLoader.areSecondDivisionsLoaded(gameState)
+
+    -- 仅未加载真实次级联赛时使用旧版抽象储备池
+    if usesLegacySecondPool and not gameState.secondDivision then
         gameState.secondDivision = {}
     end
 
-    local RealDataLoader = require("scripts/data/real_data_loader")
-    local JobManager = require("scripts/systems/job_manager")
     local promotionNews = {}
 
     for leagueKey, lg in pairs(gameState.leagues) do
