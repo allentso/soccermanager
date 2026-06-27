@@ -128,7 +128,7 @@ local function _toggleEnableReincarnationRow()
                         fontWeight = "bold",
                     },
                     UI.Label {
-                        text = "开档重生小妖 + 退役传奇转生为16岁青训",
+                        text = "开档重生小妖 + 退役转生为16岁青训",
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                         marginTop = 4,
