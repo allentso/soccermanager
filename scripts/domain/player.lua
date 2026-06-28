@@ -52,6 +52,28 @@ local function readPercentField(raw, default)
     return math.max(Constants.FITNESS_MIN, math.min(Constants.FITNESS_MAX, math.floor(n + 0.5)))
 end
 
+local function getEconomicOverall(ovr)
+    ovr = ovr or 50
+    if ovr <= 95 then return ovr end
+    if ovr <= 99 then
+        return 95 + (ovr - 95) * 0.65
+    end
+    return math.min(100.5, 97.6 + (ovr - 99) * 0.25)
+end
+
+local function getSpecialValueSoftCap(player, age)
+    if player.isLegend then
+        return 300000000, 0.15
+    end
+    if player.isReincarnation or player.reincarnationMatchName or player.reincarnationTier == "rebirth" then
+        if player.reincarnationTier == "rebirth" or age <= 21 then
+            return 180000000, 0.20
+        end
+        return 220000000, 0.20
+    end
+    return nil, nil
+end
+
 function Player.new(data)
     local self = setmetatable({}, Player)
     -- 身份
@@ -456,9 +478,11 @@ function Player:calculateValue(currentYear)
 
     -- 1. 基础值：平缓指数 value = C * D^ovr
     -- D = 1.15 → 每5点OVR翻一倍（1.15^5≈2.01）
+    -- 经济模型对 95+ OVR 软封顶，避免传奇/转生 100+ 总评在身价上无限指数膨胀。
     local D = 1.15
     local C = 336.7  -- 6,000,000 / 1.15^70
-    local base = C * (D ^ ovr)
+    local economicOvr = getEconomicOverall(ovr)
+    local base = C * (D ^ economicOvr)
 
     -- 2. 年龄修正（纯能力维度：黄金期23-27加成，老将贬值）
     local ageMult
@@ -547,6 +571,12 @@ function Player:calculateValue(currentYear)
             contractMult = 1.0    -- 3年+：无折扣
         end
         base = base * contractMult
+    end
+
+    -- 6. 特殊球员流通软顶：保留稀有价值，但让传奇/转生/重生资产仍能进入市场。
+    local cap, overflowRate = getSpecialValueSoftCap(self, age)
+    if cap and base > cap then
+        base = cap + (base - cap) * overflowRate
     end
 
     -- 取整到十万级（100000）

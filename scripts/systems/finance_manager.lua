@@ -933,7 +933,16 @@ end
 -- 市场工资模型（能力/身价/年龄/角色统一估算）
 ------------------------------------------------------
 
---- 基于 OVR 的分段公平周薪（校准：70≈20K, 80≈70K, 90≈200K）
+local function isSpecialMarketPlayer(player)
+    return player and (
+        player.isLegend
+        or player.isReincarnation
+        or player.reincarnationMatchName ~= nil
+        or player.reincarnationTier == "rebirth"
+    )
+end
+
+--- 基于 OVR 的分段公平周薪（校准：70≈20K, 80≈70K, 90≈240K）
 function FinanceManager._ovrBaseWage(ovr)
     ovr = ovr or 50
     if ovr < 65 then
@@ -943,7 +952,7 @@ function FinanceManager._ovrBaseWage(ovr)
     elseif ovr < 85 then
         return math.floor(33000 + (ovr - 75) * 7500)
     else
-        return math.floor(108000 + (ovr - 85) * 18000)
+        return math.floor(120000 + (ovr - 85) * 24000)
     end
 end
 
@@ -959,11 +968,18 @@ function FinanceManager.estimateMarketWage(player, team, gameState, opts)
     local ovr = player.overall or 50
     local wage = FinanceManager._ovrBaseWage(ovr)
 
-    -- 身价修正（上限参考，避免合同折价身价拉低）
+    -- 身价只提供有限溢价，避免 100+ OVR 特殊球员的超高身价继续传导成百万周薪。
     local value = player.value or 0
     if value > 0 then
         local valueWage = math.floor(value / 520)
-        wage = math.max(wage, valueWage)
+        if valueWage > wage then
+            local maxLiftRatio = isSpecialMarketPlayer(player) and 0.35 or 0.60
+            if ovr >= 98 then
+                maxLiftRatio = math.min(maxLiftRatio, 0.45)
+            end
+            local maxLift = math.floor(wage * maxLiftRatio)
+            wage = wage + math.min(valueWage - wage, maxLift)
+        end
     end
 
     -- 年龄：黄金期略高，老将略低
@@ -1010,6 +1026,14 @@ function FinanceManager.estimateMarketWage(player, team, gameState, opts)
         wage = math.max(500, math.floor(wage * 0.18))
     elseif opts.contractType == "promote" then
         wage = math.max(1000, math.floor(wage * 0.55))
+    end
+
+    if opts.contractType ~= "youth" and opts.contractType ~= "promote"
+        and isSpecialMarketPlayer(player) then
+        local softCap = ovr >= 100 and 950000 or 850000
+        if wage > softCap then
+            wage = softCap + math.floor((wage - softCap) * 0.15)
+        end
     end
 
     wage = math.floor(wage / 100) * 100
