@@ -65,6 +65,29 @@ function TransferManager._invalidateListedMarketIndex(gameState)
     gameState.transfers._listedMarketIndexWindowKey = nil
 end
 
+--- 存档用：剔除 transfers 上所有 _ 前缀运行时缓存（候选池/挂牌索引/AI 轮转等）。
+--- 这些字段含球员对象引用，若写入 JSON 会重复 players 体积（实测可达数 MB）。
+function TransferManager.copyTransfersForSave(transfers)
+    if not transfers then return nil end
+    local out = {}
+    for k, v in pairs(transfers) do
+        if not (type(k) == "string" and k:sub(1, 1) == "_") then
+            out[k] = v
+        end
+    end
+    return out
+end
+
+--- 读档/存盘前：就地清除运行时缓存（老档可能已污染）。
+function TransferManager.stripRuntimeCaches(gameState)
+    if not gameState or not gameState.transfers then return end
+    for k in pairs(gameState.transfers) do
+        if type(k) == "string" and k:sub(1, 1) == "_" then
+            gameState.transfers[k] = nil
+        end
+    end
+end
+
 local function _transferDiagEnabled(gameState)
     return gameState and gameState._transferDiag ~= nil
 end

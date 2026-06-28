@@ -296,7 +296,7 @@ function GameState:serialize()
         _worldCupHistory = self._worldCupHistory,
         _euroHistory = self._euroHistory,
         lastPromotionRelegation = self.lastPromotionRelegation,
-        transfers = self.transfers,
+        transfers = require("scripts/systems/transfer_manager").copyTransfersForSave(self.transfers),
         scoutReports = self.scoutReports,
         scoutDiscoveries = self.scoutDiscoveries,
         shortlist = self.shortlist,

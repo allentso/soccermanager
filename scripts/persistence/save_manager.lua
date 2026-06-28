@@ -352,6 +352,13 @@ function SaveManager._doSave(gameState, slot)
     if gameState.normalizePlayerDynamicState then
         gameState:normalizePlayerDynamicState()
     end
+    local okStrip, stripErr = pcall(function()
+        local TransferManager = require("scripts/systems/transfer_manager")
+        TransferManager.stripRuntimeCaches(gameState)
+    end)
+    if not okStrip and log then
+        log:Write(LOG_WARNING, "SaveManager: 清除转会运行时缓存失败: " .. tostring(stripErr))
+    end
     local d = gameState.date or {}
     local saved_at = string.format("%d-%02d-%02d",
         tonumber(d.year) or 2025, tonumber(d.month) or 8, tonumber(d.day) or 10)
@@ -549,6 +556,15 @@ local function applySaveData(gameState, saveData, path)
     if not okDes then
         log:Write(LOG_ERROR, "SaveManager: 反序列化失败 " .. path .. " - " .. tostring(err))
         return false
+    end
+
+    -- 老档可能误持久化了转会运行时缓存（_candidatePoolCache 等），读档即清
+    local okStrip, stripErr = pcall(function()
+        local TransferManager = require("scripts/systems/transfer_manager")
+        TransferManager.stripRuntimeCaches(gameState)
+    end)
+    if not okStrip and log then
+        log:Write(LOG_WARNING, "SaveManager: 读档清除转会运行时缓存失败: " .. tostring(stripErr))
     end
 
     -- 老档一次性补齐 AI 青训名单（须在 Housekeeping 转生/bootstrap 之前，且仅读档执行一次）
