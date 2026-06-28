@@ -1258,10 +1258,34 @@ function WorldCup._checkNationalTeamInvitation(gameState, qualifiedNations, wcYe
     end
 end
 
+--- 查找与待办关联的邀请消息（inviteMessageId 优先，旧存档回退标题匹配）
+local function _findCoachInviteMessage(gameState, pending)
+    if pending.inviteMessageId then
+        for _, msg in ipairs(gameState.inbox or {}) do
+            if msg.id == pending.inviteMessageId then return msg end
+        end
+        return nil
+    end
+    for _, msg in ipairs(gameState.inbox or {}) do
+        if msg.title and msg.title:find("国家队主教练邀请", 1, true) then
+            return msg
+        end
+    end
+    return nil
+end
+
 --- 是否存在待回复的国家队执教邀请
 function WorldCup.hasPendingCoachInvite(gameState)
     local pending = gameState._pendingNTCoachOffers
-    return pending ~= nil and pending.nations ~= nil and #pending.nations > 0
+    if pending == nil or pending.nations == nil or #pending.nations == 0 then
+        return false
+    end
+    if not _findCoachInviteMessage(gameState, pending) then
+        gameState.nationalTeamCoach = nil
+        WorldCup.clearPendingCoachInvite(gameState)
+        return false
+    end
+    return true
 end
 
 --- 清除国家队执教邀请待办（接受/婉拒后调用）

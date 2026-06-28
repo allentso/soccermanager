@@ -354,29 +354,26 @@ function Inbox._showDetail(msg, currentTab)
         end
     end
 
-    -- 删除按钮
-    table.insert(contentChildren, UI.Button {
-        text = "删除消息",
-        width = "100%",
-        height = 36,
-        backgroundColor = Theme.COLORS.TRANSPARENT,
-        borderRadius = 8,
-        fontSize = 12,
-        color = Theme.COLORS.DANGER,
-        marginTop = 8,
-        onClick = function()
-            UI.CloseOverlay()
-            if gameState then
-                for i, m in ipairs(gameState.inbox) do
-                    if m == msg then
-                        table.remove(gameState.inbox, i)
-                        break
-                    end
+    -- 待决策消息不可删除，避免删信后时间推进被阻断
+    if not hasActions then
+        table.insert(contentChildren, UI.Button {
+            text = "删除消息",
+            width = "100%",
+            height = 36,
+            backgroundColor = Theme.COLORS.TRANSPARENT,
+            borderRadius = 8,
+            fontSize = 12,
+            color = Theme.COLORS.DANGER,
+            marginTop = 8,
+            onClick = function()
+                UI.CloseOverlay()
+                if gameState and msg.id then
+                    MessageManager.deleteMessage(gameState, msg.id)
                 end
-            end
-            Router.replaceWith("inbox", { tab = currentTab })
-        end,
-    })
+                Router.replaceWith("inbox", { tab = currentTab })
+            end,
+        })
+    end
 
     -- 动态计算面板高度：正文 + 动作按钮
     local sheetHeight = 400

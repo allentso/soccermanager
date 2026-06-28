@@ -340,10 +340,32 @@ function MessageManager.markAllRead(gameState)
     end
 end
 
+--- 删除与消息绑定的待办状态（避免删信后时间推进仍被阻断）
+local function clearLinkedPendingState(gameState, msg)
+    local pending = gameState._pendingNTCoachOffers
+    if pending and pending.inviteMessageId == msg.id then
+        gameState.nationalTeamCoach = nil
+        local WorldCup = require("scripts/systems/world_cup")
+        WorldCup.clearPendingCoachInvite(gameState)
+        return
+    end
+    if msg.actions then
+        for _, act in ipairs(msg.actions) do
+            if act.actionId == "accept_nt_coach" or act.actionId == "decline_nt_coach" then
+                gameState.nationalTeamCoach = nil
+                local WorldCup = require("scripts/systems/world_cup")
+                WorldCup.clearPendingCoachInvite(gameState)
+                return
+            end
+        end
+    end
+end
+
 --- 删除消息
 function MessageManager.deleteMessage(gameState, messageId)
     for i, msg in ipairs(gameState.inbox) do
         if msg.id == messageId then
+            clearLinkedPendingState(gameState, msg)
             table.remove(gameState.inbox, i)
             return true
         end
