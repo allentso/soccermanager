@@ -111,17 +111,17 @@ FormationShape.ZONE_LABELS = {
 -- 槽位兼容位置（与 AIManager._playerPositionScore 一致）
 FormationShape.SLOT_COMPATIBILITY = {
     GK = { GK = 1.0 },
-    CB = { CB = 1.0, RB = 0.6, LB = 0.6, CDM = 0.5 },
+    CB = { CB = 1.0, RB = 0.6, LB = 0.6, CDM = 0.6 },
     RB = { RB = 1.0, CB = 0.6, RM = 0.7, RW = 0.5 },
     LB = { LB = 1.0, CB = 0.6, LM = 0.7, LW = 0.5 },
-    CDM = { CDM = 1.0, CM = 0.8, CB = 0.5 },
+    CDM = { CDM = 1.0, CM = 0.8, CB = 0.6 },
     CM = { CM = 1.0, CDM = 0.8, CAM = 0.7, RM = 0.6, LM = 0.6 },
     CAM = { CAM = 1.0, CM = 0.7, RM = 0.6, LM = 0.6, ST = 0.5 },
     RM = { RM = 1.0, CM = 0.7, CAM = 0.6, RW = 0.8, RB = 0.5 },
     LM = { LM = 1.0, CM = 0.7, CAM = 0.6, LW = 0.8, LB = 0.5 },
     RW = { RW = 1.0, RM = 0.8, ST = 0.6, CAM = 0.6, RB = 0.5 },
     LW = { LW = 1.0, LM = 0.8, ST = 0.6, CAM = 0.6, LB = 0.5 },
-    ST = { ST = 1.0, CAM = 0.6, RW = 0.5, LW = 0.5 },
+    ST = { ST = 1.0, CAM = 0.6, RW = 0.7, LW = 0.7 },
 }
 
 FormationShape.POSITION_ORDER = {

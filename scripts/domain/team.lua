@@ -181,6 +181,66 @@ function Team.isLineupPresetDirty(team)
     return not Team.lineupSnapshotsEqual(Team.captureLineupSnapshot(team), saved)
 end
 
+--- 构建有效首发槽位表：保留健康球员，空槽/伤员槽按阵型位置选最佳替补
+---@return table<integer, string|nil>
+function Team.buildEffectiveStartingXI(gameState, team)
+    local FormationShape = require("scripts/match/formation_shape")
+    local PositionFit = require("scripts/domain/position_fit")
+    local slots = FormationShape.getFormationSlots(team)
+    local source = team.startingXI or {}
+    local effective = {}
+    local usedIds = {}
+
+    for i = 1, 11 do
+        local pid = source[i]
+        local p = pid and gameState.players[pid]
+        if p and not p.injured and not p.retired then
+            effective[i] = pid
+            usedIds[pid] = true
+        end
+    end
+
+    for i = 1, 11 do
+        if not effective[i] then
+            local slotPos = slots[i] or "MID"
+            local bestPid, bestScore = nil, -1
+            for _, pid in ipairs(team.playerIds or {}) do
+                if not usedIds[pid] then
+                    local p = gameState.players[pid]
+                    if p and not p.injured and not p.retired then
+                        -- 门将槽仅允许门将补位，避免无门将时把中场填到 GK
+                        if slotPos == "GK" and Constants.normalizePosition(p.position) ~= "GK" then
+                            goto continueCandidate
+                        end
+                        local score = PositionFit.getPositionScore(p, slotPos)
+                        if score > bestScore then
+                            bestScore = score
+                            bestPid = pid
+                        end
+                    end
+                end
+                ::continueCandidate::
+            end
+            if bestPid then
+                effective[i] = bestPid
+                usedIds[bestPid] = true
+            end
+        end
+    end
+
+    return effective
+end
+
+--- 将 buildEffectiveStartingXI 结果写回 team.startingXI
+function Team.fillStartingGaps(gameState, team)
+    local effective = Team.buildEffectiveStartingXI(gameState, team)
+    team.startingXI = team.startingXI or {}
+    for i = 1, 11 do
+        team.startingXI[i] = effective[i]
+    end
+    return team.startingXI
+end
+
 function Team.new(data)
     local self = setmetatable({}, Team)
     -- 基础信息

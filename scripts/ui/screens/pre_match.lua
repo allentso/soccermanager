@@ -401,38 +401,16 @@ function PreMatch.create(params)
     local startingXI = {}
     local bench = {}
     local startingPidSet = {}  -- 用于替补过滤
+    -- 伤员/空槽按阵型位置自动补人（避免纯 overall 把中场填到门将位）
+    Team.fillStartingGaps(gameState, team)
     for i = 1, 11 do
         local pid = team.startingXI and team.startingXI[i]
         if pid then
             local p = gameState.players[pid]
-            if p and not p.injured then
+            if p then
                 startingXI[i] = p
                 startingPidSet[pid] = true
-            else
-                startingXI[i] = nil  -- 保留位置占位（受伤/不存在）
             end
-        end
-    end
-    -- 自动填补空位：用替补中能力最高的健康球员填入
-    local availableSubs = {}
-    for _, pid in ipairs(team.playerIds or {}) do
-        local p = gameState.players[pid]
-        if p and not p.injured and not startingPidSet[pid] then
-            table.insert(availableSubs, p)
-        end
-    end
-    table.sort(availableSubs, function(a, b) return a.overall > b.overall end)
-
-    -- 填充空位
-    local subIdx = 1
-    for i = 1, 11 do
-        if not startingXI[i] and subIdx <= #availableSubs then
-            startingXI[i] = availableSubs[subIdx]
-            startingPidSet[availableSubs[subIdx].id] = true
-            -- 同步更新 team.startingXI
-            team.startingXI = team.startingXI or {}
-            team.startingXI[i] = availableSubs[subIdx].id
-            subIdx = subIdx + 1
         end
     end
 

@@ -4,6 +4,7 @@
 local Constants = require("scripts/app/constants")
 local FormationShape = require("scripts/match/formation_shape")
 local PositionFit = require("scripts/domain/position_fit")
+local Team = require("scripts/domain/team")
 local TraitEffects = require("scripts/match/trait_effects")
 local RoleSynergy = require("scripts/match/role_synergy")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
@@ -133,27 +134,14 @@ end
 
 function TacticsResolver.getMatchPlayers(gameState, team)
     local players = {}
-    local selectedSet = {}
+    local effectiveXI = Team.buildEffectiveStartingXI(gameState, team)
     for i = 1, 11 do
-        local playerId = team.startingXI and team.startingXI[i]
+        local playerId = effectiveXI[i]
         local player = playerId and gameState.players[playerId]
-        if player and not player.injured and not player.retired then
+        if player then
             table.insert(players, player)
-            selectedSet[player.id] = true
         end
     end
-
-    if #players < 11 then
-        for _, playerId in ipairs(team.playerIds or {}) do
-            if #players >= 11 then break end
-            local player = gameState.players[playerId]
-            if player and not player.injured and not player.retired and not selectedSet[player.id] then
-                table.insert(players, player)
-                selectedSet[player.id] = true
-            end
-        end
-    end
-
     return players
 end
 
@@ -217,7 +205,7 @@ function TacticsResolver.buildTeamContext(gameState, team)
 
     -- 角色修正：根据 slotRoles + 槽位类型获取 modifiers
     local slotRoles = team.slotRoles or {}
-    local startingXI = team.startingXI or {}
+    local startingXI = Team.buildEffectiveStartingXI(gameState, team)
     local formation = team.formation or "4-4-2"
     local slots = FormationShape.getFormationSlots(team)
 

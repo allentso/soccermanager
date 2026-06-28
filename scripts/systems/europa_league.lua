@@ -35,6 +35,38 @@ local UEL_SCHEDULE = {
 
 local CORE_LEAGUE_KEYS = { "EPL", "LaLiga", "SerieA", "Bundesliga", "Ligue1" }
 
+-- 首赛季不参与欧联席位分配，从第2赛季起按上赛季积分榜取名额（与欧冠规则一致）
+local UEL_SPOTS_FROM_SEASON_2 = {
+    CSL = true,
+}
+
+--- 当前存档参与欧联名额分配的联赛（加载中超时追加 CSL）
+function EuropaLeague.getUelLeagueKeys(gameState)
+    local keys = {}
+    for _, k in ipairs(CORE_LEAGUE_KEYS) do
+        table.insert(keys, k)
+    end
+    if gameState and gameState.leagues and gameState.leagues.CSL then
+        table.insert(keys, "CSL")
+    end
+    return keys
+end
+
+--- 联赛是否已解锁欧联席位（含「第2赛季起」规则）
+function EuropaLeague._isLeagueUelActive(gameState, leagueKey)
+    local lg = gameState.leagues and gameState.leagues[leagueKey]
+    if lg and (lg.tier or 1) >= 2 then return false end
+    if not UEL_SPOTS_FROM_SEASON_2[leagueKey] then
+        return gameState.leagues[leagueKey] ~= nil
+    end
+    for _, record in ipairs(gameState.worldHistory or {}) do
+        if record.leagues and record.leagues[leagueKey] then
+            return true
+        end
+    end
+    return false
+end
+
 ------------------------------------------------------
 -- 初始化
 ------------------------------------------------------
@@ -233,12 +265,6 @@ end
 -- 资格（排除欧冠球队）
 ------------------------------------------------------
 
-function EuropaLeague._isLeagueActive(gameState, leagueKey)
-    local lg = gameState.leagues and gameState.leagues[leagueKey]
-    if lg and (lg.tier or 1) >= 2 then return false end
-    return lg ~= nil
-end
-
 function EuropaLeague._getQualifiedTeams(gameState)
     local uclSet = EuropaLeague._getUclTeamSet(gameState)
     local qualified = {}
@@ -259,10 +285,12 @@ function EuropaLeague._getQualifiedTeams(gameState)
         end
     end
 
+    local leagueKeys = EuropaLeague.getUelLeagueKeys(gameState)
+    local uclSpots = ChampionsLeague.getUclSpots(gameState)
+
     if lastSeason and lastSeason.leagues then
-        local uclSpots = ChampionsLeague.getUclSpots(gameState)
-        for _, leagueKey in ipairs(CORE_LEAGUE_KEYS) do
-            if not EuropaLeague._isLeagueActive(gameState, leagueKey) then
+        for _, leagueKey in ipairs(leagueKeys) do
+            if not EuropaLeague._isLeagueUelActive(gameState, leagueKey) then
                 goto continue_hist
             end
             local leagueRecord = lastSeason.leagues[leagueKey]
@@ -276,13 +304,14 @@ function EuropaLeague._getQualifiedTeams(gameState)
             ::continue_hist::
         end
     else
-        for _, leagueKey in ipairs(CORE_LEAGUE_KEYS) do
-            if not EuropaLeague._isLeagueActive(gameState, leagueKey) then
+        for _, leagueKey in ipairs(leagueKeys) do
+            if UEL_SPOTS_FROM_SEASON_2[leagueKey] then
+                goto continue_init
+            end
+            if not EuropaLeague._isLeagueUelActive(gameState, leagueKey) then
                 goto continue_init
             end
             local lg = gameState.leagues[leagueKey]
-            local uclSpots = ChampionsLeague.getUclSpots(gameState)
-            local uclCount = uclSpots[leagueKey] or 0
             if lg then
                 local leagueTeams = {}
                 for _, tid in ipairs(lg.teamIds) do
@@ -312,7 +341,7 @@ function EuropaLeague._fillSlots(gameState, existing, target)
 
     local candidates = {}
     for leagueKey, lg in pairs(gameState.leagues) do
-        if not EuropaLeague._isLeagueActive(gameState, leagueKey) then
+        if not EuropaLeague._isLeagueUelActive(gameState, leagueKey) then
             goto continue_fill
         end
         for _, tid in ipairs(lg.teamIds) do

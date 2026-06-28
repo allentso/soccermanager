@@ -218,35 +218,16 @@ end
 ------------------------------------------------------
 
 function PlaceholderEngine._getMatchPlayers(gameState, team)
+    local Team = require("scripts/domain/team")
     local players = {}
-    -- 优先使用首发阵容
-    if team.startingXI then
-        for _, pid in pairs(team.startingXI) do
-            local p = gameState.players[pid]
-            if p and not p.injured then
-                table.insert(players, p)
-            end
+    local effectiveXI = Team.buildEffectiveStartingXI(gameState, team)
+    for i = 1, 11 do
+        local pid = effectiveXI[i]
+        local p = pid and gameState.players[pid]
+        if p then
+            table.insert(players, p)
         end
     end
-
-    -- 如果首发不足11人，从候补中补充
-    if #players < 11 then
-        for _, pid in ipairs(team.playerIds) do
-            if #players >= 11 then break end
-            local p = gameState.players[pid]
-            if p and not p.injured then
-                -- 检查是否已在首发中
-                local alreadyIn = false
-                for _, existing in ipairs(players) do
-                    if existing.id == p.id then alreadyIn = true; break end
-                end
-                if not alreadyIn then
-                    table.insert(players, p)
-                end
-            end
-        end
-    end
-
     return players
 end
 

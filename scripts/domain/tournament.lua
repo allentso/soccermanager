@@ -265,6 +265,235 @@ local function _fixturesFromOpponents(teamIds, teamOpponents)
     return fixtures
 end
 
+--- 按轮贪心分配比赛日
+local function _tryAssignByRoundGreedy(fixtures, teamIds, matchdays, matchDays)
+    local maxPerDay = math.floor(#teamIds / 2)
+    local n = #fixtures
+    local assigned = {}
+    for i = 1, n do
+        assigned[i] = false
+    end
+
+    local function clearAssignment(f)
+        f.date = nil
+        f.matchday = 0
+    end
+
+    local function tryGreedyRound(d)
+        if d > matchdays then return true end
+
+        local candidates = {}
+        for i = 1, n do
+            if not assigned[i] then
+                table.insert(candidates, i)
+            end
+        end
+        for i = #candidates, 2, -1 do
+            local j = RandomInt(1, i)
+            candidates[i], candidates[j] = candidates[j], candidates[i]
+        end
+
+        local usedTeam = {}
+        local roundCount = 0
+        for _, idx in ipairs(candidates) do
+            if roundCount >= maxPerDay then break end
+            local f = fixtures[idx]
+            if not usedTeam[f.homeTeamId] and not usedTeam[f.awayTeamId] then
+                assigned[idx] = true
+                usedTeam[f.homeTeamId] = true
+                usedTeam[f.awayTeamId] = true
+                f.date = matchDays[d]
+                f.matchday = d
+                roundCount = roundCount + 1
+            end
+        end
+
+        if roundCount < maxPerDay then
+            for i = 1, n do
+                if assigned[i] and fixtures[i].matchday == d then
+                    assigned[i] = false
+                    clearAssignment(fixtures[i])
+                end
+            end
+            return false
+        end
+        return tryGreedyRound(d + 1)
+    end
+
+    if tryGreedyRound(1) then return true end
+    return false
+end
+
+--- 大赛制（欧冠 36 队）：沿用原贪心 + 退路（部分图无法严格 8 轮 1 因子分解）
+local function _assignLeaguePhaseMatchdaysLegacy(fixtures, teamIds, matchdays, matchDays)
+    local maxPerDay = math.floor(#teamIds / 2)
+    local n = #fixtures
+
+    local function dateKey(date)
+        return string.format("%04d-%02d-%02d", date.year, date.month, date.day)
+    end
+
+    local teamDateUsed = {}
+    for _, tid in ipairs(teamIds) do
+        teamDateUsed[tid] = {}
+    end
+
+    local function assignFixtureDate(f, dayIdx, date)
+        f.date = date
+        f.matchday = dayIdx
+        teamDateUsed[f.homeTeamId][dateKey(date)] = true
+        teamDateUsed[f.awayTeamId][dateKey(date)] = true
+    end
+
+    local function nextFreeDateForPair(f, baseDate)
+        for offset = 1, 6 do
+            local candidate = League._addDays(baseDate, offset)
+            local key = dateKey(candidate)
+            if not teamDateUsed[f.homeTeamId][key] and not teamDateUsed[f.awayTeamId][key] then
+                return candidate
+            end
+        end
+        return baseDate
+    end
+
+    for i = n, 2, -1 do
+        local j = RandomInt(1, i)
+        fixtures[i], fixtures[j] = fixtures[j], fixtures[i]
+    end
+
+    local teamDayUsed = {}
+    for _, tid in ipairs(teamIds) do
+        teamDayUsed[tid] = {}
+    end
+    local daySlots = {}
+    for d = 1, matchdays do
+        daySlots[d] = 0
+    end
+
+    for _, f in ipairs(fixtures) do
+        local assigned = false
+        for d = 1, matchdays do
+            if daySlots[d] < maxPerDay
+                and not teamDayUsed[f.homeTeamId][d]
+                and not teamDayUsed[f.awayTeamId][d] then
+                assignFixtureDate(f, d, matchDays[d])
+                daySlots[d] = daySlots[d] + 1
+                teamDayUsed[f.homeTeamId][d] = true
+                teamDayUsed[f.awayTeamId][d] = true
+                assigned = true
+                break
+            end
+        end
+        if not assigned then
+            local bestDay = nil
+            local bestCount = 999
+            for d = 1, matchdays do
+                if not teamDayUsed[f.homeTeamId][d]
+                    and not teamDayUsed[f.awayTeamId][d]
+                    and daySlots[d] < bestCount then
+                    bestDay = d
+                    bestCount = daySlots[d]
+                end
+            end
+            if not bestDay then
+                bestDay = 1
+                bestCount = daySlots[1]
+                for d = 2, matchdays do
+                    if daySlots[d] < bestCount then
+                        bestDay = d
+                        bestCount = daySlots[d]
+                    end
+                end
+            end
+            local date = matchDays[bestDay]
+            if teamDayUsed[f.homeTeamId][bestDay] or teamDayUsed[f.awayTeamId][bestDay] then
+                date = nextFreeDateForPair(f, date)
+            end
+            assignFixtureDate(f, bestDay, date)
+            daySlots[bestDay] = daySlots[bestDay] + 1
+            teamDayUsed[f.homeTeamId][bestDay] = true
+            teamDayUsed[f.awayTeamId][bestDay] = true
+        end
+    end
+    return true
+end
+
+--- 小赛制（欧联 24 队）：按轮贪心 + 回溯兜底
+local function _assignLeaguePhaseMatchdaysSmall(fixtures, teamIds, matchdays, matchDays)
+    local maxPerDay = math.floor(#teamIds / 2)
+    local n = #fixtures
+
+    for _ = 1, 50 do
+        for i = 1, n do
+            fixtures[i].date = nil
+            fixtures[i].matchday = 0
+        end
+        if _tryAssignByRoundGreedy(fixtures, teamIds, matchdays, matchDays) then
+            return true
+        end
+    end
+
+    local assigned = {}
+    for i = 1, n do
+        assigned[i] = false
+    end
+
+    local function clearAssignment(f)
+        f.date = nil
+        f.matchday = 0
+    end
+
+    for i = 1, n do
+        clearAssignment(fixtures[i])
+    end
+
+    local function assignRound(d)
+        if d > matchdays then return true end
+
+        local usedTeam = {}
+        local roundCount = 0
+
+        local function pickEdge(idx)
+            if roundCount == maxPerDay then
+                return assignRound(d + 1)
+            end
+            if idx > n then
+                return false
+            end
+
+            if assigned[idx] then
+                return pickEdge(idx + 1)
+            end
+
+            local f = fixtures[idx]
+            if not usedTeam[f.homeTeamId] and not usedTeam[f.awayTeamId] then
+                assigned[idx] = true
+                usedTeam[f.homeTeamId] = true
+                usedTeam[f.awayTeamId] = true
+                f.date = matchDays[d]
+                f.matchday = d
+                roundCount = roundCount + 1
+                if pickEdge(idx + 1) then return true end
+                assigned[idx] = false
+                usedTeam[f.homeTeamId] = nil
+                usedTeam[f.awayTeamId] = nil
+                clearAssignment(f)
+                roundCount = roundCount - 1
+            end
+
+            return pickEdge(idx + 1)
+        end
+
+        return pickEdge(1)
+    end
+
+    return assignRound(1)
+end
+
+local function _assignLeaguePhaseMatchdays(fixtures, teamIds, matchdays, matchDays)
+    return _assignLeaguePhaseMatchdaysSmall(fixtures, teamIds, matchdays, matchDays)
+end
+
 ---@param startDate table {year, month, day}
 ---@param drawConfig table|nil 可选覆盖：weekday, dayInterval（其余从 leaguePhase 读取）
 function Tournament:drawLeaguePhaseFixtures(startDate, drawConfig)
@@ -279,14 +508,35 @@ function Tournament:drawLeaguePhaseFixtures(startDate, drawConfig)
     local weekday = (drawConfig and drawConfig.weekday) or lp.weekday or 3
     local dayInterval = (drawConfig and drawConfig.dayInterval) or lp.dayInterval or 14
 
+    local matchDays = {}
+    local date = League._alignToWeekday(
+        { year = startDate.year, month = startDate.month, day = startDate.day }, weekday)
+    for i = 1, matchdays do
+        table.insert(matchDays, { year = date.year, month = date.month, day = date.day })
+        date = League._addDays(date, dayInterval)
+    end
+
+    local expectedFixtures = math.floor(#teamIds * matchesPerTeam / 2)
     local fixtures = nil
+    local isLargeDraw = expectedFixtures > 72
+
     for _ = 1, 200 do
         local teamOpponents = _buildLeaguePhaseOpponents(teamIds, pots, opponentsPerPot)
         if teamOpponents then
             local candidateFixtures = _fixturesFromOpponents(teamIds, teamOpponents)
-            if #candidateFixtures == math.floor(#teamIds * matchesPerTeam / 2) then
-                fixtures = candidateFixtures
-                break
+            if #candidateFixtures == expectedFixtures then
+                if isLargeDraw then
+                    fixtures = candidateFixtures
+                    break
+                end
+                for i = #candidateFixtures, 2, -1 do
+                    local j = RandomInt(1, i)
+                    candidateFixtures[i], candidateFixtures[j] = candidateFixtures[j], candidateFixtures[i]
+                end
+                if _assignLeaguePhaseMatchdays(candidateFixtures, teamIds, matchdays, matchDays) then
+                    fixtures = candidateFixtures
+                    break
+                end
             end
         end
     end
@@ -296,78 +546,8 @@ function Tournament:drawLeaguePhaseFixtures(startDate, drawConfig)
         return
     end
 
-    -- 分配比赛日
-    local matchDays = {}
-    local date = League._alignToWeekday(
-        { year = startDate.year, month = startDate.month, day = startDate.day }, weekday)
-    for i = 1, matchdays do
-        table.insert(matchDays, { year = date.year, month = date.month, day = date.day })
-        date = League._addDays(date, dayInterval)
-    end
-
-    -- 将比赛分配到各比赛日（每队每比赛日最多 1 场）
-    local maxPerDay = math.floor(#teamIds / 2)
-
-    -- 洗牌赛程以打散
-    for i = #fixtures, 2, -1 do
-        local j = RandomInt(1, i)
-        fixtures[i], fixtures[j] = fixtures[j], fixtures[i]
-    end
-
-    -- 贪心分配：遍历每场比赛，找到最早的可用比赛日（该日两队都没踢过）
-    local teamDayUsed = {}  -- teamId → { [dayIdx] = true }
-    for _, tid in ipairs(teamIds) do
-        teamDayUsed[tid] = {}
-    end
-    local daySlots = {}  -- dayIdx → count（该日已分配的比赛数）
-    for i = 1, matchdays do
-        daySlots[i] = 0
-    end
-
-    for _, f in ipairs(fixtures) do
-        local assigned = false
-        for d = 1, matchdays do
-            if daySlots[d] < maxPerDay and
-               not teamDayUsed[f.homeTeamId][d] and
-               not teamDayUsed[f.awayTeamId][d] then
-                f.date = matchDays[d]
-                f.matchday = d
-                daySlots[d] = daySlots[d] + 1
-                teamDayUsed[f.homeTeamId][d] = true
-                teamDayUsed[f.awayTeamId][d] = true
-                assigned = true
-                break
-            end
-        end
-        -- 退路：如果约束冲突无法完美分配，优先找双方都没冲突的比赛日
-        if not assigned then
-            local bestDay = nil
-            local bestCount = 999
-            for d = 1, matchdays do
-                if not teamDayUsed[f.homeTeamId][d] and
-                   not teamDayUsed[f.awayTeamId][d] and
-                   daySlots[d] < bestCount then
-                    bestDay = d
-                    bestCount = daySlots[d]
-                end
-            end
-            -- 如果还没找到（极端情况），找负载最轻的
-            if not bestDay then
-                bestDay = 1
-                bestCount = daySlots[1]
-                for d = 2, matchdays do
-                    if daySlots[d] < bestCount then
-                        bestDay = d
-                        bestCount = daySlots[d]
-                    end
-                end
-            end
-            f.date = matchDays[bestDay]
-            f.matchday = bestDay
-            daySlots[bestDay] = daySlots[bestDay] + 1
-            teamDayUsed[f.homeTeamId][bestDay] = true
-            teamDayUsed[f.awayTeamId][bestDay] = true
-        end
+    if isLargeDraw then
+        _assignLeaguePhaseMatchdaysLegacy(fixtures, teamIds, matchdays, matchDays)
     end
 
     lp.fixtures = fixtures
