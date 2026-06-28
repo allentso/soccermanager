@@ -389,6 +389,19 @@ function ContractManager.getMonthsRemaining(gameState, player)
     return ContractManager._monthsUntilExpiry(gameState, player)
 end
 
+--- 是否可向球员发起续约（UI 计数与批量续约共用）
+---@param gameState table
+---@param player table
+---@return boolean
+function ContractManager.canOfferRenewal(gameState, player)
+    if not player or not player.contractEnd then return false end
+    if player._loanOriginTeamId or player.squadRole == "loaned" then return false end
+    if ContractManager._monthsUntilExpiry(gameState, player) > 12 then return false end
+    gameState._pendingRenewals = gameState._pendingRenewals or {}
+    if gameState._pendingRenewals[player.id] then return false end
+    return true
+end
+
 --- 终止合同并支付赔偿金（玩家主动解约）
 ---@param gameState table
 ---@param playerId number

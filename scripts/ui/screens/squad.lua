@@ -142,11 +142,10 @@ function Squad.create(params)
         if p.fitness and p.fitness < 70 then lowFitnessCount = lowFitnessCount + 1 end
     end
 
-    -- 统计合同即将到期球员数量（≤12个月）
+    -- 统计可续约球员数量（与一键续约逻辑一致）
     local expiringCount = 0
     for _, p in ipairs(allPlayers) do
-        local ml = ContractManager.getMonthsRemaining(gameState, p)
-        if ml <= 12 then
+        if ContractManager.canOfferRenewal(gameState, p) then
             expiringCount = expiringCount + 1
         end
     end
@@ -835,9 +834,9 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
         })
     end
 
-    -- 续约（合同剩余≤12个月时显示）
+    -- 续约（可发起续约时显示）
     local monthsLeft = ContractManager.getMonthsRemaining(gameState, player)
-    if monthsLeft <= 12 then
+    if ContractManager.canOfferRenewal(gameState, player) then
         table.insert(actions, {
             label = "续约 (" .. monthsLeft .. "个月到期)",
             color = Theme.COLORS.SECONDARY,
@@ -1016,24 +1015,22 @@ function Squad._showBatchRenewConfirm(allPlayers, gameState)
     local team = gameState:getPlayerTeam()
     if not team then return end
 
-    -- 收集所有合同≤12个月的球员及建议条款（排除租借球员）
+    -- 收集所有可续约球员及建议条款
     local renewList = {}
     local totalWageIncrease = 0
     for _, p in ipairs(allPlayers) do
-        if p._loanOriginTeamId or p.squadRole == "loaned" then goto continueRenew end
+        if not ContractManager.canOfferRenewal(gameState, p) then goto continueRenew end
         local ml = ContractManager.getMonthsRemaining(gameState, p)
-        if ml <= 12 then
-            local terms = ContractManager.getSuggestedTerms(p, team, gameState)
-            local wageIncrease = terms.wage - (p.wage or 0)
-            table.insert(renewList, {
-                player = p,
-                terms = terms,
-                monthsLeft = ml,
-                wageIncrease = wageIncrease,
-            })
-            if wageIncrease > 0 then
-                totalWageIncrease = totalWageIncrease + wageIncrease
-            end
+        local terms = ContractManager.getSuggestedTerms(p, team, gameState)
+        local wageIncrease = terms.wage - (p.wage or 0)
+        table.insert(renewList, {
+            player = p,
+            terms = terms,
+            monthsLeft = ml,
+            wageIncrease = wageIncrease,
+        })
+        if wageIncrease > 0 then
+            totalWageIncrease = totalWageIncrease + wageIncrease
         end
         ::continueRenew::
     end
