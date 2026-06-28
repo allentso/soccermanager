@@ -688,10 +688,10 @@ function TransferManager.raiseBid(gameState, bidId, newAmount, newWage)
             local player = gameState.players[bid.playerId]
             if not player then return false end
 
-            -- 记录本轮
-            bid.currentRound = (bid.currentRound or 0) + 1
+            -- 记录玩家加价（currentRound 仅由 AI 回应时递增，避免一次加价消耗两轮额度）
+            local playerRound = (bid.currentRound or 0) + 1
             table.insert(bid.rounds, {
-                round = bid.currentRound,
+                round = playerRound,
                 offer = newAmount,
                 counter = bid.counterAmount,
                 result = "raised",
@@ -723,7 +723,7 @@ function TransferManager.raiseBid(gameState, bidId, newAmount, newWage)
                 category = "transfer",
                 title = "加价" .. feeLabel .. "已提交",
                 body = string.format("你对 %s 的加价%s (%s) 已提交，等待回复。(第%d轮)",
-                    player.displayName, feeLabel, fmtMoney(newAmount), bid.currentRound),
+                    player.displayName, feeLabel, fmtMoney(newAmount), playerRound),
                 priority = "normal",
             })
             return true
@@ -1008,12 +1008,6 @@ function TransferManager._processAIResponse(gameState, bid)
     local mood = bid.mood or 50
     local maxRounds = bid.maxRounds or 4
 
-    -- 超过最大轮次 → 直接拒绝
-    if round >= maxRounds then
-        TransferManager._rejectBid(gameState, bid, "谈判回合耗尽，对方决定不出售。")
-        return
-    end
-
     -- 难度修正
     local diffMods = DifficultySettings.getTransferModifiers()
 
@@ -1037,8 +1031,10 @@ function TransferManager._processAIResponse(gameState, bid)
     end
 
     if ratio >= math.max(acceptThreshold, 0.9) then
-        -- 达到接受阈值 → 直接接受
+        -- 达到接受阈值 → 直接接受（优先于回合耗尽，避免满额报价被拒）
         TransferManager._acceptBid(gameState, bid)
+    elseif round >= maxRounds then
+        TransferManager._rejectBid(gameState, bid, "谈判回合耗尽，对方决定不出售。")
     elseif ratio >= 0.6 then
         -- 进入/继续谈判 → 生成counter-offer
         bid.status = "negotiating"
@@ -4297,11 +4293,6 @@ function TransferManager._processAILoanResponse(gameState, bid)
     local maxRounds = bid.maxRounds or 4
     local diffMods = DifficultySettings.getTransferModifiers()
 
-    if round >= maxRounds then
-        TransferManager._rejectBid(gameState, bid, "租借费谈判回合耗尽，对方决定不出租。")
-        return
-    end
-
     local acceptThreshold = 1.15 - (mood / 200) - round * 0.05 + diffMods.thresholdOffset
     if player.listedForLoan then acceptThreshold = acceptThreshold - 0.2 end
     if player.squadRole == "youth" or player.squadRole == "squad" then acceptThreshold = acceptThreshold - 0.08 end
@@ -4313,6 +4304,8 @@ function TransferManager._processAILoanResponse(gameState, bid)
 
     if ratio >= math.max(acceptThreshold, 0.85) then
         TransferManager._acceptBid(gameState, bid)
+    elseif round >= maxRounds then
+        TransferManager._rejectBid(gameState, bid, "租借费谈判回合耗尽，对方决定不出租。")
     elseif ratio >= 0.55 then
         bid.status = "negotiating"
         bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}

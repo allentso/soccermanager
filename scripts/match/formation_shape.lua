@@ -458,10 +458,13 @@ function FormationShape.getCompatiblePositions(slotPos, slotZone)
                 dominated = true
             end
 
-            -- 侧路过滤
+            -- 前锋槽位允许临场改成左右边锋；其他槽位继续按所在区域过滤侧路。
             if not dominated and zoneLane then
                 local posSide = POS_SIDE[pos]
-                if zoneLane == "CENTER" then
+                local allowWideForward = slotPos == "ST" and (pos == "LW" or pos == "RW")
+                if allowWideForward then
+                    dominated = false
+                elseif zoneLane == "CENTER" then
                     -- 中路槽位：过滤掉纯边路位置
                     if posSide then dominated = true end
                 elseif zoneLane == "LEFT" then

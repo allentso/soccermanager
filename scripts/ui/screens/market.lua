@@ -1088,7 +1088,7 @@ function Market._buildMyBidsContent(gameState)
             statusText = "被拒绝"
             statusColor = Theme.COLORS.DANGER
         elseif bid.status == "negotiating" then
-            statusText = string.format("%s谈判 %d/%d", isLoan and "租借费" or "", (bid.currentRound or 0) + 1, bid.maxRounds or 4)
+            statusText = string.format("%s谈判 %d/%d", isLoan and "租借费" or "", bid.currentRound or 0, bid.maxRounds or 4)
             statusColor = {156, 39, 176, 255}
         elseif bid.status == "player_considering" then
             statusText = isLoan and "球员考虑外租" or "球员考虑中"
