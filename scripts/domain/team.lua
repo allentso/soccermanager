@@ -298,6 +298,7 @@ function Team.new(data)
     self.incomeBreakdown = data.incomeBreakdown or {}
     self.transactions = data.transactions or {}
     self.facilities = data.facilities or { training = 1, medical = 1, scouting = 1 }
+    self._youthFacilityFromRep = data._youthFacilityFromRep or false
     self.ticketStrategy = data.ticketStrategy or nil
     self._lastMatchRevenue = data._lastMatchRevenue or nil
     self.transferList = data.transferList or {}
@@ -515,6 +516,7 @@ function Team:serialize()
         incomeBreakdown = self.incomeBreakdown,
         transactions = self.transactions,
         facilities = self.facilities,
+        _youthFacilityFromRep = self._youthFacilityFromRep or false,
         ticketStrategy = self.ticketStrategy,
         _lastMatchRevenue = self._lastMatchRevenue,
         transferList = self.transferList,

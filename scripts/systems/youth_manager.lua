@@ -1209,10 +1209,13 @@ end
 function YouthManager._ensureYouthFacilityFromReputation(team)
     if not team then return end
     FinanceManager.ensureFacilities(team)
-    if not team._youthFacilityFromRep then
-        team.facilities.youth = YouthManager._reputationToYouthFacilityLevel(team.reputation)
-        team._youthFacilityFromRep = true
-    end
+    if team._youthFacilityFromRep then return end
+
+    local repLevel = YouthManager._reputationToYouthFacilityLevel(team.reputation)
+    local current = team.facilities.youth or 1
+    -- 取较高值：声望初始化不覆盖财务页已升级等级（含旧存档缺 flag 的情况）
+    team.facilities.youth = math.max(current, repLevel)
+    team._youthFacilityFromRep = true
 end
 
 --- 获取某队青训生成加成（职员 + 设施分层）
