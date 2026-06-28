@@ -1892,7 +1892,11 @@ function Market._buildListedContent(gameState, listedSubTab)
                                         end
                                         return
                                     end
-                                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
+                                    UI.Toast.Show({
+                                        message = p.displayName .. " 已挂牌，等待买家报价",
+                                        variant = "success",
+                                    })
+                                    Router.replaceWith("market", { tab = "listed", listedSubTab = "list" })
                                 end,
                             } or UI.Label {
                                 text = "不可",
