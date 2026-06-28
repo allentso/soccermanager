@@ -129,45 +129,42 @@ function SelectTeam.create(params)
                 UI.Label {
                     text = cslLoaded and "中超 ✕" or "+ 中超",
                     fontSize = 12,
-                    color = isActive and Theme.COLORS.GOLD or (cslLoaded and "#FF6B6B" or Theme.COLORS.GOLD),
+                    color = isActive and Theme.COLORS.GOLD or (cslLoaded and {255, 107, 107, 255} or Theme.COLORS.GOLD),
                     fontWeight = "bold",
                 },
             },
         })
     end
 
-    -- 重生球员 Tab：选队阶段可加载/卸载陨落天才名单
-    do
-        local rebirthLoaded = RealDataLoader.isRebirthPoolLoaded(gameState)
-        table.insert(leagueTabs, UI.Panel {
-            height = 30,
-            paddingLeft = 12, paddingRight = 12,
-            backgroundColor = rebirthLoaded and "rgba(255,75,75,0.08)" or "rgba(180,120,255,0.08)",
-            borderRadius = 15,
-            borderWidth = 1,
-            borderColor = rebirthLoaded and "rgba(255,75,75,0.3)" or "rgba(180,120,255,0.35)",
-            justifyContent = "center",
-            alignItems = "center",
-            marginRight = 6,
-            onClick = function()
-                if rebirthLoaded then
-                    RealDataLoader.unloadRebirthPlayers(gameState)
-                else
-                    RealDataLoader.loadRebirthPlayers(gameState)
-                end
-                pendingTeam = nil
-                Router.replaceWith("select_team", params)
-            end,
-            children = {
-                UI.Label {
-                    text = rebirthLoaded and "重生 ✕" or "+ 重生",
-                    fontSize = 12,
-                    color = rebirthLoaded and "#FF6B6B" or "#B478FF",
-                    fontWeight = "bold",
-                },
+    local rebirthLoaded = RealDataLoader.isRebirthPoolLoaded(gameState)
+    local rebirthButton = UI.Panel {
+        height = 30,
+        paddingLeft = 12, paddingRight = 12,
+        backgroundColor = rebirthLoaded and "rgba(255,75,75,0.08)" or "rgba(180,120,255,0.08)",
+        borderRadius = 15,
+        borderWidth = 1,
+        borderColor = rebirthLoaded and "rgba(255,75,75,0.3)" or "rgba(180,120,255,0.35)",
+        justifyContent = "center",
+        alignItems = "center",
+        marginLeft = 8,
+        onClick = function()
+            if rebirthLoaded then
+                RealDataLoader.unloadRebirthPlayers(gameState)
+            else
+                RealDataLoader.loadRebirthPlayers(gameState)
+            end
+            pendingTeam = nil
+            Router.replaceWith("select_team", params)
+        end,
+        children = {
+            UI.Label {
+                text = rebirthLoaded and "重生 ✕" or "+ 重生",
+                fontSize = 12,
+                color = rebirthLoaded and {255, 107, 107, 255} or {180, 120, 255, 255},
+                fontWeight = "bold",
             },
-        })
-    end
+        },
+    }
 
     -- 次级联赛 Tab：批量加载/卸载五大次级联赛
     do
@@ -204,7 +201,7 @@ function SelectTeam.create(params)
                 UI.Label {
                     text = secondLoaded and "次级 ✕" or "+ 次级",
                     fontSize = 12,
-                    color = isSecondActive and Theme.COLORS.GOLD or (secondLoaded and "#FF6B6B" or "#64B4FF"),
+                    color = isSecondActive and Theme.COLORS.GOLD or (secondLoaded and {255, 107, 107, 255} or {100, 180, 255, 255}),
                     fontWeight = "bold",
                 },
             },
@@ -258,13 +255,18 @@ function SelectTeam.create(params)
             -- 提示
             UI.Panel {
                 width = "100%",
+                flexDirection = "row",
+                alignItems = "center",
                 paddingLeft = 16, paddingRight = 16, paddingTop = 10, paddingBottom = 6,
                 children = {
                     UI.Label {
                         text = "你好, " .. managerLastName .. managerFirstName .. "! 请选择你要执教的球队:",
                         fontSize = 14,
                         color = Theme.COLORS.TEXT_SECONDARY,
+                        flexGrow = 1,
+                        flexShrink = 1,
                     },
+                    rebirthButton,
                 }
             },
 
@@ -419,7 +421,7 @@ function SelectTeam._updateConfirmBar(params)
             backgroundColor = Theme.COLORS.GOLD,
             borderRadius = 8,
             fontSize = 14, fontWeight = "bold",
-            color = "#1A1A1A",
+            color = {26, 26, 26, 255},
             onClick = function()
                 local team = pendingTeam
                 pendingTeam = nil

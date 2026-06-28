@@ -1335,12 +1335,6 @@ function Settings._buildRebirthSupplementSection()
             marginTop = 8,
             children = {
                 Settings._infoRow("重生球员补充", "已加载"),
-                UI.Label {
-                    text = "重生球员已分配到各队青训（新档开启转生时已自带）",
-                    fontSize = 10,
-                    color = Theme.COLORS.TEXT_MUTED,
-                    marginTop = 2,
-                },
             },
         }
     end
@@ -1353,12 +1347,6 @@ function Settings._buildRebirthSupplementSection()
                 if not enabled then return end
                 Settings._supplementRebirthPlayers()
             end),
-            UI.Label {
-                text = "将陨落天才型重生球员随机分配到全联赛青训队（仅老档需手动开启）",
-                fontSize = 10,
-                color = Theme.COLORS.TEXT_MUTED,
-                marginTop = 2,
-            },
         },
     }
 end
