@@ -1026,11 +1026,53 @@ function RealDataLoader.loadWonderkids(gameState)
     return count
 end
 
---- 加载重生球员名单（独立 JSON，入队逻辑与小妖相同）
+--- 重生球员名单是否已注入当前存档（新档开转生时会自动标记；老档可推断）
+---@param gameState table
+---@return boolean
+function RealDataLoader.isRebirthPoolLoaded(gameState)
+    if gameState._rebirthPoolLoaded then return true end
+    for _, p in pairs(gameState.players or {}) do
+        if p.reincarnationTier == "rebirth" then
+            gameState._rebirthPoolLoaded = true
+            return true
+        end
+    end
+    return false
+end
+
+--- 为刚加载的重生球员补齐潜力系统字段
+---@param gameState table
+local function initRebirthPlayerPotential(gameState)
+    local PotentialSystem = require("scripts/systems/potential_system")
+    local baseSeed = gameState.potentialSeed
+    if baseSeed == nil and Time and Time.GetSystemTime then
+        baseSeed = Time:GetSystemTime()
+    end
+    baseSeed = baseSeed or 0
+    gameState.potentialSeed = baseSeed
+    for _, p in pairs(gameState.players or {}) do
+        if p.reincarnationTier == "rebirth" and p.paRating == nil then
+            p.paRating = PotentialSystem.rawToRating(p.potential)
+            p.actualPotential = PotentialSystem.generateActualPotential(
+                p.paRating, baseSeed + p.id * 7919)
+            if p.clampToPotentialCaps then p:clampToPotentialCaps() end
+        end
+    end
+end
+
+--- 加载重生球员名单（独立 JSON，入队逻辑与小妖相同；幂等，重复调用跳过）
 ---@param gameState table
 ---@return number 加载的球员数
 function RealDataLoader.loadRebirthPlayers(gameState)
+    if RealDataLoader.isRebirthPoolLoaded(gameState) then
+        log:Write(LOG_INFO, "RealDataLoader: 重生球员已加载，跳过")
+        return 0
+    end
     local count = loadYouthPoolFromJson(gameState, "rebirth_players.json", { markRebirth = true })
+    if count > 0 then
+        gameState._rebirthPoolLoaded = true
+        initRebirthPlayerPotential(gameState)
+    end
     log:Write(LOG_INFO, "RealDataLoader: 加载了 " .. count .. " 名重生球员")
     return count
 end

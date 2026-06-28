@@ -316,6 +316,7 @@ function GameState:serialize()
         _reincarnationsDone = self._reincarnationsDone,
         _reincarnationKnownSources = self._reincarnationKnownSources,
         _aiYouthRosterBootstrapped = self._aiYouthRosterBootstrapped,
+        _rebirthPoolLoaded = self._rebirthPoolLoaded,
         _gameStartSeason = self._gameStartSeason,
         _reincarnationFirstSeasonEnd = self._reincarnationFirstSeasonEnd,
         -- 二级联赛升降级数据
@@ -412,6 +413,7 @@ function GameState:deserialize(data)
     self._reincarnationsDone = data._reincarnationsDone or {}
     self._reincarnationKnownSources = data._reincarnationKnownSources or {}
     self._aiYouthRosterBootstrapped = data._aiYouthRosterBootstrapped or false
+    self._rebirthPoolLoaded = data._rebirthPoolLoaded or false
     self._gameStartSeason = data._gameStartSeason
     self._reincarnationFirstSeasonEnd = data._reincarnationFirstSeasonEnd
 

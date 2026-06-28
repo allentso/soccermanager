@@ -12,6 +12,7 @@ local League = require("scripts/domain/league")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
 local Player = require("scripts/domain/player")
 local YouthManager = require("scripts/systems/youth_manager")
+local RealDataLoader = require("scripts/data/real_data_loader")
 local LayoutAdapter = require("scripts/ui/layout_adapter")
 local DayAdvanceOverlay = require("scripts/ui/components/day_advance_overlay")
 
@@ -156,6 +157,7 @@ function Settings.create(params)
                                                 Settings._saveSettings()
                                                 Router.replaceWith("settings")
                                             end),
+                                            Settings._buildRebirthSupplementSection(),
                                         },
                                     },
                                     -- 右栏：赛程修复
@@ -1318,6 +1320,75 @@ function Settings._completeTournamentFully(gameState, tournament, module)
         -- 3) 推进阶段
         pcall(module.checkPhaseAdvance, gameState)
     end
+end
+
+------------------------------------------------------
+-- 老档重生球员补充（默认关闭，手动开启后一次性注入名单）
+------------------------------------------------------
+function Settings._buildRebirthSupplementSection()
+    local gameState = _G.gameState
+    if not gameState then return UI.Panel { height = 0 } end
+
+    if RealDataLoader.isRebirthPoolLoaded(gameState) then
+        return UI.Panel {
+            width = "100%",
+            marginTop = 8,
+            children = {
+                Settings._infoRow("重生球员补充", "已加载"),
+                UI.Label {
+                    text = "重生球员已分配到各队青训（新档开启转生时已自带）",
+                    fontSize = 10,
+                    color = Theme.COLORS.TEXT_MUTED,
+                    marginTop = 2,
+                },
+            },
+        }
+    end
+
+    return UI.Panel {
+        width = "100%",
+        marginTop = 8,
+        children = {
+            Settings._toggleRow("重生球员补充", false, function(enabled)
+                if not enabled then return end
+                Settings._supplementRebirthPlayers()
+            end),
+            UI.Label {
+                text = "将陨落天才型重生球员随机分配到全联赛青训队（仅老档需手动开启）",
+                fontSize = 10,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginTop = 2,
+            },
+        },
+    }
+end
+
+function Settings._supplementRebirthPlayers()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    if RealDataLoader.isRebirthPoolLoaded(gameState) then
+        UI.Toast.Show({ message = "重生球员已加载", variant = "info" })
+        Router.replaceWith("settings")
+        return
+    end
+
+    local count = RealDataLoader.loadRebirthPlayers(gameState)
+    if count <= 0 then
+        UI.Toast.Show({ message = "未能加载重生球员名单", variant = "warning" })
+        Router.replaceWith("settings")
+        return
+    end
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "youth",
+        title = "重生球员已补充",
+        body = string.format("已将 %d 名重生球员随机分配到各队青训队。", count),
+        priority = "normal",
+    })
+    UI.Toast.Show({ message = string.format("已补充 %d 名重生球员", count), variant = "success" })
+    Router.replaceWith("settings")
 end
 
 ------------------------------------------------------
