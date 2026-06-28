@@ -9,6 +9,17 @@ local PositionTrainingManager = require("scripts/systems/position_training_manag
 
 local TrainingManager = {}
 
+local function randInt(minValue, maxValue)
+    if maxValue == nil then
+        maxValue = minValue
+        minValue = 1
+    end
+    if maxValue < minValue then
+        minValue, maxValue = maxValue, minValue
+    end
+    return minValue + math.floor(Random() * (maxValue - minValue + 1))
+end
+
 local _eventFlavorsModule
 local function _getEventFlavors()
     if not _eventFlavorsModule then
@@ -246,7 +257,7 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
         if (player.overall or 0) < overallCap then
             local maxAttempts = #focusAttrs
             for _ = 1, maxAttempts do
-                local attr = focusAttrs[RandomInt(1, #focusAttrs)]
+                local attr = focusAttrs[randInt(1, #focusAttrs)]
                 if player.attributes[attr] and player.attributes[attr] < attrCap then
                     player.attributes[attr] = player.attributes[attr] + 1
                     player:calculateOverall()
@@ -260,7 +271,7 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
         return
     end
 
-    local fitnessLoss = RandomInt(0, intensityConfig.fitnessLoss)
+    local fitnessLoss = randInt(0, intensityConfig.fitnessLoss)
     player.fitness = DifficultySettings.clampFitness(player.fitness - fitnessLoss)
 
     if Random() < intensityConfig.injuryChance then

@@ -9,6 +9,17 @@ local League = require("scripts/domain/league")
 
 local RealDataLoader = {}
 
+local function randInt(minValue, maxValue)
+    if maxValue == nil then
+        maxValue = minValue
+        minValue = 1
+    end
+    if maxValue < minValue then
+        minValue, maxValue = maxValue, minValue
+    end
+    return minValue + math.floor(Random() * (maxValue - minValue + 1))
+end
+
 -- 位置映射：JSON全名 → 游戏内缩写
 local POSITION_MAP = {
     Goalkeeper = "GK",
@@ -954,13 +965,13 @@ local function loadYouthPoolFromJson(gameState, filename, opts)
     local shuffled = {}
     for _, p in ipairs(data.players) do table.insert(shuffled, p) end
     for i = #shuffled, 2, -1 do
-        local j = RandomInt(1, i)
+        local j = randInt(1, i)
         shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
     end
 
     local count = 0
     for _, pData in ipairs(shuffled) do
-        local teamId = teamIds[RandomInt(1, #teamIds)]
+        local teamId = teamIds[randInt(1, #teamIds)]
         local team = gameState.teams[teamId]
 
         local position, naturalPositions = mapPositions(pData.position, pData.alternate_positions)

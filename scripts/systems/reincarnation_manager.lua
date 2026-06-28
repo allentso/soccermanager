@@ -10,6 +10,17 @@ local ReincarnationManager = {}
 
 local MAX_YOUTH_SQUAD = YouthManager.MAX_YOUTH_SQUAD
 
+local function randInt(minValue, maxValue)
+    if maxValue == nil then
+        maxValue = minValue
+        minValue = 1
+    end
+    if maxValue < minValue then
+        minValue, maxValue = maxValue, minValue
+    end
+    return minValue + math.floor(Random() * (maxValue - minValue + 1))
+end
+
 ------------------------------------------------------
 -- 转生名单：只有名单中的球员退役后才会触发转生
 ------------------------------------------------------
@@ -404,60 +415,60 @@ local function generateRebirthAttributes(position, overall, attrBonus)
     local baseVal = math.max(1, math.floor(overall / 7))
 
     local attrs = {
-        speed = baseVal + RandomInt(-1, 2),
-        stamina = baseVal + RandomInt(-1, 2),
-        strength = baseVal + RandomInt(-1, 2),
-        agility = baseVal + RandomInt(-1, 2),
-        passing = baseVal + RandomInt(-1, 2),
-        shooting = baseVal + RandomInt(-1, 2),
-        tackling = baseVal + RandomInt(-1, 2),
-        dribbling = baseVal + RandomInt(-1, 2),
-        defending = baseVal + RandomInt(-1, 2),
-        positioning = baseVal + RandomInt(-1, 2),
-        vision = baseVal + RandomInt(-1, 2),
-        decisions = baseVal + RandomInt(-1, 2),
-        composure = baseVal + RandomInt(-1, 2),
-        aggression = baseVal + RandomInt(-1, 2),
-        teamwork = baseVal + RandomInt(-1, 2),
-        leadership = baseVal + RandomInt(-2, 1),
-        aerial = baseVal + RandomInt(-1, 2),
+        speed = baseVal + randInt(-1, 2),
+        stamina = baseVal + randInt(-1, 2),
+        strength = baseVal + randInt(-1, 2),
+        agility = baseVal + randInt(-1, 2),
+        passing = baseVal + randInt(-1, 2),
+        shooting = baseVal + randInt(-1, 2),
+        tackling = baseVal + randInt(-1, 2),
+        dribbling = baseVal + randInt(-1, 2),
+        defending = baseVal + randInt(-1, 2),
+        positioning = baseVal + randInt(-1, 2),
+        vision = baseVal + randInt(-1, 2),
+        decisions = baseVal + randInt(-1, 2),
+        composure = baseVal + randInt(-1, 2),
+        aggression = baseVal + randInt(-1, 2),
+        teamwork = baseVal + randInt(-1, 2),
+        leadership = baseVal + randInt(-2, 1),
+        aerial = baseVal + randInt(-1, 2),
         handling = 1,
         reflexes = 1,
     }
 
     -- 位置专精（与 YouthManager 一致）
     if position == "GK" then
-        attrs.handling = baseVal + RandomInt(2, 5)
-        attrs.reflexes = baseVal + RandomInt(2, 5)
-        attrs.positioning = attrs.positioning + RandomInt(1, 3)
+        attrs.handling = baseVal + randInt(2, 5)
+        attrs.reflexes = baseVal + randInt(2, 5)
+        attrs.positioning = attrs.positioning + randInt(1, 3)
     elseif position == "CB" then
-        attrs.defending = attrs.defending + RandomInt(2, 4)
-        attrs.tackling = attrs.tackling + RandomInt(2, 4)
-        attrs.strength = attrs.strength + RandomInt(1, 3)
+        attrs.defending = attrs.defending + randInt(2, 4)
+        attrs.tackling = attrs.tackling + randInt(2, 4)
+        attrs.strength = attrs.strength + randInt(1, 3)
     elseif position == "LB" or position == "RB" then
-        attrs.defending = attrs.defending + RandomInt(1, 3)
-        attrs.speed = attrs.speed + RandomInt(2, 4)
+        attrs.defending = attrs.defending + randInt(1, 3)
+        attrs.speed = attrs.speed + randInt(2, 4)
     elseif position == "CDM" then
-        attrs.tackling = attrs.tackling + RandomInt(2, 4)
-        attrs.defending = attrs.defending + RandomInt(1, 3)
+        attrs.tackling = attrs.tackling + randInt(2, 4)
+        attrs.defending = attrs.defending + randInt(1, 3)
     elseif position == "CM" or position == "CAM" then
-        attrs.passing = attrs.passing + RandomInt(2, 4)
-        attrs.vision = attrs.vision + RandomInt(1, 3)
-        attrs.dribbling = attrs.dribbling + RandomInt(1, 3)
+        attrs.passing = attrs.passing + randInt(2, 4)
+        attrs.vision = attrs.vision + randInt(1, 3)
+        attrs.dribbling = attrs.dribbling + randInt(1, 3)
     elseif position == "LM" or position == "RM" then
-        attrs.passing = attrs.passing + RandomInt(1, 3)
-        attrs.speed = attrs.speed + RandomInt(1, 3)
-        attrs.stamina = attrs.stamina + RandomInt(1, 3)
-        attrs.dribbling = attrs.dribbling + RandomInt(1, 2)
-        attrs.tackling = attrs.tackling + RandomInt(0, 2)
+        attrs.passing = attrs.passing + randInt(1, 3)
+        attrs.speed = attrs.speed + randInt(1, 3)
+        attrs.stamina = attrs.stamina + randInt(1, 3)
+        attrs.dribbling = attrs.dribbling + randInt(1, 2)
+        attrs.tackling = attrs.tackling + randInt(0, 2)
     elseif position == "LW" or position == "RW" then
-        attrs.speed = attrs.speed + RandomInt(2, 4)
-        attrs.dribbling = attrs.dribbling + RandomInt(2, 3)
-        attrs.agility = attrs.agility + RandomInt(1, 3)
+        attrs.speed = attrs.speed + randInt(2, 4)
+        attrs.dribbling = attrs.dribbling + randInt(2, 3)
+        attrs.agility = attrs.agility + randInt(1, 3)
     elseif position == "ST" then
-        attrs.shooting = attrs.shooting + RandomInt(2, 4)
-        attrs.composure = attrs.composure + RandomInt(1, 3)
-        attrs.speed = attrs.speed + RandomInt(1, 3)
+        attrs.shooting = attrs.shooting + randInt(2, 4)
+        attrs.composure = attrs.composure + randInt(1, 3)
+        attrs.speed = attrs.speed + randInt(1, 3)
     end
 
     -- 转生特殊加成（区别于普通青训）
@@ -520,7 +531,7 @@ local function pickRandomTeamWithYouthSlot(gameState)
         end
     end
     if #teamIds == 0 then return nil end
-    return teamIds[RandomInt(1, #teamIds)]
+    return teamIds[randInt(1, #teamIds)]
 end
 
 --- 随机挑选一支有青训的球员并返回待替换者
@@ -546,8 +557,8 @@ local function pickRandomYouthToReplace(gameState)
         ::continue_team::
     end
     if #candidates == 0 then return nil, nil end
-    local picked = candidates[RandomInt(1, #candidates)]
-    local youthId = picked.youthIds[RandomInt(1, #picked.youthIds)]
+    local picked = candidates[randInt(1, #candidates)]
+    local youthId = picked.youthIds[randInt(1, #picked.youthIds)]
     return picked.teamId, youthId
 end
 
@@ -902,7 +913,7 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
                 sourcePlayer.displayName or entry.matchName))
             return false
         end
-        targetTeamId = teamIds[RandomInt(1, #teamIds)]
+        targetTeamId = teamIds[randInt(1, #teamIds)]
     end
 
     if not targetTeamId then return false end
@@ -916,7 +927,7 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
 
     local rebirthAge = 16
     local birthYear = gameState.date.year - rebirthAge
-    local overall = RandomInt(70, 78)
+    local overall = randInt(70, 78)
     local position = Constants.normalizePosition(sourcePlayer.position) or "CM"
     local attributes = generateRebirthAttributes(position, overall, entry.attrBonus)
     local actualOverall = Player.calculateOverallFromAttrs(position, attributes)

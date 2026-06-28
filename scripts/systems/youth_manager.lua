@@ -339,6 +339,18 @@ local POSITION_MAP = {
     CenterForward = "ST",
 }
 
+--- 本模块需要闭区间整数随机；引擎 RandomInt 上限语义不稳定（可能为右开区间）。
+local function randInt(minValue, maxValue)
+    if maxValue == nil then
+        maxValue = minValue
+        minValue = 1
+    end
+    if maxValue < minValue then
+        minValue, maxValue = maxValue, minValue
+    end
+    return minValue + math.floor(Random() * (maxValue - minValue + 1))
+end
+
 --- 将传奇数据中的英文位置转换为游戏简写
 local function mapPosition(pos)
     if not pos then return "ST" end
@@ -361,94 +373,13 @@ local function _pickWeightedYouthPosition()
     return "CM"
 end
 
-local function _countYouthPosition(counts, pos)
-    local normalized = _normalizeYouthPosition(pos)
-    if not normalized then return false end
-    counts[normalized] = (counts[normalized] or 0) + 1
-    return true
-end
-
-local function _collectTeamYouthPositionCounts(gameState, team, plannedPositions)
-    local counts = {}
-    for _, pos in ipairs(YOUTH_POSITION_ORDER) do counts[pos] = 0 end
-
-    if not gameState or not team then return counts, 0 end
-
-    local total = 0
-    local seen = {}
-    local function countPlayer(pid)
-        if not pid or seen[pid] then return end
-        seen[pid] = true
-        local player = gameState.players and gameState.players[pid]
-        if player and not player.retired and _countYouthPosition(counts, player.position) then
-            total = total + 1
-        end
-    end
-
-    for _, pid in ipairs(team.playerIds or {}) do countPlayer(pid) end
-    for _, pid in ipairs(team._youthPlayerIds or {}) do countPlayer(pid) end
-    for _, pos in ipairs(plannedPositions or {}) do
-        if _countYouthPosition(counts, pos) then total = total + 1 end
-    end
-
-    return counts, total
-end
-
 --- 选择下一名普通青训的生成位置。
---- 有球队上下文时先补详细位置缺口；无上下文时按阵容比例加权随机。
+--- 纯按阵容结构权重随机，不根据当前球队缺口纠偏，避免低权重位置被长期压制。
 ---@param gameState table|nil
 ---@param team table|nil
----@param plannedPositions string[]|nil 本批候选中已决定的位置
+---@param plannedPositions string[]|nil 兼容旧调用，纯随机模式不使用
 ---@return string
 function YouthManager._pickYouthPositionForTeam(gameState, team, plannedPositions)
-    if not gameState or not team then return _pickWeightedYouthPosition() end
-
-    local counts, total = _collectTeamYouthPositionCounts(gameState, team, plannedPositions)
-    local projectedTotal = math.max(1, total + 1)
-    local bestDeficit = 0
-    local severe = {}
-
-    for _, pos in ipairs(YOUTH_POSITION_ORDER) do
-        local target = projectedTotal * (YOUTH_POSITION_WEIGHTS[pos] or 0) / YOUTH_POSITION_WEIGHT_TOTAL
-        local deficit = target - (counts[pos] or 0)
-        if deficit > bestDeficit + 0.25 then
-            bestDeficit = deficit
-            severe = { pos }
-        elseif deficit >= bestDeficit - 0.25 and deficit >= 1.0 then
-            table.insert(severe, pos)
-        end
-    end
-
-    if bestDeficit >= 1.0 and #severe > 0 then
-        local totalWeight = 0
-        for _, pos in ipairs(severe) do totalWeight = totalWeight + (YOUTH_POSITION_WEIGHTS[pos] or 1) end
-        local roll = Random() * totalWeight
-        local acc = 0
-        for _, pos in ipairs(severe) do
-            acc = acc + (YOUTH_POSITION_WEIGHTS[pos] or 1)
-            if roll <= acc then return pos end
-        end
-        return severe[#severe]
-    end
-
-    local scored = {}
-    local totalScore = 0
-    for _, pos in ipairs(YOUTH_POSITION_ORDER) do
-        local weight = YOUTH_POSITION_WEIGHTS[pos] or 1
-        local target = projectedTotal * weight / YOUTH_POSITION_WEIGHT_TOTAL
-        local deficit = target - (counts[pos] or 0)
-        local score = weight * 0.15 + math.max(0, deficit) * 4
-        if (counts[pos] or 0) == 0 then score = score + 0.75 end
-        table.insert(scored, { position = pos, score = score })
-        totalScore = totalScore + score
-    end
-
-    local roll = Random() * totalScore
-    local acc = 0
-    for _, item in ipairs(scored) do
-        acc = acc + item.score
-        if roll <= acc then return item.position end
-    end
     return _pickWeightedYouthPosition()
 end
 
@@ -492,8 +423,8 @@ end
 local function _pickChineseYouthDisplayName(usedNames, maxAttempts)
     maxAttempts = maxAttempts or 120
     for _ = 1, maxAttempts do
-        local surname = YOUTH_CN_SURNAMES[RandomInt(1, #YOUTH_CN_SURNAMES)]
-        local given = YOUTH_CN_GIVEN_NAMES[RandomInt(1, #YOUTH_CN_GIVEN_NAMES)]
+        local surname = YOUTH_CN_SURNAMES[randInt(1, #YOUTH_CN_SURNAMES)]
+        local given = YOUTH_CN_GIVEN_NAMES[randInt(1, #YOUTH_CN_GIVEN_NAMES)]
         local name = surname .. given
         if not usedNames[name] then
             usedNames[name] = true
@@ -517,7 +448,7 @@ local function _pickYouthDisplayName(nationality, usedNames)
     elseif YOUTH_FULL_NAME_NATIONS[nationality] then
         local pool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION.CN
         for _ = 1, maxAttempts do
-            local name = pool[RandomInt(1, #pool)][1]
+            local name = pool[randInt(1, #pool)][1]
             if not usedNames[name] then
                 usedNames[name] = true
                 return name
@@ -526,8 +457,8 @@ local function _pickYouthDisplayName(nationality, usedNames)
     else
         local pool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION.BRA
         for _ = 1, maxAttempts do
-            local given = YOUTH_GIVEN_NAMES[RandomInt(1, #YOUTH_GIVEN_NAMES)]
-            local surname = pool[RandomInt(1, #pool)][1]
+            local given = YOUTH_GIVEN_NAMES[randInt(1, #YOUTH_GIVEN_NAMES)]
+            local surname = pool[randInt(1, #pool)][1]
             local name = given .. "·" .. surname
             if not usedNames[name] then
                 usedNames[name] = true
@@ -540,26 +471,26 @@ local function _pickYouthDisplayName(nationality, usedNames)
     local variants = { "翔", "彦", "太", "也", "树", "真", "斗", "人", "介", "一" }
     for _ = 1, 40 do
         if _isChineseYouthNation(nationality) then
-            local surname = YOUTH_CN_SURNAMES[RandomInt(1, #YOUTH_CN_SURNAMES)]
-            local given = YOUTH_CN_GIVEN_NAMES[RandomInt(1, #YOUTH_CN_GIVEN_NAMES)]
-            local name = surname .. variants[RandomInt(1, #variants)] .. given
+            local surname = YOUTH_CN_SURNAMES[randInt(1, #YOUTH_CN_SURNAMES)]
+            local given = YOUTH_CN_GIVEN_NAMES[randInt(1, #YOUTH_CN_GIVEN_NAMES)]
+            local name = surname .. variants[randInt(1, #variants)] .. given
             if not usedNames[name] then
                 usedNames[name] = true
                 return name
             end
         elseif YOUTH_FULL_NAME_NATIONS[nationality] then
             local pool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION.CN
-            local base = pool[RandomInt(1, #pool)][1]
-            local name = base:sub(1, 2) .. variants[RandomInt(1, #variants)] .. base:sub(3)
+            local base = pool[randInt(1, #pool)][1]
+            local name = base:sub(1, 2) .. variants[randInt(1, #variants)] .. base:sub(3)
             if not usedNames[name] then
                 usedNames[name] = true
                 return name
             end
         else
             local pool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION.BRA
-            local given = YOUTH_GIVEN_NAMES[RandomInt(1, #YOUTH_GIVEN_NAMES)]
-            local surname = pool[RandomInt(1, #pool)][1]
-            local name = given .. variants[RandomInt(1, #variants)] .. "·" .. surname
+            local given = YOUTH_GIVEN_NAMES[randInt(1, #YOUTH_GIVEN_NAMES)]
+            local surname = pool[randInt(1, #pool)][1]
+            local name = given .. variants[randInt(1, #variants)] .. "·" .. surname
             if not usedNames[name] then
                 usedNames[name] = true
                 return name
@@ -567,7 +498,7 @@ local function _pickYouthDisplayName(nationality, usedNames)
         end
     end
 
-    local fallback = "青训" .. tostring(RandomInt(1000, 9999))
+    local fallback = "青训" .. tostring(randInt(1000, 9999))
     usedNames[fallback] = true
     return fallback
 end
@@ -1241,13 +1172,10 @@ function YouthManager._refreshCandidates(gameState)
     local candidates = {}
     local usedNames = _collectYouthUsedNames(gameState, team.id)
 
-    local plannedPositions = {}
     for _ = 1, YOUTH_POOL_SIZE do
-        local targetPosition = YouthManager._pickYouthPositionForTeam(gameState, team, plannedPositions)
         local candidate = YouthManager._generateYouthPlayer(
-            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country, targetPosition)
+            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
         table.insert(candidates, candidate)
-        table.insert(plannedPositions, candidate.position)
     end
 
     gameState._youthCandidates = candidates
@@ -1303,7 +1231,7 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
 
     -- 难度修正：青训质量影响年龄和潜力范围
     local youthMods = DifficultySettings.getYouthModifiers()
-    local age = RandomInt(youthMods.minAge, youthMods.maxAge)
+    local age = randInt(youthMods.minAge, youthMods.maxAge)
     local birthYear = gameState.date.year - age
 
     local facilityLevel = YouthManager._facilityLevelFromBonus(facilityYouthBonus)
@@ -1322,7 +1250,7 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
     local attributes, actualOverall
     local maxAttempts = 5
     for attempt = 1, maxAttempts do
-        local overall = RandomInt(overallFloor, overallCap)
+        local overall = randInt(overallFloor, overallCap)
         -- 重试时逐步提高输入 overall，增加达标概率
         if attempt > 1 then
             overall = math.min(overallCap, overall + (attempt - 1) * 2)
@@ -1342,13 +1270,13 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
     -- 根据球队所属国家偏向本国国籍（中超球队85%中国球员）
     local nationality
     if teamCountry == "CHN" then
-        if RandomInt(1, 100) <= 85 then
+        if randInt(1, 100) <= 85 then
             nationality = "CHN"
         else
-            nationality = YOUTH_NATIONALITIES[RandomInt(1, #YOUTH_NATIONALITIES)]
+            nationality = YOUTH_NATIONALITIES[randInt(1, #YOUTH_NATIONALITIES)]
         end
     else
-        nationality = YOUTH_NATIONALITIES[RandomInt(1, #YOUTH_NATIONALITIES)]
+        nationality = YOUTH_NATIONALITIES[randInt(1, #YOUTH_NATIONALITIES)]
     end
     local displayName = _pickYouthDisplayName(nationality, usedNames)
     local firstName, lastName = _formatYouthNameFields(displayName)
@@ -1372,64 +1300,64 @@ function YouthManager._generateAttributes(position, overall)
 
     -- 使用与 Player 模型一致的属性键名
     local attrs = {
-        speed = baseVal + RandomInt(-2, 3),
-        stamina = baseVal + RandomInt(-2, 3),
-        strength = baseVal + RandomInt(-2, 3),
-        agility = baseVal + RandomInt(-2, 3),
-        passing = baseVal + RandomInt(-2, 3),
-        shooting = baseVal + RandomInt(-2, 3),
-        tackling = baseVal + RandomInt(-2, 3),
-        dribbling = baseVal + RandomInt(-2, 3),
-        defending = baseVal + RandomInt(-2, 3),
-        positioning = baseVal + RandomInt(-2, 3),
-        vision = baseVal + RandomInt(-2, 3),
-        decisions = baseVal + RandomInt(-2, 3),
-        composure = baseVal + RandomInt(-2, 3),
-        aggression = baseVal + RandomInt(-2, 3),
-        teamwork = baseVal + RandomInt(-2, 3),
-        leadership = baseVal + RandomInt(-2, 3),
-        aerial = baseVal + RandomInt(-2, 3),
+        speed = baseVal + randInt(-2, 3),
+        stamina = baseVal + randInt(-2, 3),
+        strength = baseVal + randInt(-2, 3),
+        agility = baseVal + randInt(-2, 3),
+        passing = baseVal + randInt(-2, 3),
+        shooting = baseVal + randInt(-2, 3),
+        tackling = baseVal + randInt(-2, 3),
+        dribbling = baseVal + randInt(-2, 3),
+        defending = baseVal + randInt(-2, 3),
+        positioning = baseVal + randInt(-2, 3),
+        vision = baseVal + randInt(-2, 3),
+        decisions = baseVal + randInt(-2, 3),
+        composure = baseVal + randInt(-2, 3),
+        aggression = baseVal + randInt(-2, 3),
+        teamwork = baseVal + randInt(-2, 3),
+        leadership = baseVal + randInt(-2, 3),
+        aerial = baseVal + randInt(-2, 3),
         handling = 1,
         reflexes = 1,
     }
 
     -- 位置专精
     if position == "GK" then
-        attrs.handling = baseVal + RandomInt(2, 5)
-        attrs.reflexes = baseVal + RandomInt(2, 5)
-        attrs.positioning = attrs.positioning + RandomInt(1, 3)
-        attrs.composure = attrs.composure + RandomInt(1, 2)
+        attrs.handling = baseVal + randInt(2, 5)
+        attrs.reflexes = baseVal + randInt(2, 5)
+        attrs.positioning = attrs.positioning + randInt(1, 3)
+        attrs.composure = attrs.composure + randInt(1, 2)
     elseif position == "CB" then
-        attrs.defending = attrs.defending + RandomInt(2, 4)
-        attrs.tackling = attrs.tackling + RandomInt(2, 4)
-        attrs.strength = attrs.strength + RandomInt(1, 3)
-        attrs.aerial = attrs.aerial + RandomInt(1, 3)
+        attrs.defending = attrs.defending + randInt(2, 4)
+        attrs.tackling = attrs.tackling + randInt(2, 4)
+        attrs.strength = attrs.strength + randInt(1, 3)
+        attrs.aerial = attrs.aerial + randInt(1, 3)
     elseif position == "LB" or position == "RB" then
-        attrs.defending = attrs.defending + RandomInt(1, 3)
-        attrs.speed = attrs.speed + RandomInt(2, 4)
-        attrs.stamina = attrs.stamina + RandomInt(1, 3)
+        attrs.defending = attrs.defending + randInt(1, 3)
+        attrs.speed = attrs.speed + randInt(2, 4)
+        attrs.stamina = attrs.stamina + randInt(1, 3)
     elseif position == "CDM" then
-        attrs.tackling = attrs.tackling + RandomInt(2, 4)
-        attrs.defending = attrs.defending + RandomInt(1, 3)
-        attrs.passing = attrs.passing + RandomInt(1, 3)
+        attrs.tackling = attrs.tackling + randInt(2, 4)
+        attrs.defending = attrs.defending + randInt(1, 3)
+        attrs.passing = attrs.passing + randInt(1, 3)
     elseif position == "CM" or position == "CAM" then
-        attrs.passing = attrs.passing + RandomInt(2, 4)
-        attrs.vision = attrs.vision + RandomInt(1, 3)
-        attrs.dribbling = attrs.dribbling + RandomInt(1, 3)
+        attrs.passing = attrs.passing + randInt(2, 4)
+        attrs.vision = attrs.vision + randInt(1, 3)
+        attrs.dribbling = attrs.dribbling + randInt(1, 3)
     elseif position == "LM" or position == "RM" then
-        attrs.passing = attrs.passing + RandomInt(1, 3)
-        attrs.speed = attrs.speed + RandomInt(1, 3)
-        attrs.stamina = attrs.stamina + RandomInt(1, 3)
-        attrs.dribbling = attrs.dribbling + RandomInt(1, 2)
-        attrs.tackling = attrs.tackling + RandomInt(0, 2)
+        attrs.passing = attrs.passing + randInt(1, 3)
+        attrs.speed = attrs.speed + randInt(1, 3)
+        attrs.stamina = attrs.stamina + randInt(1, 3)
+        attrs.dribbling = attrs.dribbling + randInt(1, 2)
+        attrs.tackling = attrs.tackling + randInt(0, 2)
     elseif position == "LW" or position == "RW" then
-        attrs.speed = attrs.speed + RandomInt(2, 4)
-        attrs.dribbling = attrs.dribbling + RandomInt(2, 3)
-        attrs.agility = attrs.agility + RandomInt(1, 3)
+        attrs.speed = attrs.speed + randInt(2, 4)
+        attrs.dribbling = attrs.dribbling + randInt(2, 3)
+        attrs.agility = attrs.agility + randInt(1, 3)
     elseif position == "ST" then
-        attrs.shooting = attrs.shooting + RandomInt(2, 4)
-        attrs.composure = attrs.composure + RandomInt(1, 3)
-        attrs.speed = attrs.speed + RandomInt(1, 3)
+        attrs.shooting = attrs.shooting + randInt(2, 4)
+        attrs.composure = attrs.composure + randInt(1, 3)
+        attrs.speed = attrs.speed + randInt(1, 3)
     end
 
     -- 限制范围
@@ -1567,9 +1495,8 @@ local function _fillTeamYouthToInitial(gameState, teamId, team)
     local usedNames = _collectYouthUsedNames(gameState, teamId)
 
     for _ = 1, needed do
-        local targetPosition = YouthManager._pickYouthPositionForTeam(gameState, team)
         local candidate = YouthManager._generateYouthPlayer(
-            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country, targetPosition)
+            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
 
         local playerData = {
             firstName = candidate.firstName,
@@ -1802,8 +1729,8 @@ end
 local function _makeLegendCandidate(gameState, lData)
     local mappedPos = mapPosition(lData.position)
     local legendYouthMods = DifficultySettings.getYouthModifiers()
-    local legendAge = RandomInt(legendYouthMods.legendMinAge, legendYouthMods.legendMaxAge)
-    local legendOverall = RandomInt(legendYouthMods.legendOverallMin, legendYouthMods.legendOverallMax)
+    local legendAge = randInt(legendYouthMods.legendMinAge, legendYouthMods.legendMaxAge)
+    local legendOverall = randInt(legendYouthMods.legendOverallMin, legendYouthMods.legendOverallMax)
     local legendAttrs = YouthManager._generateLegendAttributes(mappedPos, legendOverall, lData)
     local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
     return {
@@ -2083,7 +2010,7 @@ function YouthManager.doSinglePull(gameState)
 
     local candidate
     if isLegend and #legendPool > 0 then
-        local idx = RandomInt(1, #legendPool)
+        local idx = randInt(1, #legendPool)
         local lData = legendPool[idx]
 
         _markLegendPulled(state, lData)
@@ -2097,13 +2024,8 @@ function YouthManager.doSinglePull(gameState)
         end
     else
         local usedNames = team and _collectYouthUsedNames(gameState, team.id) or {}
-        local plannedPositions = {}
-        for _, c in ipairs(gameState._youthCandidates or {}) do
-            if c then table.insert(plannedPositions, c.position) end
-        end
-        local targetPosition = team and YouthManager._pickYouthPositionForTeam(gameState, team, plannedPositions) or nil
         candidate = YouthManager._generateYouthPlayer(
-            gameState, youthDevBonus, facilityYouthBonus, usedNames, team and team.country, targetPosition)
+            gameState, youthDevBonus, facilityYouthBonus, usedNames, team and team.country)
     end
 
     -- 追加到当前候选池
@@ -2150,14 +2072,13 @@ function YouthManager.doTenPull(gameState)
     local legendCount = 0
     local guaranteedSlot = 0  -- 保底传奇放在第几个位置
     local usedNames = team and _collectYouthUsedNames(gameState, team.id) or {}
-    local plannedPositions = {}
 
     -- 判断是否触发保底（前提：池中还有传奇可抽）
     if #legendPool > 0 then
         if isFirst and LEGEND_FIRST_GUARANTEED then
-            guaranteedSlot = RandomInt(1, 10)
+            guaranteedSlot = randInt(1, YOUTH_POOL_SIZE)
         elseif isPity then
-            guaranteedSlot = RandomInt(1, 10)
+            guaranteedSlot = randInt(1, YOUTH_POOL_SIZE)
         end
     end
 
@@ -2178,7 +2099,7 @@ function YouthManager.doTenPull(gameState)
 
         if isLegend and #legendPool > 0 and legendCount < LEGEND_MAX_PER_PULL then
             -- 从当前标签池随机选一个并移除
-            local idx = RandomInt(1, #legendPool)
+            local idx = randInt(1, #legendPool)
             local lData = legendPool[idx]
             table.remove(legendPool, idx)  -- 本次十连内不重复
 
@@ -2186,16 +2107,13 @@ function YouthManager.doTenPull(gameState)
 
             local candidate = _makeLegendCandidate(gameState, lData)
             table.insert(candidates, candidate)
-            table.insert(plannedPositions, candidate.position)
             usedNames[candidate.displayName] = true
             legendCount = legendCount + 1
         else
             -- 普通青训球员
-            local targetPosition = team and YouthManager._pickYouthPositionForTeam(gameState, team, plannedPositions) or nil
             local candidate = YouthManager._generateYouthPlayer(
-                gameState, youthDevBonus, facilityYouthBonus, usedNames, team and team.country, targetPosition)
+                gameState, youthDevBonus, facilityYouthBonus, usedNames, team and team.country)
             table.insert(candidates, candidate)
-            table.insert(plannedPositions, candidate.position)
         end
     end
 
@@ -2318,9 +2236,8 @@ function YouthManager._processAITeamsMonthly(gameState)
                     local usedNames = _collectYouthUsedNames(gameState, teamId)
 
                     for _ = 1, needed do
-                        local targetPosition = YouthManager._pickYouthPositionForTeam(gameState, team)
                         local candidate = YouthManager._generateYouthPlayer(
-                            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country, targetPosition)
+                            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
                         local playerData = {
                             firstName = candidate.firstName,
                             lastName = candidate.lastName,

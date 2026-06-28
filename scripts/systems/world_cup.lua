@@ -1690,7 +1690,7 @@ local function _generateAttributes(position, ovr)
     local high = math.min(99, ovr + 10)
 
     local attrs = {
-        pace = base + RandomInt(0, 15),
+        speed = base + RandomInt(0, 15),
         stamina = base + RandomInt(5, 20),
         strength = base + RandomInt(0, 15),
         agility = base + RandomInt(0, 15),
@@ -1727,7 +1727,7 @@ local function _generateAttributes(position, ovr)
     elseif position == "LB" or position == "RB" then
         attrs.defending = high - RandomInt(0, 8)
         attrs.tackling = high - RandomInt(0, 10)
-        attrs.pace = high - RandomInt(0, 5)
+        attrs.speed = high - RandomInt(0, 5)
         attrs.stamina = high - RandomInt(0, 5)
     elseif position == "CDM" then
         attrs.tackling = high - RandomInt(0, 5)
@@ -1750,7 +1750,7 @@ local function _generateAttributes(position, ovr)
         attrs.dribbling = high - RandomInt(0, 8)
         attrs.tackling = high - RandomInt(0, 12)
     elseif position == "LW" or position == "RW" then
-        attrs.pace = high - RandomInt(0, 5)
+        attrs.speed = high - RandomInt(0, 5)
         attrs.dribbling = high - RandomInt(0, 5)
         attrs.shooting = high - RandomInt(0, 10)
     elseif position == "ST" then
@@ -1759,9 +1759,9 @@ local function _generateAttributes(position, ovr)
         attrs.composure = high - RandomInt(0, 8)
     end
 
-    -- 限制在合理范围内
+    -- 限制在游戏内 1-20 量纲（与 real_data_loader / world_generator 一致；勿用 FM 0-100）
     for k, v in pairs(attrs) do
-        attrs[k] = math.max(10, math.min(99, v))
+        attrs[k] = math.max(1, math.min(20, math.floor(v / 5 + 0.5)))
     end
 
     return attrs
@@ -1910,7 +1910,7 @@ local function _createVirtualPlayer(vpId, displayName, nationCode, playerNat, po
         potential = potential,
         actualPotential = potential,
         paRating = nil,
-        attributes = _generateAttributes(pos, ovr),
+        attributes = nil,
         -- 身体/状态
         fitness = RandomInt(75, 95),
         morale = RandomInt(60, 80),
@@ -1962,6 +1962,9 @@ local function _createVirtualPlayer(vpId, displayName, nationCode, playerNat, po
         -- 标记
         _isVirtual = true,
     }
+    vp.attributes = _generateAttributes(pos, ovr)
+    vp.overall = Player.calculateOverallFromAttrs(pos, vp.attributes)
+    vp.ovr = vp.overall
     return setmetatable(vp, { __index = Player })
 end
 
@@ -1983,11 +1986,26 @@ function WorldCup._generateVirtualPlayers(gameState, nationCode, playerNat, exis
         gameState._wcVirtualPlayers = {}
     end
 
-    -- 如果之前已经为该国生成过，直接复用
-    if gameState._wcVirtualPlayers[nationCode] then
-        local cached = gameState._wcVirtualPlayers[nationCode]
+    -- 如果之前已经为该国生成过，直接复用（旧版 FM 0-100 属性缓存自动作废）
+    local cached = gameState._wcVirtualPlayers[nationCode]
+    if cached and cached[1] and cached[1].attributes then
+        local attrsOk = true
+        for _, v in pairs(cached[1].attributes) do
+            if type(v) == "number" and v > 20 then
+                attrsOk = false
+                break
+            end
+        end
+        if not attrsOk then
+            for _, vp in ipairs(cached) do
+                gameState.players[vp.id] = nil
+            end
+            gameState._wcVirtualPlayers[nationCode] = nil
+            cached = nil
+        end
+    end
+    if cached then
         for _, vp in ipairs(cached) do
-            -- 确保仍在 gameState.players 中
             if not gameState.players[vp.id] then
                 gameState.players[vp.id] = vp
             end

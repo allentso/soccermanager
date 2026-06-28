@@ -2163,6 +2163,20 @@ function Dashboard._buildClubSnapshot(gameState, team)
                     flexDirection = "row",
                     alignItems = "center",
                     children = {
+                        -- 存档快捷入口
+                        UI.Button {
+                            text = "💾",
+                            width = 28,
+                            height = 28,
+                            backgroundColor = Theme.COLORS.TRANSPARENT,
+                            borderRadius = 14,
+                            fontSize = 14,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            marginRight = 6,
+                            onClick = function()
+                                Router.navigate("load_game")
+                            end,
+                        },
                         -- 潜力透视按钮（广告）
                         UI.Button {
                             text = gameState.potentialRevealed and "🔓" or "🔮",

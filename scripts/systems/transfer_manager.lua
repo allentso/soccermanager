@@ -11,6 +11,17 @@ local Nationality = require("scripts/domain/nationality")
 local TransferManager = {}
 require("scripts/systems/transfers/transfer_completion")(TransferManager)
 
+local function randInt(minValue, maxValue)
+    if maxValue == nil then
+        maxValue = minValue
+        minValue = 1
+    end
+    if maxValue < minValue then
+        minValue, maxValue = maxValue, minValue
+    end
+    return minValue + math.floor(Random() * (maxValue - minValue + 1))
+end
+
 -- 金额格式化（M/K自适应）
 local function fmtMoney(amount)
     if not amount then return "0" end
@@ -643,7 +654,7 @@ function TransferManager.makeBid(gameState, playerId, amount, wageOffer)
     if player.teamId == gameState.playerTeamId then return nil, "该球员已在你的球队" end
 
     -- 生成AI耐心上限（3-5轮）
-    local maxRounds = RandomInt(3, 5)
+    local maxRounds = randInt(3, 5)
 
     local bid = {
         id = gameState.transfers.nextBidId,
@@ -1118,7 +1129,7 @@ function TransferManager._acceptBid(gameState, bid)
         bid.maxPersonalTermsAttempts = 1  -- 关窗前只给1次个人条款机会
         bid.isDeadlineDeal = true         -- 标记为关窗交易
     else
-        bid.playerConsiderDays = RandomInt(1, 3)
+        bid.playerConsiderDays = randInt(1, 3)
         bid.maxPersonalTermsAttempts = 3  -- 正常情况3次机会
     end
     bid.personalTermsAttempts = 0  -- 个人条款协商次数
@@ -1558,7 +1569,7 @@ function TransferManager.processScoutReport(gameState)
 
     local actualDiscovered = 0
     for _ = 1, discoverCount do
-        local idx = RandomInt(1, #allPlayers)
+        local idx = randInt(1, #allPlayers)
         local player = allPlayers[idx]
 
         -- 检查是否已有该球员的发现记录
@@ -1581,7 +1592,7 @@ function TransferManager.processScoutReport(gameState)
             -- 球探评估潜力（有一定误差，基于局内实际潜力）
             local avgAbility = math.floor(scoutAbility / scoutCount)
             local error_range = math.max(1, 15 - avgAbility)
-            local scoutedPotential = (player.actualPotential or player.potential) + RandomInt(-error_range, error_range)
+            local scoutedPotential = (player.actualPotential or player.potential) + randInt(-error_range, error_range)
             scoutedPotential = math.max(30, math.min(99, scoutedPotential))
 
             table.insert(gameState.scoutDiscoveries, 1, {
@@ -1717,7 +1728,7 @@ function TransferManager._getAITransferOrderedTeams(gameState)
         for i, id in ipairs(ids) do order[i] = id end
         -- 每个转会窗首次进入时洗牌一次；窗口内保持顺序稳定，避免每日随机抖动。
         for i = #order, 2, -1 do
-            local j = RandomInt(1, i)
+            local j = randInt(1, i)
             order[i], order[j] = order[j], order[i]
         end
         gameState.transfers._aiTransferTeamOrder = order
@@ -2509,7 +2520,7 @@ function TransferManager._pickWeightedCandidate(candidates)
         total = total + entry.score
     end
     if total <= 0 then
-        return candidates[RandomInt(1, #candidates)].player
+        return candidates[randInt(1, #candidates)].player
     end
 
     local roll = Random() * total
@@ -2568,7 +2579,7 @@ function TransferManager._assessTeamNeed(gameState, team)
     local targetSize = AiSquadPolicy.getTargetSquadSize(team)
     if #team.playerIds < targetSize then
         local groups = {"DEF", "MID", "FWD"}
-        return groups[RandomInt(1, 3)], false
+        return groups[randInt(1, 3)], false
     end
 
     local affluent = TransferManager._isAITeamAffluent(team)
@@ -3613,7 +3624,7 @@ function TransferManager._findBuyerForPlayer(gameState, player, teamCache)
     end
 
     if #candidates == 0 then return nil end
-    return candidates[RandomInt(1, #candidates)]
+    return candidates[randInt(1, #candidates)]
 end
 
 --- 为挂牌外租球员寻找合适的租借买家（AI球队）
@@ -3649,7 +3660,7 @@ function TransferManager._findLoanBuyerForPlayer(gameState, player)
     end
 
     if #candidates == 0 then return nil end
-    return candidates[RandomInt(1, #candidates)]
+    return candidates[randInt(1, #candidates)]
 end
 
 --- 检查是否已存在对某球员的待处理租借报价（避免重复）
@@ -3835,7 +3846,7 @@ function TransferManager.acceptIncomingBid(gameState, bidId)
                 bid.playerConsiderSaleDays = 1
                 bid.isDeadlineDeal = true
             else
-                bid.playerConsiderSaleDays = RandomInt(1, 2)  -- 卖出方球员考虑1-2天
+                bid.playerConsiderSaleDays = randInt(1, 2)  -- 卖出方球员考虑1-2天
             end
 
             for _, otherBid in ipairs(gameState.transfers.bids) do
@@ -3911,7 +3922,7 @@ function TransferManager.counterIncomingBid(gameState, bidId, askAmount)
             bid.status = "counter_pending"
             bid.counterAskAmount = askAmount
             bid.counterDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-            bid.counterWaitDays = RandomInt(1, 3) -- AI需要1-3天考虑
+            bid.counterWaitDays = randInt(1, 3) -- AI需要1-3天考虑
 
             gameState:sendMessage({
                 category = "transfer",
@@ -4396,7 +4407,7 @@ function TransferManager.makeLoanBid(gameState, playerId, duration, amount, wage
         responseDate = nil,
         counterAmount = nil,
         currentRound = 0,
-        maxRounds = RandomInt(3, 5),
+        maxRounds = randInt(3, 5),
         mood = math.max(0, math.min(100, 50 - DifficultySettings.getTransferModifiers().moodPenalty)),
         rounds = {},
     }
@@ -4640,7 +4651,7 @@ function TransferManager.offerFreeAgent(gameState, playerId, wageOffer, yearsOff
         counterWage = nil,        -- AI还价周薪
         counterYears = nil,       -- AI还价年限
         currentRound = 0,
-        maxRounds = RandomInt(2, 4),
+        maxRounds = randInt(2, 4),
         mood = 50,                -- 球员心情 0-100
         rounds = {},              -- 谈判历史
         date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
@@ -4913,7 +4924,7 @@ function TransferManager.processDailyFreeAgentNegos(gameState)
         if nego.status == "pending" then
             local refDate = nego.responseDate or nego.date
             local daysSince = TransferManager._daysBetween(refDate, gameState.date)
-            local waitDays = (nego.currentRound or 0) > 0 and 1 or RandomInt(1, 2)
+            local waitDays = (nego.currentRound or 0) > 0 and 1 or randInt(1, 2)
             if daysSince >= waitDays then
                 TransferManager._processFreeAgentResponse(gameState, nego)
             end
@@ -5653,7 +5664,7 @@ function TransferManager.offerToClub(gameState, playerId, targetTeamId, askingPr
         isIncomingBid = false,
         isPushSale = true,  -- 标记为主动推销
         currentRound = 0,
-        maxRounds = RandomInt(2, 4),
+        maxRounds = randInt(2, 4),
         mood = 40,  -- AI初始态度较保守（毕竟是被推销）
         rounds = {},
     }
@@ -6489,7 +6500,7 @@ function TransferManager.offerPreContract(gameState, playerId, wageOffer, yearsO
         counterWage = nil,
         counterYears = nil,
         currentRound = 0,
-        maxRounds = RandomInt(2, 3),
+        maxRounds = randInt(2, 3),
         mood = 45,  -- 预签约球员稍有戒心
         rounds = {},
         date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
@@ -6929,14 +6940,14 @@ function TransferManager.processDailyBids(gameState)
             if bid.isPushSale then
                 local refDate = bid.responseDate or bid.date
                 local daysSince = TransferManager._daysBetween(refDate, gameState.date)
-                if daysSince >= RandomInt(1, 3) then
+                if daysSince >= randInt(1, 3) then
                     TransferManager._processPushSaleResponse(gameState, bid)
                 end
             else
                 -- 原有逻辑: 普通报价
                 local refDate = bid.responseDate or bid.date
                 local daysSince = TransferManager._daysBetween(refDate, gameState.date)
-                local waitDays = (bid.currentRound or 0) > 0 and 1 or RandomInt(1, 3)
+                local waitDays = (bid.currentRound or 0) > 0 and 1 or randInt(1, 3)
                 if daysSince >= waitDays then
                     -- 检查解约金
                     local player = gameState.players[bid.playerId]

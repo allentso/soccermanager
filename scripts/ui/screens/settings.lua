@@ -18,6 +18,17 @@ local DayAdvanceOverlay = require("scripts/ui/components/day_advance_overlay")
 
 local Settings = {}
 
+local function randInt(minValue, maxValue)
+    if maxValue == nil then
+        maxValue = minValue
+        minValue = 1
+    end
+    if maxValue < minValue then
+        minValue, maxValue = maxValue, minValue
+    end
+    return minValue + math.floor(Random() * (maxValue - minValue + 1))
+end
+
 -- 作弊：连点版本号计数
 local _cheatTapCount = 0
 local _cheatLastTap = 0
@@ -854,8 +865,8 @@ function Settings._cheatYouthProdigy()
 
     -- 生成一个高潜力青训球员
     local positions = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST"}
-    local pos = positions[RandomInt(1, #positions)]
-    local age = RandomInt(16, 17)
+    local pos = positions[randInt(1, #positions)]
+    local age = randInt(16, 17)
 
     local playerData = {
         name = "Youth Prodigy",
@@ -865,8 +876,8 @@ function Settings._cheatYouthProdigy()
         birthYear = gameState.date.year - age,
         position = pos,
         nationality = "中国",
-        potential = RandomInt(85, 95),
-        overall = RandomInt(55, 65),
+        potential = randInt(85, 95),
+        overall = randInt(55, 65),
         teamId = gameState.playerTeamId,
         wage = 1000,
         contractYears = 4,
@@ -914,14 +925,14 @@ function Settings._cheatTripleCrown()
             if f.status ~= "finished" then
                 f.status = "finished"
                 if f.homeTeamId == playerTeamId then
-                    f.homeGoals = RandomInt(2, 4)
+                    f.homeGoals = randInt(2, 4)
                     f.awayGoals = 0
                 elseif f.awayTeamId == playerTeamId then
                     f.homeGoals = 0
-                    f.awayGoals = RandomInt(2, 4)
+                    f.awayGoals = randInt(2, 4)
                 else
-                    f.homeGoals = RandomInt(0, 2)
-                    f.awayGoals = RandomInt(0, 2)
+                    f.homeGoals = randInt(0, 2)
+                    f.awayGoals = randInt(0, 2)
                 end
                 pcall(function() playerLeague:updateStanding(f) end)
                 -- 写入个人履历和声望
@@ -940,8 +951,8 @@ function Settings._cheatTripleCrown()
             for _, f in ipairs(ucl.leaguePhase.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = RandomInt(0, 3)
-                    f.awayGoals = RandomInt(0, 3)
+                    f.homeGoals = randInt(0, 3)
+                    f.awayGoals = randInt(0, 3)
                     pcall(function() ucl:updateLeagueStanding(f) end)
                 end
             end
@@ -973,8 +984,8 @@ function Settings._completeOtherLeagues(gameState, excludeLeague)
             for _, f in ipairs(lg.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = RandomInt(0, 3)
-                    f.awayGoals = RandomInt(0, 3)
+                    f.homeGoals = randInt(0, 3)
+                    f.awayGoals = randInt(0, 3)
                     pcall(function() lg:updateStanding(f) end)
                     -- 写入个人履历和声望（以防玩家球队出现在其他联赛）
                     Settings._recordPlayerFixture(gameState, f)
@@ -1182,11 +1193,11 @@ function Settings._completeAllLeagues(gameState)
                         -- 玩家球队比赛：保留偏向赢球，避免作弊跳过时随机降级
                         f.status = "finished"
                         if isPlayerHome then
-                            f.homeGoals = RandomInt(1, 3)
-                            f.awayGoals = RandomInt(0, 1)
+                            f.homeGoals = randInt(1, 3)
+                            f.awayGoals = randInt(0, 1)
                         else
-                            f.homeGoals = RandomInt(0, 1)
-                            f.awayGoals = RandomInt(1, 3)
+                            f.homeGoals = randInt(0, 1)
+                            f.awayGoals = randInt(1, 3)
                         end
                         pcall(function() lg:updateStanding(f) end)
                         Settings._recordPlayerFixture(gameState, f)
@@ -1203,8 +1214,8 @@ function Settings._completeAllLeagues(gameState)
                         else
                             -- 兜底：引擎不可用时退回随机比分
                             f.status = "finished"
-                            f.homeGoals = RandomInt(0, 3)
-                            f.awayGoals = RandomInt(0, 3)
+                            f.homeGoals = randInt(0, 3)
+                            f.awayGoals = randInt(0, 3)
                             pcall(function() lg:updateStanding(f) end)
                         end
                     end
@@ -1221,11 +1232,11 @@ function Settings._completeAllLeagues(gameState)
                     local isPlayerHome = (f.homeTeamId == playerTeamId)
                     local isPlayerAway = (f.awayTeamId == playerTeamId)
                     if isPlayerHome then
-                        f.homeGoals = RandomInt(1, 3)
-                        f.awayGoals = RandomInt(0, 1)
+                        f.homeGoals = randInt(1, 3)
+                        f.awayGoals = randInt(0, 1)
                     elseif isPlayerAway then
-                        f.homeGoals = RandomInt(0, 1)
-                        f.awayGoals = RandomInt(1, 3)
+                        f.homeGoals = randInt(0, 1)
+                        f.awayGoals = randInt(1, 3)
                     else
                         -- AI vs AI：用真实引擎决定比分，尊重球队战力
                         local ok, report = pcall(MatchEngine.simulate, gameState, f)
@@ -1233,8 +1244,8 @@ function Settings._completeAllLeagues(gameState)
                             f.homeGoals = report.homeGoals
                             f.awayGoals = report.awayGoals
                         else
-                            f.homeGoals = RandomInt(0, 3)
-                            f.awayGoals = RandomInt(0, 3)
+                            f.homeGoals = randInt(0, 3)
+                            f.awayGoals = randInt(0, 3)
                         end
                     end
                     f.status = "finished"
@@ -1280,8 +1291,8 @@ function Settings._completeTournamentFully(gameState, tournament, module)
             for groupName, group in pairs(tournament.groups) do
                 for _, f in ipairs(group.fixtures or {}) do
                     if f.status ~= "finished" then
-                        f.homeGoals = RandomInt(0, 3)
-                        f.awayGoals = RandomInt(0, 3)
+                        f.homeGoals = randInt(0, 3)
+                        f.awayGoals = randInt(0, 3)
                         f.status = "finished"
                         pcall(function()
                             tournament:updateGroupStanding(groupName, f)
@@ -1299,8 +1310,8 @@ function Settings._completeTournamentFully(gameState, tournament, module)
                 if fixtures then
                     for _, f in ipairs(fixtures) do
                         if f.status ~= "finished" then
-                            f.homeGoals = RandomInt(0, 3)
-                            f.awayGoals = RandomInt(0, 3)
+                            f.homeGoals = randInt(0, 3)
+                            f.awayGoals = randInt(0, 3)
                             f.status = "finished"
                             -- 淘汰赛不能平局，需要产生胜者
                             if f.homeGoals == f.awayGoals then
@@ -1525,14 +1536,14 @@ function Settings._claimCompensationLegend()
         if #availablePool == 0 then break end
 
         -- 随机选取一位传奇
-        local idx = RandomInt(1, #availablePool)
+        local idx = randInt(1, #availablePool)
         local chosen = availablePool[idx]
         local legendKey = chosen.full_name_cn or chosen.match_name or "传奇"
         local mappedPos = posMap[chosen.position] or "ST"
 
         -- 生成球员属性（传奇级别）
-        local legendAge = RandomInt(16, 18)
-        local legendOverall = RandomInt(62, 70)
+        local legendAge = randInt(16, 18)
+        local legendOverall = randInt(62, 70)
         local legendAttrs = YouthManager._generateLegendAttributes(mappedPos, legendOverall, chosen)
         local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
 
@@ -2190,8 +2201,8 @@ function Settings._cheatSimulateUCLOverwrite()
             for _, f in ipairs(lg.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = RandomInt(0, 3)
-                    f.awayGoals = RandomInt(0, 3)
+                    f.homeGoals = randInt(0, 3)
+                    f.awayGoals = randInt(0, 3)
                     -- 更新积分榜
                     lg:updateStanding(f)
                 end
