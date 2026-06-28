@@ -453,7 +453,7 @@ Constants.POSITION_ROLES = {
           modifiers = { composure = 1.3, shooting = 1.2, passing = 0.7, defending = 0.5 },
           posOffset = {0, 5} },
         { key = "targetMan",  name = "支点前锋",   desc = "背身做球，策应队友",
-          modifiers = { strength = 1.3, heading = 1.2, passing = 1.1, speed = 0.85 },
+          modifiers = { strength = 1.3, aerial = 1.2, passing = 1.1, speed = 0.85 },
           posOffset = {0, -4} },
         { key = "falseNine",  name = "伪九号",     desc = "回撤组织，拉扯空间",
           modifiers = { passing = 1.3, vision = 1.2, dribbling = 1.1, shooting = 0.85 },
