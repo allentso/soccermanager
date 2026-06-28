@@ -747,7 +747,7 @@ function Youth._showYouthActions(player, gameState)
                     else
                         UI.Toast.Show({ message = "无法接受该报价", variant = "warning" })
                     end
-                    Router.replaceWith("market", { tab = "listed" })
+                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                 end,
             })
             table.insert(actions, {
@@ -763,7 +763,7 @@ function Youth._showYouthActions(player, gameState)
                 label = string.format("确认出售给 %s", buyerName),
                 color = Theme.COLORS.SECONDARY,
                 action = function()
-                    Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
                 end,
             })
             table.insert(actions, {
@@ -779,7 +779,7 @@ function Youth._showYouthActions(player, gameState)
                 label = string.format("查看报价进度（%s）", buyerName),
                 color = Theme.COLORS.ACCENT,
                 action = function()
-                    Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
                 end,
             })
         end

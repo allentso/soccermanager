@@ -1244,7 +1244,7 @@ function PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)
                     borderRadius = 8, fontSize = 14,
                     color = {255, 255, 255, 255},
                     onClick = function()
-                        Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
                     end,
                 },
             },
@@ -1279,7 +1279,7 @@ function PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)
                     borderRadius = 8, fontSize = 14,
                     color = {255, 255, 255, 255},
                     onClick = function()
-                        Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
                     end,
                 },
             },
@@ -1316,10 +1316,10 @@ function PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)
                                 local ok = TransferManager.confirmSale(gameState, bid.id)
                                 if ok then
                                     UI.Toast.Show({ message = "交易完成！球员已出售", variant = "success" })
-                                    Router.replaceWith("market", { tab = "listed" })
+                                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                                 else
                                     UI.Toast.Show({ message = "确认失败，请前往转会市场重试", variant = "warning" })
-                                    Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
                                 end
                             end,
                         })

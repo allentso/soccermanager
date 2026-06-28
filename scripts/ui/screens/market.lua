@@ -173,7 +173,8 @@ function Market.create(params)
         local scoutSubTab = (params and params.scoutSubTab) or "explore"
         contentChildren = Market._buildScoutContent(gameState, scoutFilters, scoutSubTab)
     elseif currentTab == "listed" then
-        contentChildren = Market._buildListedContent(gameState)
+        local listedSubTab = (params and params.listedSubTab) or "status"
+        contentChildren = Market._buildListedContent(gameState, listedSubTab)
     end
 
     -- Tab按钮
@@ -259,7 +260,7 @@ function Market.create(params)
                     danger = true,
                     onConfirm = function()
                         TransferManager.cancelSale(gameState, bid.id)
-                        Router.replaceWith("market", { tab = "listed" })
+                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                     end,
                 })
             end
@@ -1607,13 +1608,170 @@ function Market._collectTeamRosterPlayers(gameState, team)
     return result
 end
 
-function Market._buildListedContent(gameState)
+local function _buildListedSalePlayerRow(gameState, team, p, opts)
+    opts = opts or {}
+    local showCancelWhenNoBid = opts.showCancelWhenNoBid ~= false
+    local emptyBidText = opts.emptyBidText or "等待报价"
+
+    local incomingBids = TransferManager.getIncomingBidsForPlayer(gameState, p.id)
+    local hasBid = #incomingBids > 0
+    local posColor = Theme.posColor(p.position)
+    local inTransferWindow = TransferManager.isInTransferWindow(gameState)
+
+    local bidInfo = ""
+    local bidColor = Theme.COLORS.FINANCE_GREEN
+    local btnText = "处理"
+    local primaryBid = nil
+    if hasBid then
+        primaryBid = TransferManager.pickPrimaryIncomingSaleBid(gameState, p.id)
+        if #incomingBids > 1 then
+            local pendingCount, awaitingCount, consideringCount, counterCount = 0, 0, 0, 0
+            for _, b in ipairs(incomingBids) do
+                if b.status == "pending" then
+                    pendingCount = pendingCount + 1
+                elseif b.status == "awaiting_sale_confirmation" then
+                    awaitingCount = awaitingCount + 1
+                elseif b.status == "player_considering_sale" then
+                    consideringCount = consideringCount + 1
+                elseif b.status == "counter_pending" then
+                    counterCount = counterCount + 1
+                end
+            end
+
+            bidInfo = string.format("%d份报价 · 最高 %s", #incomingBids, Market._formatValue(incomingBids[1].amount or 0))
+            if awaitingCount > 0 then
+                bidInfo = bidInfo .. string.format(" · %d笔待确认", awaitingCount)
+                bidColor = Theme.COLORS.SECONDARY
+                btnText = "确认"
+            elseif pendingCount > 0 then
+                bidInfo = bidInfo .. string.format(" · %d笔待处理", pendingCount)
+                bidColor = Theme.COLORS.ACCENT
+                btnText = "处理"
+            elseif consideringCount > 0 then
+                bidInfo = bidInfo .. " · 球员考虑中"
+                bidColor = {255, 180, 60, 255}
+                btnText = "查看"
+            elseif counterCount > 0 then
+                bidInfo = bidInfo .. " · 还价中"
+                bidColor = Theme.COLORS.WARNING
+                btnText = "查看"
+            else
+                bidColor = Theme.COLORS.TEXT_MUTED
+                btnText = "查看"
+            end
+        elseif primaryBid then
+            local buyer = gameState.teams[primaryBid.buyerTeamId]
+            if primaryBid.status == "counter_pending" then
+                bidInfo = "还价中 · 等待" .. (buyer and buyer.name or "对方") .. "回复"
+                bidColor = Theme.COLORS.WARNING
+                btnText = "查看"
+            elseif primaryBid.status == "player_considering_sale" then
+                bidInfo = "球员考虑中 · " .. (buyer and buyer.name or "买方") .. " " .. Market._formatValue(primaryBid.amount)
+                bidColor = {255, 180, 60, 255}
+                btnText = "查看"
+            elseif primaryBid.status == "awaiting_sale_confirmation" then
+                bidInfo = "待确认 · " .. Market._formatValue(primaryBid.amount) .. " → " .. (buyer and buyer.name or "买方")
+                bidColor = Theme.COLORS.SECONDARY
+                btnText = "确认"
+            else
+                bidInfo = (buyer and buyer.name or "未知") .. " 出价 " .. Market._formatValue(primaryBid.amount)
+            end
+        end
+    end
+
+    local actionButton
+    if hasBid then
+        actionButton = UI.Button {
+            text = btnText,
+            width = 50, height = 28,
+            backgroundColor = Theme.COLORS.ACCENT,
+            borderRadius = 6, fontSize = 12,
+            color = {255, 255, 255, 255},
+            onClick = function()
+                if #incomingBids > 1 then
+                    Market._showOfferSheet(gameState, p)
+                    return
+                end
+                if primaryBid and primaryBid.status == "awaiting_sale_confirmation" then
+                    local batchSales = TransferManager.getPendingSaleConfirmations(gameState, team.id)
+                    if #batchSales > 1 then
+                        Market._showBatchSaleConfirmSheet(gameState, batchSales)
+                        return
+                    end
+                end
+                Market._showOfferSheet(gameState, p, primaryBid)
+            end,
+        }
+    elseif showCancelWhenNoBid then
+        actionButton = UI.Button {
+            text = "取消",
+            width = 50, height = 28,
+            backgroundColor = {80, 80, 100, 255},
+            borderRadius = 6, fontSize = 12,
+            color = Theme.COLORS.TEXT_SECONDARY,
+            onClick = function()
+                TransferManager.delistPlayer(gameState, p)
+                Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
+            end,
+        }
+    end
+
+    return UI.Panel {
+        width = "100%",
+        paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
+        borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+        backgroundColor = hasBid and {40, 50, 30, 255} or {0, 0, 0, 0},
+        children = {
+            UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center",
+                children = {
+                    UI.Panel {
+                        backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
+                        borderRadius = 3, paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1, marginRight = 8,
+                        children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = posColor } },
+                    },
+                    UI.Panel {
+                        flexGrow = 1, flexShrink = 1,
+                        onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
+                        children = {
+                            UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                        },
+                    },
+                    UI.Label {
+                        text = tostring(p.overall),
+                        fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
+                    },
+                    actionButton,
+                },
+            },
+            UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
+                children = {
+                    UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
+                    UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
+                    UI.Label {
+                        text = hasBid and bidInfo
+                            or (inTransferWindow and emptyBidText
+                                or "窗口关闭 · 下窗继续"),
+                        fontSize = 11,
+                        color = hasBid and bidColor
+                            or (inTransferWindow and Theme.COLORS.TEXT_MUTED or Theme.COLORS.WARNING),
+                    },
+                },
+            },
+        },
+    }
+end
+
+function Market._buildListedContent(gameState, listedSubTab)
+    listedSubTab = listedSubTab or "status"
     local children = {}
     local team = gameState:getPlayerTeam()
     if not team then return children end
 
-    -- 分类球员：已挂牌 vs 可挂牌（含青训名单）
+    -- 分类球员：已挂牌 / 被挖角 / 可挂牌（含青训名单）
     local listedPlayers = {}
+    local poachedPlayers = {}
     local availablePlayers = {}
     local listedPlayerIds = {}
     for _, p in ipairs(Market._collectTeamRosterPlayers(gameState, team)) do
@@ -1628,7 +1786,6 @@ function Market._buildListedContent(gameState)
         end
     end
 
-    -- 兜底：有活跃 incoming 出售 bid 的球员一律显示（含青训仅 _youthPlayerIds、已取消挂牌等情况，避免卡档）
     local function _playerStillOnTeam(p, playerId)
         if not p then return false end
         if p.teamId == team.id then return true end
@@ -1639,13 +1796,126 @@ function Market._buildListedContent(gameState)
         if not listedPlayerIds[playerId] then
             local p = gameState.players[playerId]
             if _playerStillOnTeam(p, playerId) then
-                table.insert(listedPlayers, p)
-                listedPlayerIds[p.id] = true
+                table.insert(poachedPlayers, p)
             end
         end
     end
 
-    -- === 已挂牌球员区 ===
+    local statusCount = #listedPlayers + #poachedPlayers
+    local subTabs = {
+        { key = "list", label = "选择挂牌" },
+        { key = "status", label = string.format("待售 (%d)", statusCount) },
+    }
+    local subTabButtons = {}
+    for _, st in ipairs(subTabs) do
+        local isActive = st.key == listedSubTab
+        table.insert(subTabButtons, UI.Button {
+            text = st.label,
+            height = 30,
+            paddingLeft = 14, paddingRight = 14,
+            backgroundColor = isActive and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
+            borderRadius = 15,
+            fontSize = 12,
+            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            fontWeight = isActive and "bold" or "normal",
+            marginRight = 8,
+            onClick = function()
+                Router.replaceWith("market", { tab = "listed", listedSubTab = st.key })
+            end,
+        })
+    end
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center",
+        paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
+        children = subTabButtons,
+    })
+
+    if listedSubTab == "list" then
+        table.insert(children, UI.Panel {
+            width = "100%", paddingLeft = 12, paddingRight = 12, paddingTop = 6, paddingBottom = 6,
+            children = {
+                UI.Label {
+                    text = "选择球员挂牌出售",
+                    fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                },
+                UI.Label {
+                    text = "挂牌后 AI 球队会主动报价",
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
+                },
+            }
+        })
+
+        table.sort(availablePlayers, function(a, b) return a.overall > b.overall end)
+
+        for _, p in ipairs(availablePlayers) do
+            local isSafe, _ = FinanceManager.checkSquadSafety(gameState, p.id)
+            table.insert(children, UI.Panel {
+                width = "100%",
+                paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
+                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                children = {
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center",
+                        children = {
+                            UI.Panel {
+                                backgroundColor = {Theme.COLORS.TEXT_MUTED[1], Theme.COLORS.TEXT_MUTED[2], Theme.COLORS.TEXT_MUTED[3], 30},
+                                borderRadius = 3, paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1, marginRight = 8,
+                                children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = Theme.COLORS.TEXT_MUTED } },
+                            },
+                            UI.Panel {
+                                flexGrow = 1, flexShrink = 1,
+                                onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
+                                children = {
+                                    UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                                },
+                            },
+                            UI.Label {
+                                text = tostring(p.overall),
+                                fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
+                            },
+                            isSafe and UI.Button {
+                                text = "挂牌",
+                                width = 50, height = 28,
+                                backgroundColor = Theme.COLORS.ACCENT,
+                                borderRadius = 6, fontSize = 12,
+                                color = {255, 255, 255, 255},
+                                onClick = function()
+                                    local ok, err = TransferManager.listForSale(gameState, p)
+                                    if not ok then
+                                        if not TransferLimitDialog.handleError(err, p.displayName, gameState) then
+                                            gameState:sendMessage({
+                                                category = "transfer",
+                                                title = "无法挂牌",
+                                                body = err or "条件不满足",
+                                                priority = "normal",
+                                            })
+                                        end
+                                        return
+                                    end
+                                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
+                                end,
+                            } or UI.Label {
+                                text = "不可",
+                                fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 50, textAlign = "center",
+                            },
+                        },
+                    },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
+                        children = {
+                            UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
+                            UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
+                            UI.Label { text = Market._formatValue(p.wage or 0) .. "/周", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                        },
+                    },
+                },
+            })
+        end
+
+        return children
+    end
+
+    -- === 待售子页：已挂牌 + 被挖角 ===
     local pendingSales = TransferManager.getPendingSaleConfirmations(gameState, team.id)
     if #pendingSales > 1 then
         table.insert(children, UI.Panel {
@@ -1698,7 +1968,7 @@ function Market._buildListedContent(gameState)
                                             AudioManager.deny()
                                             UI.Toast.Show({ message = lastErr or "部分出售失败", variant = "error" })
                                         end
-                                        Router.replaceWith("market", { tab = "listed" })
+                                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                                     end,
                                 })
                             end,
@@ -1721,244 +1991,51 @@ function Market._buildListedContent(gameState)
 
     if #listedPlayers == 0 then
         table.insert(children, UI.Panel {
-            width = "100%", height = 50,
+            width = "100%", height = 44,
             alignItems = "center", justifyContent = "center",
             children = {
-                UI.Label { text = "暂无挂牌球员，从下方选择球员挂牌", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = "暂无挂牌球员", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
             }
         })
     else
-        local inTransferWindow = TransferManager.isInTransferWindow(gameState)
         for _, p in ipairs(listedPlayers) do
-            local incomingBids = TransferManager.getIncomingBidsForPlayer(gameState, p.id)
-            local hasBid = #incomingBids > 0
-            local posColor = Theme.posColor(p.position)
-
-            -- 获取报价信息（状态优先，避免列表与弹窗展示不同 bid）
-            local bidInfo = ""
-            local bidColor = Theme.COLORS.FINANCE_GREEN
-            local btnText = "处理"
-            local primaryBid = nil
-            if hasBid then
-                primaryBid = TransferManager.pickPrimaryIncomingSaleBid(gameState, p.id)
-                if #incomingBids > 1 then
-                    local pendingCount, awaitingCount, consideringCount, counterCount = 0, 0, 0, 0
-                    for _, b in ipairs(incomingBids) do
-                        if b.status == "pending" then
-                            pendingCount = pendingCount + 1
-                        elseif b.status == "awaiting_sale_confirmation" then
-                            awaitingCount = awaitingCount + 1
-                        elseif b.status == "player_considering_sale" then
-                            consideringCount = consideringCount + 1
-                        elseif b.status == "counter_pending" then
-                            counterCount = counterCount + 1
-                        end
-                    end
-
-                    bidInfo = string.format("%d份报价 · 最高 %s", #incomingBids, Market._formatValue(incomingBids[1].amount or 0))
-                    if awaitingCount > 0 then
-                        bidInfo = bidInfo .. string.format(" · %d笔待确认", awaitingCount)
-                        bidColor = Theme.COLORS.SECONDARY
-                        btnText = "确认"
-                    elseif pendingCount > 0 then
-                        bidInfo = bidInfo .. string.format(" · %d笔待处理", pendingCount)
-                        bidColor = Theme.COLORS.ACCENT
-                        btnText = "处理"
-                    elseif consideringCount > 0 then
-                        bidInfo = bidInfo .. " · 球员考虑中"
-                        bidColor = {255, 180, 60, 255}
-                        btnText = "查看"
-                    elseif counterCount > 0 then
-                        bidInfo = bidInfo .. " · 还价中"
-                        bidColor = Theme.COLORS.WARNING
-                        btnText = "查看"
-                    else
-                        bidColor = Theme.COLORS.TEXT_MUTED
-                        btnText = "查看"
-                    end
-                elseif primaryBid then
-                    local buyer = gameState.teams[primaryBid.buyerTeamId]
-                    if primaryBid.status == "counter_pending" then
-                        bidInfo = "还价中 · 等待" .. (buyer and buyer.name or "对方") .. "回复"
-                        bidColor = Theme.COLORS.WARNING
-                        btnText = "查看"
-                    elseif primaryBid.status == "player_considering_sale" then
-                        bidInfo = "球员考虑中 · " .. (buyer and buyer.name or "买方") .. " " .. Market._formatValue(primaryBid.amount)
-                        bidColor = {255, 180, 60, 255}
-                        btnText = "查看"
-                    elseif primaryBid.status == "awaiting_sale_confirmation" then
-                        bidInfo = "待确认 · " .. Market._formatValue(primaryBid.amount) .. " → " .. (buyer and buyer.name or "买方")
-                        bidColor = Theme.COLORS.SECONDARY
-                        btnText = "确认"
-                    else
-                        bidInfo = (buyer and buyer.name or "未知") .. " 出价 " .. Market._formatValue(primaryBid.amount)
-                    end
-                end
-            end
-
-            table.insert(children, UI.Panel {
-                width = "100%",
-                paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
-                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
-                backgroundColor = hasBid and {40, 50, 30, 255} or {0, 0, 0, 0},
-                children = {
-                    -- 第一行：位置徽章 + 名字 + 能力值 + 按钮
-                    UI.Panel {
-                        width = "100%", flexDirection = "row", alignItems = "center",
-                        children = {
-                            UI.Panel {
-                                backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
-                                borderRadius = 3, paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1, marginRight = 8,
-                                children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = posColor } },
-                            },
-                            UI.Panel {
-                                flexGrow = 1, flexShrink = 1,
-                                onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
-                                children = {
-                                    UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
-                                },
-                            },
-                            UI.Label {
-                                text = tostring(p.overall),
-                                fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
-                            },
-                            hasBid and UI.Button {
-                                text = btnText,
-                                width = 50, height = 28,
-                                backgroundColor = Theme.COLORS.ACCENT,
-                                borderRadius = 6, fontSize = 12,
-                                color = {255, 255, 255, 255},
-                                onClick = function()
-                                    if #incomingBids > 1 then
-                                        Market._showOfferSheet(gameState, p)
-                                        return
-                                    end
-                                    if primaryBid and primaryBid.status == "awaiting_sale_confirmation" then
-                                        local batchSales = TransferManager.getPendingSaleConfirmations(gameState, team.id)
-                                        if #batchSales > 1 then
-                                            Market._showBatchSaleConfirmSheet(gameState, batchSales)
-                                            return
-                                        end
-                                    end
-                                    Market._showOfferSheet(gameState, p, primaryBid)
-                                end,
-                            } or UI.Button {
-                                text = "取消",
-                                width = 50, height = 28,
-                                backgroundColor = {80, 80, 100, 255},
-                                borderRadius = 6, fontSize = 12,
-                                color = Theme.COLORS.TEXT_SECONDARY,
-                                onClick = function()
-                                    TransferManager.delistPlayer(gameState, p)
-                                    Router.replaceWith("market", { tab = "listed" })
-                                end,
-                            },
-                        },
-                    },
-                    -- 第二行：身价 | 报价状态
-                    UI.Panel {
-                        width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
-                        children = {
-                            UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
-                            UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
-                            UI.Label {
-                                text = hasBid and bidInfo
-                                    or (inTransferWindow and "等待报价" or "窗口关闭 · 下窗继续"),
-                                fontSize = 11,
-                                color = hasBid and bidColor
-                                    or (inTransferWindow and Theme.COLORS.TEXT_MUTED or Theme.COLORS.WARNING),
-                            },
-                        },
-                    },
-                },
-            })
+            table.insert(children, _buildListedSalePlayerRow(gameState, team, p, {
+                showCancelWhenNoBid = true,
+                emptyBidText = "等待报价",
+            }))
         end
     end
 
-    -- === 可挂牌球员区 ===
     table.insert(children, UI.Panel {
         width = "100%", paddingLeft = 12, paddingRight = 12, paddingTop = 14, paddingBottom = 6,
         borderTopWidth = 1, borderColor = Theme.COLORS.BORDER,
         children = {
             UI.Label {
-                text = "选择球员挂牌出售",
+                text = string.format("将被挖角 (%d人)", #poachedPlayers),
                 fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
             },
             UI.Label {
-                text = "挂牌后 AI 球队会主动报价",
+                text = "未挂牌但收到 AI 球队主动报价",
                 fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
             },
         }
     })
 
-    -- 按能力排序，方便用户选择
-    table.sort(availablePlayers, function(a, b) return a.overall > b.overall end)
-
-    for _, p in ipairs(availablePlayers) do
-        local isSafe, _ = FinanceManager.checkSquadSafety(gameState, p.id)
+    if #poachedPlayers == 0 then
         table.insert(children, UI.Panel {
-            width = "100%",
-            paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
-            borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+            width = "100%", height = 44,
+            alignItems = "center", justifyContent = "center",
             children = {
-                -- 第一行：位置徽章 + 名字 + 能力值 + 挂牌按钮
-                UI.Panel {
-                    width = "100%", flexDirection = "row", alignItems = "center",
-                    children = {
-                        UI.Panel {
-                            backgroundColor = {Theme.COLORS.TEXT_MUTED[1], Theme.COLORS.TEXT_MUTED[2], Theme.COLORS.TEXT_MUTED[3], 30},
-                            borderRadius = 3, paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1, marginRight = 8,
-                            children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = Theme.COLORS.TEXT_MUTED } },
-                        },
-                        UI.Panel {
-                            flexGrow = 1, flexShrink = 1,
-                            onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
-                            children = {
-                                UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
-                            },
-                        },
-                        UI.Label {
-                            text = tostring(p.overall),
-                            fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
-                        },
-                        isSafe and UI.Button {
-                            text = "挂牌",
-                            width = 50, height = 28,
-                            backgroundColor = Theme.COLORS.ACCENT,
-                            borderRadius = 6, fontSize = 12,
-                            color = {255, 255, 255, 255},
-                            onClick = function()
-                                local ok, err = TransferManager.listForSale(gameState, p)
-                                if not ok then
-                                    if not TransferLimitDialog.handleError(err, p.displayName, gameState) then
-                                        gameState:sendMessage({
-                                            category = "transfer",
-                                            title = "无法挂牌",
-                                            body = err or "条件不满足",
-                                            priority = "normal",
-                                        })
-                                    end
-                                    return
-                                end
-                                Router.replaceWith("market", { tab = "listed" })
-                            end,
-                        } or UI.Label {
-                            text = "不可",
-                            fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 50, textAlign = "center",
-                        },
-                    },
-                },
-                -- 第二行：身价 + 周薪
-                UI.Panel {
-                    width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
-                    children = {
-                        UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
-                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
-                        UI.Label { text = Market._formatValue(p.wage or 0) .. "/周", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
-                    },
-                },
-            },
+                UI.Label { text = "暂无挖角报价", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+            }
         })
+    else
+        for _, p in ipairs(poachedPlayers) do
+            table.insert(children, _buildListedSalePlayerRow(gameState, team, p, {
+                showCancelWhenNoBid = false,
+                emptyBidText = "挖角报价处理中",
+            }))
+        end
     end
 
     return children
@@ -2855,7 +2932,7 @@ function Market._showOfferSheet(gameState, player, preferredBid, opts)
                                     AudioManager.deny()
                                     UI.Toast.Show({ message = err or "出售失败", variant = "error" })
                                 end
-                                Router.replaceWith("market", { tab = "listed" })
+                                Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                             end,
                         })
                     end,
@@ -2870,7 +2947,7 @@ function Market._showOfferSheet(gameState, player, preferredBid, opts)
                         BottomSheet.close()
                         TransferManager.cancelSale(gameState, bid.id)
                         UI.Toast.Show({ message = "交易已取消", variant = "info" })
-                        Router.replaceWith("market", { tab = "listed" })
+                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                     end,
                 },
             }
@@ -2926,7 +3003,7 @@ function Market._showOfferSheet(gameState, player, preferredBid, opts)
                     BottomSheet.close()
                     TransferManager.acceptIncomingBid(gameState, bid.id)
                     UI.Toast.Show({ message = "已同意报价，等待球员考虑是否离队", variant = "success" })
-                    Router.replaceWith("market", { tab = "listed" })
+                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                 end,
             },
             -- 还价区域：输入框 + 按钮
@@ -2967,7 +3044,7 @@ function Market._showOfferSheet(gameState, player, preferredBid, opts)
                                         onConfirm = function()
                                             TransferManager.counterIncomingBid(gameState, bid.id, askAmount)
                                             UI.Toast.Show({ message = "还价已发出，等待对方回复", variant = "success" })
-                                            Router.replaceWith("market", { tab = "listed" })
+                                            Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                                         end,
                                     })
                                 end,
@@ -2987,7 +3064,7 @@ function Market._showOfferSheet(gameState, player, preferredBid, opts)
                     BottomSheet.close()
                     TransferManager.rejectIncomingBid(gameState, bid.id)
                     UI.Toast.Show({ message = "已拒绝报价", variant = "info" })
-                    Router.replaceWith("market", { tab = "listed" })
+                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
                 end,
             },
         }
@@ -3017,7 +3094,7 @@ function Market._showCompetingOffersSheet(gameState, player, bids)
         elseif #remaining == 1 then
             Market._showOfferSheet(gameState, player, remaining[1], { forceSingle = true })
         else
-            Router.replaceWith("market", { tab = "listed" })
+            Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
         end
     end
 

@@ -329,8 +329,8 @@ function TimeBlockerManager._checkSaleConfirmationPending(gameState, team, block
         message = message,
         target = "market",
         targetParams = #pending > 1
-            and { tab = "listed", batchConfirm = "sale" }
-            or { tab = "listed", highlightBidId = first.bidId },
+            and { tab = "listed", listedSubTab = "status", batchConfirm = "sale" }
+            or { tab = "listed", listedSubTab = "status", highlightBidId = first.bidId },
     })
 end
 
