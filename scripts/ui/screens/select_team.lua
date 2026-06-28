@@ -136,6 +136,39 @@ function SelectTeam.create(params)
         })
     end
 
+    -- 重生球员 Tab：选队阶段可加载/卸载陨落天才名单
+    do
+        local rebirthLoaded = RealDataLoader.isRebirthPoolLoaded(gameState)
+        table.insert(leagueTabs, UI.Panel {
+            height = 30,
+            paddingLeft = 12, paddingRight = 12,
+            backgroundColor = rebirthLoaded and "rgba(255,75,75,0.08)" or "rgba(180,120,255,0.08)",
+            borderRadius = 15,
+            borderWidth = 1,
+            borderColor = rebirthLoaded and "rgba(255,75,75,0.3)" or "rgba(180,120,255,0.35)",
+            justifyContent = "center",
+            alignItems = "center",
+            marginRight = 6,
+            onClick = function()
+                if rebirthLoaded then
+                    RealDataLoader.unloadRebirthPlayers(gameState)
+                else
+                    RealDataLoader.loadRebirthPlayers(gameState)
+                end
+                pendingTeam = nil
+                Router.replaceWith("select_team", params)
+            end,
+            children = {
+                UI.Label {
+                    text = rebirthLoaded and "重生 ✕" or "+ 重生",
+                    fontSize = 12,
+                    color = rebirthLoaded and "#FF6B6B" or "#B478FF",
+                    fontWeight = "bold",
+                },
+            },
+        })
+    end
+
     -- 次级联赛 Tab：批量加载/卸载五大次级联赛
     do
         local secondLoaded = RealDataLoader.areSecondDivisionsLoaded(gameState)

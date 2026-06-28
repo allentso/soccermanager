@@ -1077,6 +1077,44 @@ function RealDataLoader.loadRebirthPlayers(gameState)
     return count
 end
 
+--- 移除已注入的重生球员（选队阶段可撤销；不影响退役转生机制）
+---@param gameState table
+---@return number 移除的球员数
+function RealDataLoader.unloadRebirthPlayers(gameState)
+    if not RealDataLoader.isRebirthPoolLoaded(gameState) then
+        return 0
+    end
+
+    local removed = 0
+    local toRemove = {}
+    for id, p in pairs(gameState.players or {}) do
+        if p.reincarnationTier == "rebirth" then
+            toRemove[#toRemove + 1] = id
+        end
+    end
+
+    for _, id in ipairs(toRemove) do
+        local p = gameState.players[id]
+        if p and p.teamId then
+            local team = gameState.teams[p.teamId]
+            if team and team._youthPlayerIds then
+                for i, yid in ipairs(team._youthPlayerIds) do
+                    if yid == id then
+                        table.remove(team._youthPlayerIds, i)
+                        break
+                    end
+                end
+            end
+        end
+        gameState.players[id] = nil
+        removed = removed + 1
+    end
+
+    gameState._rebirthPoolLoaded = false
+    log:Write(LOG_INFO, "RealDataLoader: 移除了 " .. removed .. " 名重生球员")
+    return removed
+end
+
 --- 动态加载一个可选联赛（如 CSL）并导入到 gameState
 ---@param gameState table
 ---@param leagueKey string 联赛 shortName（如 "CSL"）
