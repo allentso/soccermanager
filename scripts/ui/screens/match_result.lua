@@ -276,7 +276,7 @@ function MatchResult._buildMOTM(report, gameState, fixture)
     -- 统计该球员本场数据
     local goals, assists = 0, 0
     for _, evt in ipairs(report.events) do
-        if evt.type == "goal" then
+        if evt.type == "goal" and not evt.isOwnGoal then
             if evt.playerId == bestId then goals = goals + 1 end
             if evt.assistPlayerId == bestId then assists = assists + 1 end
         end
@@ -773,7 +773,7 @@ function MatchResult._buildPlayerRatings(report, gameState, fixture)
         -- 获取该球员本场数据
         local goals, assists, cards = 0, 0, ""
         for _, evt in ipairs(report.events) do
-            if evt.type == "goal" then
+            if evt.type == "goal" and not evt.isOwnGoal then
                 if evt.playerId == p.id then goals = goals + 1 end
                 if evt.assistPlayerId == p.id then assists = assists + 1 end
             elseif evt.type == "yellow_card" and evt.playerId == p.id then

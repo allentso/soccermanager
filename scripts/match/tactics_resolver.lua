@@ -22,11 +22,11 @@ TacticsResolver.ATTACK_MODES = {
 
 local STYLE_MODIFIERS = {
     Balanced   = { attack = 1.0,  defense = 1.0,  possession = 1.0,  tempo = 1.0,  press = 1.0,  foul = 1.0,  staminaDrain = 1.0,  injury = 1.0 },
-    Attacking  = { attack = 1.14, defense = 0.93, possession = 1.03, tempo = 1.08, press = 1.04, foul = 1.03, staminaDrain = 1.08, injury = 1.0 },
-    Defensive  = { attack = 0.88, defense = 1.14, possession = 0.94, tempo = 0.92, press = 0.95, foul = 1.08, staminaDrain = 0.82, injury = 0.92 },
+    Attacking  = { attack = 1.11, defense = 0.92, possession = 1.03, tempo = 1.08, press = 1.04, foul = 1.03, staminaDrain = 1.08, injury = 1.0 },
+    Defensive  = { attack = 0.90, defense = 1.16, possession = 0.94, tempo = 0.92, press = 0.96, foul = 1.08, staminaDrain = 0.82, injury = 0.92 },
     Possession = { attack = 0.98, defense = 1.04, possession = 1.16, tempo = 0.9,  press = 0.97, foul = 0.92, staminaDrain = 0.88, injury = 0.95 },
     Counter    = { attack = 1.04, defense = 1.02, possession = 0.9,  tempo = 1.12, press = 0.96, foul = 1.0,  staminaDrain = 1.05, injury = 1.0,  counter = 1.12 },
-    HighPress  = { attack = 1.08, defense = 0.97, possession = 1.06, tempo = 1.14, press = 1.18, foul = 1.12, staminaDrain = 1.22, injury = 1.08 },
+    HighPress  = { attack = 1.06, defense = 0.97, possession = 1.06, tempo = 1.14, press = 1.18, foul = 1.12, staminaDrain = 1.22, injury = 1.08 },
 }
 
 --- 获取指定风格的修正系数表（公开方法，供外部快速读取 staminaDrain 等字段）
@@ -58,7 +58,7 @@ local FORMATION_STYLE_SYNERGY = {
     { cond = function(d) return d >= 5 end, style = "HighPress",  dim = "press",      mul = 0.95 },
     { cond = function(d) return d >= 5 end, style = "Possession", dim = "possession", mul = 1.03 },
     { cond = function(d) return d <= 3 end, style = "Defensive",  dim = "defense",    mul = 0.96 },
-    { cond = function(d) return d <= 3 end, style = "Attacking",  dim = "attack",     mul = 1.04 },
+    { cond = function(d) return d <= 3 end, style = "Attacking",  dim = "attack",     mul = 1.02 },
 }
 
 local DUTIES = {
@@ -105,11 +105,10 @@ local CHANCE_CREATION_MAX = _G.BALANCE_SIM_CC_MAX or 2.40
 -- 否则同实力对局 attackVsDefense 恒 <1，20分OVR差在比值中几乎消失
 TacticsResolver.DEF_TO_ATK_SCALE = 1.40
 
--- 实力差直通系数：每1点平均OVR差对机会创造的乘性影响
--- （属性聚合会稀释实力差，此项保证 OVR 差直接传导进比赛）
--- 校准目标：OVR差20 → 强队主场胜率~75%、弱队~10%
-local STRENGTH_GAP_SLOPE = 0.008
-local STRENGTH_FACTOR_MIN, STRENGTH_FACTOR_MAX = 0.78, 1.22
+-- 实力差直通系数：保留首发 OVR 锚点，但降低斜率，避免进攻属性先进入 attack/shotQuality
+-- 后又通过高 OVR 二次放大机会创造。
+local STRENGTH_GAP_SLOPE = 0.006
+local STRENGTH_FACTOR_MIN, STRENGTH_FACTOR_MAX = 0.82, 1.18
 
 local function attr(player, key, fallback)
     local attributes = player.attributes or {}
@@ -345,6 +344,15 @@ function TacticsResolver.buildTeamContext(gameState, team)
     local finalPossession = math.max(1, possession / 10 * styleMod.possession * (modeMod.possession or 1.0) * chemistry * (shapeMods.possession or 1.0))
     local finalPress = clamp((styleMod.press or 1.0) * (shapeMods.press or 1.0), 0.75, 1.35)
 
+    -- 前场堆叠仍能提供压制，但中场与防线承压会传导到控球、防守与最终射门链。
+    local fwdOverload = math.max(0, counts.FWD - 2)
+    local midfieldShortage = math.max(0, 3 - counts.MID)
+    if fwdOverload > 0 then
+        finalAttack = finalAttack * clamp(1.0 - fwdOverload * 0.012, 0.94, 1.0)
+        finalDefense = finalDefense * clamp(1.0 - fwdOverload * 0.025 - midfieldShortage * 0.020, 0.88, 1.0)
+        finalPossession = finalPossession * clamp(1.0 - fwdOverload * 0.020 - midfieldShortage * 0.030, 0.86, 1.0)
+    end
+
     -- 阵型-风格兼容度修正
     for _, rule in ipairs(FORMATION_STYLE_SYNERGY) do
         if rule.style == style and rule.cond(defenderCount) then
@@ -467,7 +475,10 @@ end
 
 function TacticsResolver.matchupModifiers(myContext, opponentContext, isHome, formFactor)
     -- 攻防量纲归一：同实力对局比值≈1.0（见 DEF_TO_ATK_SCALE 注释）
-    local attackVsDefense = (myContext.attack * TacticsResolver.DEF_TO_ATK_SCALE) / math.max(1, opponentContext.defense)
+    local opponentPress = clamp(opponentContext.press or 1.0, 0.75, 1.40)
+    local pressSuppression = clamp(1.0 + (opponentPress - 1.0) * 0.22, 0.96, 1.10)
+    local attackVsDefense = (myContext.attack * TacticsResolver.DEF_TO_ATK_SCALE)
+        / math.max(1, opponentContext.defense * pressSuppression)
     local possessionShare = myContext.possession / math.max(1, myContext.possession + opponentContext.possession)
     local homeBonus = isHome and 1.06 or 1.0
     local redPenalty = 1.0 - ((myContext.redCards or 0) * 0.14)
@@ -497,6 +508,8 @@ function TacticsResolver.matchupModifiers(myContext, opponentContext, isHome, fo
         foulRate = myContext.foulRate,
         injuryRisk = myContext.injuryRisk,
         tempo = myContext.tempo,
+        press = myContext.press,
+        counter = myContext.counter,
     }
 end
 

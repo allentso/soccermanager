@@ -75,8 +75,8 @@ local function pickShooter(context, opts)
     return TacticsResolver.chooseWeighted(context.players, function(player)
         local group = player._slotZone or positionGroup(player.position)
         local weight = attr(player, "shooting") * 1.0 + attr(player, "positioning") * 0.6 + attr(player, "composure") * 0.4
-        if group == "FWD" then weight = weight * 3.0
-        elseif player._slotPos == "CAM" or player.position == "CAM" then weight = weight * 2.0
+        if group == "FWD" then weight = weight * 2.65
+        elseif player._slotPos == "CAM" or player.position == "CAM" then weight = weight * 1.85
         elseif group == "MID" then weight = weight * 0.9
         elseif group == "DEF" then weight = weight * 0.2 + attr(player, "aerial") * 0.25
         else weight = 0.05 end
@@ -86,6 +86,38 @@ local function pickShooter(context, opts)
         return TraitEffects.modifyShooterWeight(player, group, weight, opts)
     end)
 end
+
+local function pickDefender(context)
+    return TacticsResolver.chooseWeighted(context.players, function(player)
+        local group = player._slotZone or positionGroup(player.position)
+        local weight = attr(player, "defending") * 1.0
+            + attr(player, "tackling") * 0.75
+            + attr(player, "positioning") * 0.65
+            + attr(player, "teamwork") * 0.35
+        if group == "DEF" then weight = weight * 2.15
+        elseif group == "GK" then weight = weight * 1.25 + attr(player, "reflexes") * 1.2 + attr(player, "handling") * 1.0
+        elseif group == "MID" then weight = weight * 0.85
+        elseif group == "FWD" then weight = weight * 0.25 end
+        return weight
+    end)
+end
+
+local function pickOwnGoalPlayer(context)
+    return TacticsResolver.chooseWeighted(context.players, function(player)
+        local group = player._slotZone or positionGroup(player.position)
+        local weight = attr(player, "defending") * 0.75
+            + attr(player, "positioning") * 0.65
+            + attr(player, "aerial") * 0.45
+            + attr(player, "aggression") * 0.20
+        if group == "DEF" then weight = weight * 2.45
+        elseif group == "GK" then weight = weight * 1.10 + attr(player, "handling") * 0.8
+        elseif group == "MID" then weight = weight * 0.75
+        elseif group == "FWD" then weight = weight * 0.18 end
+        return weight
+    end)
+end
+
+local DEFENSIVE_ACTION_KINDS = { "interception", "block", "tackle", "clearance" }
 
 -- P2-2: 助攻角色权重加成表
 local ASSISTER_ROLE_BONUS = {
@@ -299,6 +331,7 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
         local defendContext = attackingHome and awayContext or homeContext
         local attackMod = attackingHome and homeMod or awayMod
         local attackingTeamId = attackingHome and fixture.homeTeamId or fixture.awayTeamId
+        local defendingTeamId = attackingHome and fixture.awayTeamId or fixture.homeTeamId
 
         -- 动量衰减 + 累积
         if attackingHome then
@@ -318,7 +351,7 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
             local spIsHome, spContext, spTeamId = side[1], side[2], side[3]
             local spOppCtx = spIsHome and awayContext or homeContext
             local spGap = (spContext.avgPlayerOverall or 70) - (spOppCtx.avgPlayerOverall or 70)
-            local spScale = clamp(1.0 + spGap * 0.025, 0.60, 1.25)
+            local spScale = clamp(1.0 + spGap * 0.018, 0.65, 1.20)
             local spTraitMult = (spContext.traitSummary and spContext.traitSummary.setPieceMult) or 1.0
             if Random() < setPieceOpportunity * spScale * spTraitMult then
                 local addShot = function(onTarget, goal)
@@ -337,16 +370,17 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                 if spTypeRoll < 0.06 then
                     -- 乌龙球：防守方失误，免后续检定（但受弱旅护栏约束）
                     if Random() < weakSideGoalDampen(spIsHome) then
-                        local scorer = pickShooter(spOppCtx)
+                        local culprit = pickOwnGoalPlayer(spOppCtx)
                         addShot(true, true)
                         table.insert(events, {
                             type = "goal",
                             minute = minute,
-                            playerId = scorer and scorer.id,
+                            playerId = culprit and culprit.id,
                             teamId = spTeamId,
                             isOwnGoal = true,
                             isSetPiece = true,
                             setPieceKind = "own_goal",
+                            ownGoalTeamId = spOppCtx.team and spOppCtx.team.id,
                             isExtraTime = minute > 90 or nil,
                             templateIdx = RandomInt(1, 100),
                         })
@@ -485,13 +519,23 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
             end
         end
 
-        -- Phase 概率：基础值 + 进攻力加成 + 动量
+        -- Phase 概率：基础值 + 进攻力加成 + 动量；防守方压迫会打断推进。
         local basePhaseChance = options.phaseChance or 0.42
         local attackBoost = clamp((attackMod.chanceCreation - 1.0) * 0.10, -0.05, 0.04)
-        local phaseChance = clamp(basePhaseChance + attackBoost + momentum, 0.33, 0.52)
+        local defensePress = clamp(defendContext.press or 1.0, 0.75, 1.40)
+        local pressDisruption = clamp((defensePress - 1.0) * 0.10, -0.025, 0.045)
+        local phaseChance = clamp(basePhaseChance + attackBoost + momentum - pressDisruption, 0.31, 0.52)
 
         if Random() < phaseChance * avgTempo then
-            local shotChance = clamp(0.28 + attackMod.chanceCreation * 0.16, 0.22, 0.50)
+            local attackCounter = clamp(attackContext.counter or 1.0, 0.75, 1.40)
+            local possessionPenalty = clamp(0.55 - homePossessionChance, -0.12, 0.12)
+            if attackingHome then
+                possessionPenalty = clamp(0.55 - homePossessionChance, -0.12, 0.12)
+            else
+                possessionPenalty = clamp(homePossessionChance - 0.45, -0.12, 0.12)
+            end
+            local counterLift = math.max(0, attackCounter - 1.0) * math.max(0, possessionPenalty) * 0.35
+            local shotChance = clamp(0.28 + attackMod.chanceCreation * 0.15 - pressDisruption * 0.45 + counterLift, 0.21, 0.49)
             if Random() < shotChance then
                 local isHome = attackingHome
                 if isHome then state.homeShots = state.homeShots + 1 else state.awayShots = state.awayShots + 1 end
@@ -502,14 +546,15 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                 -- 防守压力（量纲归一后同实力≈1.0；归一前同实力恒撞 1.40 上限）
                 local defensePressure = clamp(
                     defendContext.defense / TacticsResolver.DEF_TO_ATK_SCALE / math.max(1, attackContext.attack),
-                    0.60, 1.40)
-                local onTargetChance = clamp(0.38 + finishing * 0.12 - defensePressure * 0.05, 0.28, 0.56)
+                    0.60, 1.45)
+                defensePressure = clamp(defensePressure + (defensePress - 1.0) * 0.18, 0.60, 1.50)
+                local onTargetChance = clamp(0.38 + finishing * 0.12 - defensePressure * 0.058, 0.27, 0.56)
                 onTargetChance = TraitEffects.modifyOnTargetChance(shooter, shooterGroup, onTargetChance)
                 if Random() < onTargetChance then
                     if isHome then state.homeShotsOnTarget = state.homeShotsOnTarget + 1 else state.awayShotsOnTarget = state.awayShotsOnTarget + 1 end
 
                     -- 进球概率：下限降至0.08，弱队面对强防线转化率更低
-                    local goalChance = clamp(0.20 + finishing * 0.08 * attackMod.shotQuality - defensePressure * 0.05, 0.08, 0.34)
+                    local goalChance = clamp(0.20 + finishing * 0.08 * attackMod.shotQuality - defensePressure * 0.058, 0.075, 0.335)
                     local saveBonus = (defendContext.traitSummary and defendContext.traitSummary.saveBonus) or 0
                     goalChance = TraitEffects.modifyGoalChance(shooter, shooterGroup, goalChance, {
                         defenderSaveBonus = saveBonus,
@@ -551,6 +596,19 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                             templateIdx = RandomInt(1, 100),
                         })
                     end
+                end
+            else
+                -- 被防守方提前破坏的进攻也进入播报，体现后卫/后腰的存在感。
+                if Random() < clamp(0.12 + (defensePress - 1.0) * 0.20, 0.08, 0.22) then
+                    local defender = pickDefender(defendContext)
+                    table.insert(events, {
+                        type = "defensive_action",
+                        minute = minute,
+                        playerId = defender and defender.id,
+                        teamId = defendingTeamId,
+                        defensiveKind = DEFENSIVE_ACTION_KINDS[RandomInt(1, #DEFENSIVE_ACTION_KINDS)],
+                        templateIdx = RandomInt(1, 100),
+                    })
                 end
             end
         end

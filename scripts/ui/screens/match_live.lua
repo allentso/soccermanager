@@ -134,6 +134,26 @@ local COMMENTARY = {
         "%s 射门滑门而出，错失良机！",
         "%s 仓促起脚，皮球飞向看台。",
     },
+    defensive_interception = {
+        "%s 预判准确，提前截断了这次推进。",
+        "%s 卡住线路，把对手的直塞破坏掉。",
+        "%s 及时上抢完成拦截，化解了一次危险进攻。",
+    },
+    defensive_block = {
+        "%s 飞身封堵，把射门路线挡了出去！",
+        "%s 用身体挡住关键传射，防守非常坚决。",
+        "%s 封住近角，硬是把这次机会挡了下来。",
+    },
+    defensive_tackle = {
+        "%s 一脚干净利落的铲断，赢回球权！",
+        "%s 贴身逼抢成功，对手没能完成起脚。",
+        "%s 抢在对手调整前完成破坏。",
+    },
+    defensive_clearance = {
+        "%s 禁区内果断解围，把球踢出危险区域。",
+        "%s 头球解围成功，防线暂时稳住了。",
+        "%s 在混战中把球清走，避免了更大险情。",
+    },
 }
 
 --- 根据事件的 templateIdx 确定性地选择模板
@@ -1688,6 +1708,10 @@ function MatchLive._getCommentaryText(evt, gameState)
             return string.format(pickTemplate(COMMENTARY.miss_penalty, tIdx), pName), {255, 180, 80, 255}
         end
         return string.format(pickTemplate(COMMENTARY.shot_off_target, tIdx), pName), Theme.COLORS.TEXT_SECONDARY
+    elseif evt.type == "defensive_action" then
+        local kind = evt.defensiveKind or "interception"
+        local templates = COMMENTARY["defensive_" .. kind] or COMMENTARY.defensive_interception
+        return string.format(pickTemplate(templates, tIdx), pName), {120, 190, 255, 255}
     elseif evt.type == "substitution" then
         local offPlayer = evt.offPlayerId and gameState.players[evt.offPlayerId]
         local onPlayer = evt.onPlayerId and gameState.players[evt.onPlayerId]
@@ -1708,6 +1732,7 @@ function MatchLive._commentaryRow(minute, text, color)
     elseif string.find(text, "红牌") then icon = "🟥"
     elseif string.find(text, "受伤") or string.find(text, "离场") then icon = "🏥"
     elseif string.find(text, "扑救") or string.find(text, "没收") or string.find(text, "挡出") then icon = "🧤"
+    elseif string.find(text, "拦截") or string.find(text, "封堵") or string.find(text, "铲断") or string.find(text, "解围") or string.find(text, "破坏") then icon = "🛡"
     elseif string.find(text, "门柱") or string.find(text, "立柱") or string.find(text, "横梁") then icon = "🥅"
     elseif string.find(text, "偏出") or string.find(text, "高出") or string.find(text, "滑门而出") then icon = "💨"
     elseif string.find(text, "结束") then icon = "🏁"

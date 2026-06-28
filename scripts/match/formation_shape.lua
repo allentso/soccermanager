@@ -145,19 +145,19 @@ local STRUCTURE_ARCHETYPES = {
       modifiers = { attack = 1.0, defense = 1.0, possession = 1.02 } },
     { key = "433", def = 4, mid = 3, fwd = 3, label = "4-3-3型",
       effectDesc = "三前锋宽度，前场压制",
-      modifiers = { attack = 1.03, possession = 1.02, press = 1.02 } },
+      modifiers = { attack = 1.02, possession = 1.02, press = 1.02 } },
     { key = "424", def = 4, mid = 2, fwd = 4, label = "4-2-4型",
       effectDesc = "四后卫双中场四前锋，边路爆破",
-      modifiers = { attack = 1.05, defense = 0.96, possession = 0.97, press = 1.03 } },
+      modifiers = { attack = 1.03, defense = 0.94, possession = 0.95, press = 1.02 } },
     { key = "4231", def = 4, mid = 3, fwd = 3, label = "4-2-3-1型",
       effectDesc = "双后腰层次，前场组推进",
-      modifiers = { attack = 1.03, possession = 1.01, tempo = 1.02 } },
+      modifiers = { attack = 1.02, possession = 1.01, tempo = 1.02 } },
     { key = "343", def = 3, mid = 4, fwd = 3, label = "3-4-3型",
       effectDesc = "三中卫四中场，攻守过渡",
-      modifiers = { attack = 1.03, defense = 0.98, possession = 1.01, press = 1.02 } },
+      modifiers = { attack = 1.02, defense = 0.97, possession = 1.01, press = 1.02 } },
     { key = "334", def = 3, mid = 3, fwd = 4, label = "3-3-4型",
       effectDesc = "三中卫四前锋，边路进攻拉满",
-      modifiers = { attack = 1.04, defense = 0.97, possession = 0.98, press = 1.03 } },
+      modifiers = { attack = 1.03, defense = 0.94, possession = 0.96, press = 1.02 } },
     { key = "352", def = 3, mid = 5, fwd = 2, label = "3-5-2型",
       effectDesc = "翼卫宽度，中场控制",
       modifiers = { attack = 1.02, possession = 1.03 } },
@@ -665,11 +665,11 @@ local function zoneDensityModifiers(zoneCounts, slotTypeCounts)
         table.insert(tags, "低位退守")
     end
     if attLine >= 3 then
-        mergeMods(mods, { attack = 1.06, defense = 0.96, press = 1.04 })
+        mergeMods(mods, { attack = 1.04, defense = 0.95, possession = 0.98, press = 1.03 })
         table.insert(tags, "前场堆叠")
     end
     if widePlayers >= 4 then
-        mergeMods(mods, { attack = 1.05, possession = 0.97, tempo = 1.03 })
+        mergeMods(mods, { attack = 1.03, possession = 0.96, tempo = 1.02 })
         table.insert(tags, "边路宽度")
     elseif widePlayers <= 2 and centralPlayers >= 4 then
         mergeMods(mods, { possession = 1.06, attack = 0.98, tempo = 0.97 })
@@ -707,7 +707,7 @@ local function zoneDensityModifiers(zoneCounts, slotTypeCounts)
     local attLeft = zoneCounts.ATT_LEFT or 0
     local attRight = zoneCounts.ATT_RIGHT or 0
     if (attLeft >= 2 and attRight == 0) or (attRight >= 2 and attLeft == 0) then
-        mergeMods(mods, { attack = 1.03, possession = 0.98 })
+        mergeMods(mods, { attack = 1.02, possession = 0.98 })
         table.insert(tags, "进攻偏侧集中")
     end
 
@@ -733,15 +733,15 @@ local function zoneDensityModifiers(zoneCounts, slotTypeCounts)
         mergeMods(mods, { defense = 1.04, attack = 0.97, tempo = 0.97 })
         table.insert(tags, "双后腰")
     elseif slotTypeCounts.CDM == 1 and slotTypeCounts.CAM >= 1 then
-        mergeMods(mods, { attack = 1.03, possession = 1.02 })
+        mergeMods(mods, { attack = 1.02, possession = 1.02 })
         table.insert(tags, "前后腰联动")
     end
     if slotTypeCounts.CAM >= 2 then
-        mergeMods(mods, { attack = 1.03, possession = 1.02, defense = 0.98 })
+        mergeMods(mods, { attack = 1.02, possession = 1.02, defense = 0.98 })
         table.insert(tags, "多前腰")
     end
     if slotTypeCounts.WING >= 2 then
-        mergeMods(mods, { attack = 1.03, tempo = 1.02 })
+        mergeMods(mods, { attack = 1.02, tempo = 1.02 })
         table.insert(tags, "双翼齐飞")
     end
 
