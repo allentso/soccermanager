@@ -1492,6 +1492,19 @@ end
 function Dashboard._buildUrgentSection(gameState, team)
     local items = {}
 
+    -- 财务危机：允许继续推进，但作为经营风险置顶提示
+    if team then
+        local financeStatus, financeDetails = FinanceManager.getFinanceHealth(gameState, team.id)
+        if financeStatus == "critical" then
+            table.insert(items, {
+                icon = "!",
+                text = string.format("财务危机：现金仅可撑%d周", math.max(0, financeDetails.runwayWeeks or 0)),
+                color = Theme.COLORS.DANGER,
+                action = function() Router.navigate("finance") end,
+            })
+        end
+    end
+
     -- 合同到期预警
     if team then
         local expiringCount = 0

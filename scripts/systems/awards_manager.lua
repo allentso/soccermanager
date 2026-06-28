@@ -281,9 +281,98 @@ end
 -- 金球奖（全世界年度最高个人奖项，取前三名）
 ------------------------------------------------------
 
+local Nationality = require("scripts/domain/nationality")
+
+local BALLON_TROPHY = {
+    leagueChampion = 25,
+    topFour = 8,
+    domesticCup = 12,
+    uclChampion = 30,
+    uelChampion = 15,
+    clubTreble = 20,   -- 联赛 + 欧冠 + 国内杯
+    clubDouble = 8,    -- 上述三项中任意两项
+    worldCup = 20,
+    euroCup = 12,
+}
+
+function AwardsManager._buildTeamTrophyMap(gameState)
+    local map = {}
+
+    local function ensure(teamId)
+        if not map[teamId] then
+            map[teamId] = { domesticCups = 0, ucl = false, uel = false }
+        end
+        return map[teamId]
+    end
+
+    for _, cup in pairs(gameState.domesticCups or {}) do
+        if cup.winner then
+            ensure(cup.winner).domesticCups = ensure(cup.winner).domesticCups + 1
+        end
+    end
+
+    local ucl = gameState.championsLeague
+    local uclWinner = ucl and (ucl.champion or ucl.winner)
+    if uclWinner then
+        ensure(uclWinner).ucl = true
+    end
+
+    local uel = gameState.europaLeague
+    local uelWinner = uel and (uel.champion or uel.winner)
+    if uelWinner then
+        ensure(uelWinner).uel = true
+    end
+
+    return map
+end
+
+function AwardsManager._ballonClubTrophyBonus(trophy, leagueAchievement)
+    local bonus = 0
+    if leagueAchievement.champion then
+        bonus = bonus + BALLON_TROPHY.leagueChampion
+    elseif leagueAchievement.topFour then
+        bonus = bonus + BALLON_TROPHY.topFour
+    end
+
+    if not trophy then return bonus end
+
+    bonus = bonus + (trophy.domesticCups or 0) * BALLON_TROPHY.domesticCup
+    if trophy.ucl then
+        bonus = bonus + BALLON_TROPHY.uclChampion
+    elseif trophy.uel then
+        bonus = bonus + BALLON_TROPHY.uelChampion
+    end
+
+    local majorCount = 0
+    if leagueAchievement.champion then majorCount = majorCount + 1 end
+    if trophy.ucl then majorCount = majorCount + 1 end
+    if (trophy.domesticCups or 0) > 0 then majorCount = majorCount + 1 end
+    if majorCount >= 3 then
+        bonus = bonus + BALLON_TROPHY.clubTreble
+    elseif majorCount == 2 then
+        bonus = bonus + BALLON_TROPHY.clubDouble
+    end
+
+    return bonus
+end
+
+function AwardsManager._ballonNationalTrophyBonus(gameState, playerNat)
+    local bonus = 0
+    local wc = gameState.worldCup
+    if wc and wc.champion and Nationality.matches(playerNat, wc.champion) then
+        bonus = bonus + BALLON_TROPHY.worldCup
+    end
+    local euro = gameState.euroCup
+    if euro and euro.champion and Nationality.matches(playerNat, euro.champion) then
+        bonus = bonus + BALLON_TROPHY.euroCup
+    end
+    return bonus
+end
+
 function AwardsManager._calculateBallonDor(gameState)
     local candidates = {}
     local teamPositions = {}
+    local teamTrophies = AwardsManager._buildTeamTrophyMap(gameState)
 
     for _, lg in pairs(gameState.leagues or {}) do
         local sorted = lg:getSortedStandings()
@@ -311,8 +400,9 @@ function AwardsManager._calculateBallonDor(gameState)
         local avgRating = stats.avgRating or 0
         local cleanSheets = stats.cleanSheets or 0
         local achievement = teamPositions[player.teamId] or {}
+        local trophy = teamTrophies[player.teamId]
 
-        local score = goals * 4
+        local score = goals * 3
             + assists * 3
             + avgRating * 8
             + appearances * 0.6
@@ -322,11 +412,10 @@ function AwardsManager._calculateBallonDor(gameState)
         if player.position == "GK" or player.position == "CB" or player.position == "LB" or player.position == "RB" then
             score = score + cleanSheets * 3
         end
-        if achievement.champion then
-            score = score + 20
-        elseif achievement.topFour then
-            score = score + 8
-        end
+
+        local clubBonus = AwardsManager._ballonClubTrophyBonus(trophy, achievement)
+        local nationalBonus = AwardsManager._ballonNationalTrophyBonus(gameState, player.nationality)
+        score = score + clubBonus + nationalBonus
 
         table.insert(candidates, {
             playerId = player.id,
@@ -341,6 +430,7 @@ function AwardsManager._calculateBallonDor(gameState)
             cleanSheets = cleanSheets,
             overall = player.overall,
             reputation = player.reputation,
+            trophyBonus = clubBonus + nationalBonus,
             score = math.floor(score * 10) / 10,
             season = gameState.season,
         })
@@ -350,6 +440,7 @@ function AwardsManager._calculateBallonDor(gameState)
 
     table.sort(candidates, function(a, b)
         if a.score ~= b.score then return a.score > b.score end
+        if (a.trophyBonus or 0) ~= (b.trophyBonus or 0) then return (a.trophyBonus or 0) > (b.trophyBonus or 0) end
         if (a.avgRating or 0) ~= (b.avgRating or 0) then return (a.avgRating or 0) > (b.avgRating or 0) end
         return (a.goals or 0) > (b.goals or 0)
     end)

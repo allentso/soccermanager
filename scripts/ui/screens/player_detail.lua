@@ -1600,6 +1600,174 @@ function PlayerDetail._infoRow(label, value, valueColor)
     }
 end
 
+local function _sumPlayerCareerStats(player)
+    local totals = {
+        seasons = 0,
+        appearances = 0,
+        goals = 0,
+        assists = 0,
+        yellowCards = 0,
+        redCards = 0,
+        cleanSheets = 0,
+    }
+
+    local folded = player.careerTotals or {}
+    totals.seasons = totals.seasons + (folded.seasons or 0)
+    totals.appearances = totals.appearances + (folded.appearances or 0)
+    totals.goals = totals.goals + (folded.goals or 0)
+    totals.assists = totals.assists + (folded.assists or 0)
+    totals.yellowCards = totals.yellowCards + (folded.yellowCards or 0)
+    totals.redCards = totals.redCards + (folded.redCards or 0)
+    totals.cleanSheets = totals.cleanSheets + (folded.cleanSheets or 0)
+
+    for _, rec in ipairs(player.careerHistory or {}) do
+        totals.seasons = totals.seasons + 1
+        totals.appearances = totals.appearances + (rec.appearances or 0)
+        totals.goals = totals.goals + (rec.goals or 0)
+        totals.assists = totals.assists + (rec.assists or 0)
+        totals.yellowCards = totals.yellowCards + (rec.yellowCards or 0)
+        totals.redCards = totals.redCards + (rec.redCards or 0)
+        totals.cleanSheets = totals.cleanSheets + (rec.cleanSheets or 0)
+    end
+
+    local stats = player.seasonStats or {}
+    if (stats.appearances or 0) > 0 then
+        totals.seasons = totals.seasons + 1
+        totals.appearances = totals.appearances + (stats.appearances or 0)
+        totals.goals = totals.goals + (stats.goals or 0)
+        totals.assists = totals.assists + (stats.assists or 0)
+        totals.yellowCards = totals.yellowCards + (stats.yellowCards or 0)
+        totals.redCards = totals.redCards + (stats.redCards or 0)
+        totals.cleanSheets = totals.cleanSheets + (stats.cleanSheets or 0)
+    end
+
+    return totals
+end
+
+local function _careerHistoryTeamName(gameState, teamId)
+    if not teamId then return "自由球员" end
+    local team = gameState.teams and gameState.teams[teamId]
+    return team and team.name or "未知球队"
+end
+
+local function _careerHistoryRow(label, teamName, apps, goals, assists, rating, muted)
+    return UI.Panel {
+        width = "100%", height = 36,
+        flexDirection = "row", alignItems = "center",
+        paddingHorizontal = 8,
+        borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+        children = {
+            UI.Label { text = label, width = 56, fontSize = 11, color = muted and Theme.COLORS.TEXT_MUTED or Theme.COLORS.TEXT_PRIMARY },
+            UI.Label { text = teamName, flex = 1, fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+            UI.Label { text = tostring(apps), width = 34, fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY, textAlign = "right" },
+            UI.Label { text = tostring(goals), width = 34, fontSize = 11, color = Theme.COLORS.SECONDARY, textAlign = "right" },
+            UI.Label { text = tostring(assists), width = 34, fontSize = 11, color = Theme.COLORS.ACCENT, textAlign = "right" },
+            UI.Label { text = rating, width = 42, fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY, textAlign = "right" },
+        }
+    }
+end
+
+function PlayerDetail._buildCareerStatsCards(player, gameState)
+    local totals = _sumPlayerCareerStats(player)
+    local cards = {}
+
+    table.insert(cards, Theme.Card {
+        children = {
+            Theme.Subtitle { text = "生涯累计" },
+            UI.Panel {
+                flexDirection = "row", flexWrap = "wrap", marginTop = 8,
+                children = {
+                    Theme.StatPill { label = "记录赛季", value = totals.seasons },
+                    Theme.StatPill { label = "出场", value = totals.appearances, valueColor = Theme.COLORS.PRIMARY },
+                    Theme.StatPill { label = "进球", value = totals.goals, valueColor = totals.goals > 0 and Theme.COLORS.SECONDARY or nil },
+                    Theme.StatPill { label = "助攻", value = totals.assists, valueColor = totals.assists > 0 and Theme.COLORS.ACCENT or nil },
+                    Theme.StatPill { label = "黄牌", value = totals.yellowCards, valueColor = totals.yellowCards > 0 and Theme.COLORS.WARNING or nil },
+                    Theme.StatPill { label = "红牌", value = totals.redCards, valueColor = totals.redCards > 0 and Theme.COLORS.DANGER or nil },
+                    Theme.StatPill { label = "零封", value = totals.cleanSheets },
+                }
+            },
+            UI.Label {
+                text = "含本赛季数据；更早赛季可能已折叠进累计值。",
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 6,
+            },
+        }
+    })
+
+    local rows = {
+        UI.Panel {
+            width = "100%", height = 26,
+            flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8,
+            borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+            children = {
+                UI.Label { text = "赛季", width = 56, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = "球队", flex = 1, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = "场", width = 34, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, textAlign = "right" },
+                UI.Label { text = "球", width = 34, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, textAlign = "right" },
+                UI.Label { text = "助", width = 34, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, textAlign = "right" },
+                UI.Label { text = "评分", width = 42, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, textAlign = "right" },
+            }
+        }
+    }
+
+    local stats = player.seasonStats or {}
+    if (stats.appearances or 0) > 0 then
+        table.insert(rows, _careerHistoryRow(
+            "本季",
+            _careerHistoryTeamName(gameState, player.teamId),
+            stats.appearances or 0,
+            stats.goals or 0,
+            stats.assists or 0,
+            stats.avgRating and stats.avgRating > 0 and string.format("%.1f", stats.avgRating) or "-",
+            false
+        ))
+    end
+
+    local history = player.careerHistory or {}
+    for i = #history, 1, -1 do
+        local rec = history[i]
+        table.insert(rows, _careerHistoryRow(
+            rec.season and ("第" .. tostring(rec.season)) or "?",
+            _careerHistoryTeamName(gameState, rec.teamId),
+            rec.appearances or 0,
+            rec.goals or 0,
+            rec.assists or 0,
+            rec.avgRating and rec.avgRating > 0 and string.format("%.1f", rec.avgRating) or "-",
+            false
+        ))
+    end
+
+    local folded = player.careerTotals
+    if folded and (folded.seasons or 0) > 0 then
+        table.insert(rows, _careerHistoryRow(
+            "早期" .. tostring(folded.seasons) .. "季",
+            "历史汇总",
+            folded.appearances or 0,
+            folded.goals or 0,
+            folded.assists or 0,
+            "-",
+            true
+        ))
+    end
+
+    if #rows == 1 then
+        table.insert(rows, UI.Label {
+            text = "暂无生涯比赛记录，完成赛季后会自动沉淀到这里。",
+            fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 8,
+        })
+    end
+
+    table.insert(cards, Theme.Card {
+        children = (function()
+            local children = { Theme.Subtitle { text = "赛季履历" } }
+            for _, row in ipairs(rows) do table.insert(children, row) end
+            return children
+        end)()
+    })
+
+    return cards
+end
+
 -- 辅助：格式化金额
 function PlayerDetail._formatMoney(amount)
     return FinanceManager.formatMoney(amount)
@@ -1715,7 +1883,8 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
 
     return UI.Panel {
         width = "100%",
-        children = {
+        children = (function()
+            local children = {
             -- 生涯概况
             Theme.Card {
                 children = {
@@ -1732,6 +1901,13 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
                     },
                 }
             },
+            }
+
+            for _, card in ipairs(PlayerDetail._buildCareerStatsCards(player, gameState)) do
+                table.insert(children, card)
+            end
+
+            table.insert(children,
 
             -- 能力发展
             Theme.Card {
@@ -1786,8 +1962,9 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
                         }
                     },
                 }
-            },
+            })
 
+            table.insert(children,
             -- 球员特性
             Theme.Card {
                 children = (function()
@@ -1820,8 +1997,10 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
                     })
                     return children
                 end)(),
-            },
-        }
+            })
+
+            return children
+        end)()
     }
 end
 

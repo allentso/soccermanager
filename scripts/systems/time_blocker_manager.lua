@@ -226,25 +226,27 @@ function TimeBlockerManager._checkKeyContractRisk(gameState, team, blockers)
     end
 end
 
---- 6. 工资预算风险：总工资超出预算 120%
+--- 6. 工资预算风险 / 财务危机
 function TimeBlockerManager._checkWageBudgetRisk(gameState, team, blockers)
     local FinanceManager = require("scripts/systems/finance_manager")
-    local health = FinanceManager.getFinanceHealth(gameState, team.id)
+    local status, details = FinanceManager.getFinanceHealth(gameState, team.id)
 
-    if type(health) == "table" then
-        if health.wagePct and health.wagePct > 120 then
-            table.insert(blockers, {
-                id = "contract_wage_risk",
-                severity = "info",
-                message = string.format("工资支出超预算 %.0f%%，财务压力大", health.wagePct),
-                target = "finance",
-            })
-        end
-    elseif health == "critical" then
+    if status == "critical" then
+        local runway = details.runwayWeeks or 0
         table.insert(blockers, {
             id = "contract_wage_risk",
-            severity = "warn",
-            message = "财务处于危机状态，请采取紧急措施",
+            severity = "info",
+            message = string.format("财务处于危机状态（可撑 %d 周），继续推进将加深董事会监管", math.max(0, runway)),
+            target = "finance",
+        })
+        return
+    end
+
+    if details.wagePct and details.wagePct > 120 then
+        table.insert(blockers, {
+            id = "contract_wage_risk",
+            severity = "info",
+            message = string.format("工资支出超预算 %.0f%%，财务压力大", details.wagePct),
             target = "finance",
         })
     end
