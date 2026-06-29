@@ -1315,6 +1315,11 @@ function TurnProcessor._processPeriodicEvents(gameState)
         AIManager.processMonthly(gameState)
         -- 目标系统：月度目标评估与刷新
         ObjectivesManager.onMonthEnd(gameState)
+        -- 月度存档/内存重清理：球员池、青训引用、赛果明细、历史流水等。
+        local okHk, hkErr = pcall(Housekeeping.runMonthly, gameState)
+        if not okHk and log then
+            log:Write(LOG_ERROR, "TurnProcessor: 月度 Housekeeping 失败: " .. tostring(hkErr))
+        end
     end
 
     -- 随机转会传闻新闻（每天5%概率）
@@ -1598,8 +1603,8 @@ function TurnProcessor.processWeekly(gameState)
     -- 消息清理（保留最近100条）
     MessageManager.cleanup(gameState, 100)
 
-    -- 存档/内存瘦身：清理退役球员、超额自由球员、旧赛果明细、流水上限等（幂等）
-    local okHk, hkErr = pcall(Housekeeping.run, gameState)
+    -- 每周只跑轻量自愈，重清理放到月初，避免周一比赛日卡顿尖峰。
+    local okHk, hkErr = pcall(Housekeeping.runWeekly, gameState)
     if not okHk and log then
         log:Write(LOG_ERROR, "TurnProcessor: Housekeeping 失败: " .. tostring(hkErr))
     end

@@ -7,7 +7,9 @@
 --   * news 无上限只增不减；transfers.history 跨赛季累积；worldHistory 每赛季被写两次
 --
 -- 入口：
---   * Housekeeping.run(gameState)     —— 每周例行 + 读档后执行（幂等）
+--   * Housekeeping.run(gameState)        —— 读档后完整执行（含一次性旧档迁移）
+--   * Housekeeping.runWeekly(gameState)  —— 每周轻量修复
+--   * Housekeeping.runMonthly(gameState) —— 月度重清理
 --   * 各子函数可单独调用
 --
 -- 安全原则：
@@ -651,49 +653,110 @@ function Housekeeping.restoreReincarnationFlags(gameState)
     return fixed
 end
 
-function Housekeeping.run(gameState)
-    if not gameState or not gameState.players then return end
+local function emptyStats()
+    return {
+        repBaseline = 0,
+        revenueChains = 0,
+        retired = 0,
+        freeAgents = 0,
+        virtual = 0,
+        career = 0,
+        fixtures = 0,
+        news = 0,
+        transfers = 0,
+        aiTx = 0,
+        worldHistory = 0,
+        youthRefs = 0,
+        rosters = 0,
+        reincarnFlags = 0,
+        loanListings = 0,
+        incomingSaleBids = 0,
+        injuryDays = 0,
+        youthRefsRestored = 0,
+        overageYouth = 0,
+        minimumSquads = 0,
+        legacyBootstrap = 0,
+    }
+end
 
-    Housekeeping.clampPlayerPotentialCaps(gameState)
+local function sumIncomingSaleRepair(repair)
+    repair = repair or {}
+    return (repair.stale or 0)
+        + (repair.dupAwaiting or 0)
+        + (repair.superseded or 0)
+end
 
+local function logStats(label, stats)
+    if not log then return end
+    local total = 0
+    for _, v in pairs(stats or {}) do
+        if type(v) == "number" then total = total + v end
+    end
+    if total <= 0 then return end
+    log:Write(LOG_INFO, string.format(
+        "%s: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d 青训恢复=%d 阵容修复=%d 转生标记=%d 旧档迁移=%d",
+        label,
+        stats.repBaseline or 0, stats.revenueChains or 0, stats.retired or 0,
+        stats.freeAgents or 0, stats.virtual or 0, stats.career or 0,
+        stats.fixtures or 0, stats.news or 0, stats.transfers or 0,
+        stats.aiTx or 0, stats.worldHistory or 0, stats.youthRefs or 0,
+        stats.youthRefsRestored or 0, stats.rosters or 0,
+        stats.reincarnFlags or 0, stats.legacyBootstrap or 0))
+end
+
+function Housekeeping.runLegacyMigrationsOnce(gameState)
+    if not gameState or gameState._legacyReincarnationBootstrapDone then return 0 end
     -- 老档补转生必须先于 purgeRetiredPlayers，否则已退休的本人可能被物理删除。
     local ReincarnationManager = require("scripts/systems/reincarnation_manager")
+    if not ReincarnationManager.isEnabled(gameState) then return 0 end
     ReincarnationManager.bootstrapLegacySave(gameState)
+    gameState._legacyReincarnationBootstrapDone = true
+    return 1
+end
 
+function Housekeeping.runWeekly(gameState)
+    if not gameState or not gameState.players then return emptyStats() end
+    local stats = emptyStats()
     local TransferManager = require("scripts/systems/transfer_manager")
     local _, loanDelisted = TransferManager.clearLoanListingsOutsideWindow(gameState, { silent = true })
-    -- 读档兜底：窗外若有 AI 队超员(>30)，收敛回上限
-    if not TransferManager.isInTransferWindow(gameState) then
-        TransferManager.enforceAISquadCap(gameState, { silent = true })
-    end
     TransferManager.repairStaleFreeAgentNegos(gameState, { silent = true })
     TransferManager.repairStaleTransferSignBids(gameState, { silent = true })
     local incomingSaleRepair = TransferManager.repairIncomingSaleBids(gameState, { silent = true })
 
     local EventFlavors = require("scripts/match/event_flavors")
-    local injuryDaysFixed = EventFlavors.repairExcessiveInjuryDays(gameState)
-    local incomingSaleFixed = (incomingSaleRepair.stale or 0)
-        + (incomingSaleRepair.dupAwaiting or 0)
-        + (incomingSaleRepair.superseded or 0)
+    stats.injuryDays = EventFlavors.repairExcessiveInjuryDays(gameState) or 0
+    stats.loanListings = loanDelisted or 0
+    stats.incomingSaleBids = sumIncomingSaleRepair(incomingSaleRepair)
+    return stats
+end
 
-    local stats = {
-        repBaseline = Housekeeping.fixReputationBaseline(gameState),
-        revenueChains = Housekeeping.flattenRevenueChains(gameState),
-        retired = Housekeeping.purgeRetiredPlayers(gameState),
-        freeAgents = Housekeeping.purgeExcessFreeAgents(gameState),
-        virtual = Housekeeping.purgeVirtualPlayers(gameState),
-        career = Housekeeping.foldCareerHistory(gameState),
-        fixtures = Housekeeping.stripOldFixtureDetails(gameState),
-        news = Housekeeping.trimNews(gameState),
-        transfers = Housekeeping.trimTransferHistory(gameState),
-        aiTx = Housekeeping.trimAITransactions(gameState),
-        worldHistory = Housekeeping.dedupeWorldHistory(gameState),
-        youthRefs = Housekeeping.purgeStaleYouthRefs(gameState),
-        rosters = Housekeeping.reconcileRosters(gameState),
-        reincarnFlags = Housekeeping.restoreReincarnationFlags(gameState),
-        loanListings = loanDelisted or 0,
-        incomingSaleBids = incomingSaleFixed,
-    }
+function Housekeeping.runMonthly(gameState)
+    if not gameState or not gameState.players then return emptyStats() end
+
+    Housekeeping.clampPlayerPotentialCaps(gameState)
+
+    local stats = Housekeeping.runWeekly(gameState)
+
+    local TransferManager = require("scripts/systems/transfer_manager")
+    -- 月度兜底：窗外若有 AI 队超员(>30)，收敛回上限。
+    if not TransferManager.isInTransferWindow(gameState) then
+        TransferManager.enforceAISquadCap(gameState, { silent = true })
+    end
+
+    stats.repBaseline = Housekeeping.fixReputationBaseline(gameState)
+    stats.revenueChains = Housekeeping.flattenRevenueChains(gameState)
+    stats.retired = Housekeeping.purgeRetiredPlayers(gameState)
+    stats.freeAgents = Housekeeping.purgeExcessFreeAgents(gameState)
+    stats.virtual = Housekeeping.purgeVirtualPlayers(gameState)
+    stats.career = Housekeeping.foldCareerHistory(gameState)
+    stats.fixtures = Housekeeping.stripOldFixtureDetails(gameState)
+    stats.news = Housekeeping.trimNews(gameState)
+    stats.transfers = Housekeeping.trimTransferHistory(gameState)
+    stats.aiTx = Housekeeping.trimAITransactions(gameState)
+    stats.worldHistory = Housekeeping.dedupeWorldHistory(gameState)
+    stats.youthRefs = Housekeeping.purgeStaleYouthRefs(gameState)
+    stats.rosters = Housekeeping.reconcileRosters(gameState)
+    stats.reincarnFlags = Housekeeping.restoreReincarnationFlags(gameState)
 
     local YouthManager = require("scripts/systems/youth_manager")
     stats.youthRefsRestored = YouthManager.reconcileYouthRefs(gameState) or 0
@@ -701,19 +764,17 @@ function Housekeeping.run(gameState)
 
     local AIManager = require("scripts/systems/ai_manager")
     AIManager.ensureAllMinimumSquads(gameState)
+    stats.minimumSquads = 0
 
-    if log then
-        local total = 0
-        for _, v in pairs(stats) do total = total + v end
-        if total > 0 then
-            log:Write(LOG_INFO, string.format(
-                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d 青训恢复=%d 阵容修复=%d 转生标记=%d",
-                stats.repBaseline, stats.revenueChains, stats.retired, stats.freeAgents, stats.virtual, stats.career,
-                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory, stats.youthRefs, stats.youthRefsRestored, stats.rosters,
-                stats.reincarnFlags or 0))
-        end
-    end
+    logStats("HousekeepingMonthly", stats)
+    return stats
+end
 
+function Housekeeping.run(gameState)
+    if not gameState or not gameState.players then return emptyStats() end
+    local legacy = Housekeeping.runLegacyMigrationsOnce(gameState)
+    local stats = Housekeeping.runMonthly(gameState)
+    stats.legacyBootstrap = legacy
     return stats
 end
 
