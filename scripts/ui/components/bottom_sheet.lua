@@ -171,7 +171,6 @@ end
 ---   showCancel?: boolean - 是否显示取消按钮（默认 true）
 ---   height?: number - 自定义高度（默认 400）
 ---   contentHeight?: number - 滚动内容区精确高度（复杂布局时避免 ScrollView 测高不准）
----   footerHeight?: number - footer 区域高度（默认 54）
 ---   onClose?: function - 关闭回调
 function BottomSheet.showCustom(opts)
     local children = opts.children or {}
@@ -183,101 +182,85 @@ function BottomSheet.showCustom(opts)
     local padV = 16   -- 上下内边距
     local padH = 16   -- 左右内边距
 
-    -- 固定区域高度（保守估算，避免 ScrollView 侵占底部按钮空间）
-    local titleBlockH = 0
+    -- 精确计算各固定区域占用的高度，给 ScrollView 分配明确的像素高度
+    local titleH = 0
     if opts.title then
-        titleBlockH = 36  -- 标题可能换行，留足空间
+        titleH = 15 + 12  -- fontSize 15 + marginBottom 12
     end
-    local cancelBlockH = 0
+    local cancelH = 0
     if showCancel then
-        cancelBlockH = 54  -- 按钮 44 + 分隔间距 10
+        cancelH = 44 + 10  -- height 44 + marginTop 10
     end
-    local footerBlockH = 0
+    local footerH = 0
     if footer then
-        footerBlockH = opts.footerHeight or 54
+        footerH = 54  -- 估算 footer 高度
     end
 
-    -- ScrollView 容器使用明确像素高度 + overflow hidden，防止内容与底部「关闭」重叠
-    local scrollH = drawerHeight - (padV * 2) - titleBlockH - cancelBlockH - footerBlockH
-    scrollH = math.max(120, scrollH)
+    -- ScrollView 可用高度 = 总高 - 上下padding - 标题 - 取消按钮 - footer
+    local scrollH = drawerHeight - (padV * 2) - titleH - cancelH - footerH
+    -- 保底：至少 100px 可滚动
+    scrollH = math.max(100, scrollH)
 
     local contentItems = {}
 
+    -- 标题（固定在顶部，不参与滚动）
     if opts.title then
-        table.insert(contentItems, UI.Panel {
-            width = "100%",
-            flexShrink = 0,
-            children = {
-                UI.Label {
-                    text = opts.title,
-                    fontSize = 15,
-                    color = Theme.COLORS.TEXT_PRIMARY,
-                    fontWeight = "bold",
-                    marginBottom = 8,
-                    textAlign = "center",
-                },
-            },
+        table.insert(contentItems, UI.Label {
+            text = opts.title,
+            fontSize = 15,
+            color = Theme.COLORS.TEXT_PRIMARY,
+            fontWeight = "bold",
+            marginBottom = 12,
+            textAlign = "center",
         })
     end
 
-    table.insert(contentItems, UI.Panel {
+    -- 自定义内容区域（可滚动）
+    -- 使用明确像素高度，避免 flex 在 Drawer 内解析不准导致滚不到底
+    table.insert(contentItems, UI.ScrollView {
         width = "100%",
         height = scrollH,
-        flexShrink = 0,
-        overflow = "hidden",
+        maxHeight = scrollH,
+        flexShrink = 1,
+        scrollY = true,
+        overflow = "scroll",
+        showScrollbar = true,
+        bounceEnabled = false,
+        padding = 0,
         children = {
-            UI.ScrollView {
-                width = "100%",
-                height = scrollH,
-                scrollY = true,
-                showScrollbar = true,
-                bounceEnabled = false,
-                padding = 0,
-                children = {
-                    UI.Panel {
-                        width = "100%",
-                        height = opts.contentHeight,
-                        paddingBottom = 12,
-                        children = children,
-                    },
-                },
-            },
+            -- 用单一 Panel 包裹所有子元素，确保 ScrollView 内容高度计算准确
+            (function()
+                local wrap = { width = "100%", children = children }
+                if opts.contentHeight then
+                    wrap.height = opts.contentHeight
+                end
+                return UI.Panel(wrap)
+            end)(),
         },
     })
 
+    -- footer（固定在底部，不参与滚动）
     if footer then
-        table.insert(contentItems, UI.Panel {
-            width = "100%",
-            flexShrink = 0,
-            children = { footer },
-        })
+        table.insert(contentItems, footer)
     end
 
+    -- 取消按钮（固定在最底部，不参与滚动）
     if showCancel then
-        table.insert(contentItems, UI.Panel {
+        table.insert(contentItems, UI.Button {
+            text = "关闭",
             width = "100%",
-            flexShrink = 0,
-            paddingTop = 10,
-            backgroundColor = {Theme.COLORS.BG_CARD[1], Theme.COLORS.BG_CARD[2], Theme.COLORS.BG_CARD[3], 255},
-            borderTopWidth = 1,
+            height = 44,
+            backgroundColor = Theme.COLORS.TRANSPARENT,
+            borderRadius = 8,
+            borderWidth = 1,
             borderColor = Theme.COLORS.BORDER,
-            children = {
-                UI.Button {
-                    text = "关闭",
-                    width = "100%",
-                    height = 44,
-                    backgroundColor = Theme.COLORS.TRANSPARENT,
-                    borderRadius = 8,
-                    borderWidth = 1,
-                    borderColor = Theme.COLORS.BORDER,
-                    fontSize = 14,
-                    color = Theme.COLORS.TEXT_MUTED,
-                    onClick = function()
-                        _closeActive()
-                        if onClose then onClose() end
-                    end,
-                },
-            },
+            fontSize = 14,
+            color = Theme.COLORS.TEXT_MUTED,
+            marginTop = 10,
+            onClick = function()
+                _closeActive()
+                if onClose then onClose() end
+            end,
         })
     end
 
@@ -285,7 +268,6 @@ function BottomSheet.showCustom(opts)
         width = "100%",
         height = drawerHeight,
         flexDirection = "column",
-        overflow = "hidden",
         paddingTop = padV,
         paddingBottom = padV,
         paddingLeft = padH,

@@ -1027,13 +1027,12 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     table.sort(benchCandidates, function(a, b) return a.score > b.score end)
     table.sort(swapCandidates, function(a, b) return a.score > b.score end)
 
-    -- 构建弹窗内容：设置区（上）与球员列表（下）分离，避免被底部「关闭」遮挡
-    local settingsChildren = {}
-    local playerChildren = {}
+    -- 构建弹窗内容
+    local children = {}
 
     -- 当前位置信息
     local posLabel = Constants.POSITION_NAMES[slotPos] or slotPos
-    table.insert(settingsChildren, UI.Panel {
+    table.insert(children, UI.Panel {
         width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 10,
         children = {
             UI.Label {
@@ -1048,7 +1047,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     })
 
     -- 形态预览摘要
-    table.insert(settingsChildren, UI.Label {
+    table.insert(children, UI.Label {
         text = string.format("选用阵型 %s · 实战结构 %s",
             team.formation or "4-4-2",
             shapeAnalysis.structure and shapeAnalysis.structure.label or "未知"),
@@ -1056,7 +1055,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         color = shapeAnalysis.alignedWithFormation == false and {255, 180, 80, 220} or Theme.COLORS.TEXT_MUTED,
         marginBottom = 4,
     })
-    table.insert(settingsChildren, UI.Label {
+    table.insert(children, UI.Label {
         text = string.format("本槽区域：%s",
             shapeAnalysis.slotZones[slotIdx] and (FormationShape.ZONE_LABELS[shapeAnalysis.slotZones[slotIdx]] or shapeAnalysis.slotZones[slotIdx]) or "未知"),
         fontSize = 11,
@@ -1095,7 +1094,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
                 end,
             })
         end
-        table.insert(settingsChildren, UI.Panel {
+        table.insert(children, UI.Panel {
             width = "100%", marginBottom = 10,
             children = {
                 UI.Label {
@@ -1153,7 +1152,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         local activeRole = Constants.getPositionRole(slotPos, currentRoleKey)
         local roleDesc = activeRole and activeRole.desc or ""
 
-        table.insert(settingsChildren, UI.Panel {
+        table.insert(children, UI.Panel {
             width = "100%", marginBottom = 10,
             children = {
                 UI.Label {
@@ -1202,7 +1201,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
                 backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
                 onClick = function() nudgeAndRefresh("narrow") end })
         end
-        table.insert(settingsChildren, UI.Panel {
+        table.insert(children, UI.Panel {
             width = "100%", marginBottom = 10,
             children = {
                 UI.Label {
@@ -1232,17 +1231,18 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         })
     end
 
-    -- 板凳球员列表（底部独立滚动区）
+    -- 板凳球员列表
     if #benchCandidates > 0 then
-        table.insert(playerChildren, UI.Label {
+        table.insert(children, UI.Label {
             text = "替补球员", fontSize = 12, fontWeight = "bold",
             color = Theme.COLORS.TEXT_SECONDARY, marginTop = 6, marginBottom = 4,
         })
-        for i = 1, #benchCandidates do
+        local maxBench = math.min(8, #benchCandidates)
+        for i = 1, maxBench do
             local c = benchCandidates[i]
             local p = c.player
             local scoreColor = c.score >= 80 and Theme.COLORS.SECONDARY or (c.score >= 60 and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED)
-            table.insert(playerChildren, UI.Button {
+            table.insert(children, UI.Button {
                 text = string.format("%s  %s  能力%d  适配%d",
                     Constants.POSITION_NAMES[p.position] or p.position,
                     p.displayName, p.overall, math.floor(c.score)),
@@ -1261,17 +1261,18 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         end
     end
 
-    -- 位置互换（底部独立滚动区）
+    -- 位置互换
     if #swapCandidates > 0 then
-        table.insert(playerChildren, UI.Label {
+        table.insert(children, UI.Label {
             text = "位置互换（与其他首发交换）", fontSize = 12, fontWeight = "bold",
             color = Theme.COLORS.TEXT_SECONDARY, marginTop = 10, marginBottom = 4,
         })
-        for i = 1, #swapCandidates do
+        local maxSwap = math.min(5, #swapCandidates)
+        for i = 1, maxSwap do
             local c = swapCandidates[i]
             local p = c.player
             local otherSlotPos = slots[c.index] or "?"
-            table.insert(playerChildren, UI.Button {
+            table.insert(children, UI.Button {
                 text = string.format("↔ %s (%s #%d, 能力%d)",
                     p.displayName,
                     Constants.POSITION_NAMES[otherSlotPos] or otherSlotPos,
@@ -1293,68 +1294,50 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         end
     end
 
+    -- 关闭按钮放入滚动内容内，避免固定底栏遮挡/拦截列表滑动手势。
+    table.insert(children, UI.Button {
+        text = "关闭",
+        width = "100%", height = 44,
+        backgroundColor = Theme.COLORS.TRANSPARENT,
+        borderRadius = 8,
+        borderWidth = 1,
+        borderColor = Theme.COLORS.BORDER,
+        fontSize = 14,
+        color = Theme.COLORS.TEXT_MUTED,
+        marginTop = 10,
+        marginBottom = 8,
+        onClick = function()
+            BottomSheet.close()
+        end,
+    })
+
+    -- 弹窗固定占屏幕 85% 高度，内容区可滚动；contentHeight 供 ScrollView 准确计算可滚范围
     local maxH = math.floor(graphics:GetHeight() / graphics:GetDPR() * 0.85)
-    local settingsContentH = 72
+    local contentHeight = 62  -- 位置信息 + 形态摘要
     if slotPos ~= "GK" then
-        settingsContentH = settingsContentH + 160
+        contentHeight = contentHeight + 130  -- 位置选择
     end
     if posRoles and #posRoles > 1 then
-        settingsContentH = settingsContentH + 110
+        contentHeight = contentHeight + 96  -- 球员角色
     end
     if slotPos ~= "GK" then
-        settingsContentH = settingsContentH + 130
+        contentHeight = contentHeight + 120  -- 站位微调
     end
-
-    local playerContentH = 0
     if #benchCandidates > 0 then
-        playerContentH = playerContentH + 26 + #benchCandidates * 38
+        contentHeight = contentHeight + 26 + math.min(8, #benchCandidates) * 38
     end
     if #swapCandidates > 0 then
-        playerContentH = playerContentH + 26 + #swapCandidates * 38
+        contentHeight = contentHeight + 26 + math.min(5, #swapCandidates) * 38
     end
-    playerContentH = playerContentH + 8
+    contentHeight = contentHeight + 62  -- 滚动内容里的关闭按钮
 
-    local chromeH = 32 + 36 + 54  -- padding + title + close
-    local remaining = maxH - chromeH
-    local settingsScrollH = math.min(settingsContentH, math.max(120, math.floor(remaining * 0.45)))
-    local playerScrollH = math.max(140, remaining - settingsScrollH)
-
-    local sheetOpts = {
+    BottomSheet.showCustom({
         title = "更换球员 — " .. posLabel,
         height = maxH,
-        contentHeight = settingsContentH,
-        showCancel = true,
-        children = settingsChildren,
-    }
-
-    if playerContentH > 0 then
-        sheetOpts.footerHeight = playerScrollH
-        sheetOpts.footer = UI.Panel {
-            width = "100%",
-            overflow = "hidden",
-            borderTopWidth = 1,
-            borderColor = Theme.COLORS.BORDER,
-            paddingTop = 8,
-            children = {
-                UI.ScrollView {
-                    width = "100%",
-                    height = playerScrollH - 8,
-                    scrollY = true,
-                    showScrollbar = true,
-                    bounceEnabled = false,
-                    children = {
-                        UI.Panel {
-                            width = "100%",
-                            height = playerContentH,
-                            children = playerChildren,
-                        },
-                    },
-                },
-            },
-        }
-    end
-
-    BottomSheet.showCustom(sheetOpts)
+        contentHeight = contentHeight,
+        showCancel = false,
+        children = children,
+    })
 end
 
 ---------------------------------------------------------------------------
