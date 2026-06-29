@@ -170,7 +170,6 @@ end
 ---   footer?: Widget - 固定在底部的 widget（如提交按钮），不参与滚动
 ---   showCancel?: boolean - 是否显示取消按钮（默认 true）
 ---   height?: number - 自定义高度（默认 400）
----   noScroll?: boolean - 不创建 ScrollView，内容直接平铺
 ---   contentHeight?: number - 滚动内容区精确高度（复杂布局时避免 ScrollView 测高不准）
 ---   onClose?: function - 关闭回调
 function BottomSheet.showCustom(opts)
@@ -216,42 +215,29 @@ function BottomSheet.showCustom(opts)
         })
     end
 
-    if opts.noScroll then
-        table.insert(contentItems, UI.Panel {
-            width = "100%",
-            height = scrollH,
-            children = {
-                UI.Panel {
-                    width = "100%",
-                    children = children,
-                },
-            },
-        })
-    else
-        -- 自定义内容区域（可滚动）
-        -- 使用明确像素高度，避免 flex 在 Drawer 内解析不准导致滚不到底
-        table.insert(contentItems, UI.ScrollView {
-            width = "100%",
-            height = scrollH,
-            maxHeight = scrollH,
-            flexShrink = 1,
-            scrollY = true,
-            overflow = "scroll",
-            showScrollbar = true,
-            bounceEnabled = false,
-            padding = 0,
-            children = {
-                -- 用单一 Panel 包裹所有子元素，确保 ScrollView 内容高度计算准确
-                (function()
-                    local wrap = { width = "100%", children = children }
-                    if opts.contentHeight then
-                        wrap.height = opts.contentHeight
-                    end
-                    return UI.Panel(wrap)
-                end)(),
-            },
-        })
-    end
+    -- 自定义内容区域（可滚动）
+    -- 使用明确像素高度，避免 flex 在 Drawer 内解析不准导致滚不到底
+    table.insert(contentItems, UI.ScrollView {
+        width = "100%",
+        height = scrollH,
+        maxHeight = scrollH,
+        flexShrink = 1,
+        scrollY = true,
+        overflow = "scroll",
+        showScrollbar = true,
+        bounceEnabled = false,
+        padding = 0,
+        children = {
+            -- 用单一 Panel 包裹所有子元素，确保 ScrollView 内容高度计算准确
+            (function()
+                local wrap = { width = "100%", children = children }
+                if opts.contentHeight then
+                    wrap.height = opts.contentHeight
+                end
+                return UI.Panel(wrap)
+            end)(),
+        },
+    })
 
     -- footer（固定在底部，不参与滚动）
     if footer then
