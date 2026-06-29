@@ -629,15 +629,14 @@ function AIManager._tryGenerateYouthForTarget(gameState, team, needGroup, minOvr
     local Nationality = require("scripts/domain/nationality")
     local Player = require("scripts/domain/player")
 
-    local youthDevBonus, facilityYouthBonus =
-        YouthManager._getTeamYouthGenBonuses(gameState, team.id)
+    local facilityYouthBonus = YouthManager._getTeamYouthFacilityBonus(gameState, team.id)
     local usedNames = {}
 
     local candidate = nil
     local fallback = nil
     for _ = 1, 16 do
         local roll = YouthManager._generateYouthPlayer(
-            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
+            gameState, facilityYouthBonus, usedNames, team.country)
         if not fallback or (roll.overall or 0) > (fallback.overall or 0) then
             fallback = roll
         end
@@ -769,15 +768,14 @@ function AIManager._tryGenerateYouthForMinimum(gameState, team, needGroup)
     local Nationality = require("scripts/domain/nationality")
     local Player = require("scripts/domain/player")
 
-    local youthDevBonus, facilityYouthBonus =
-        YouthManager._getTeamYouthGenBonuses(gameState, team.id)
+    local facilityYouthBonus = YouthManager._getTeamYouthFacilityBonus(gameState, team.id)
     local usedNames = {}
 
     local candidate = nil
     local fallback = nil
     for _ = 1, 12 do
         local roll = YouthManager._generateYouthPlayer(
-            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
+            gameState, facilityYouthBonus, usedNames, team.country)
         if not fallback or (roll.overall or 0) > (fallback.overall or 0) then
             fallback = roll
         end

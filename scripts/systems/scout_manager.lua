@@ -121,11 +121,7 @@ function ScoutManager.getAccuracy(gameState)
     end
 
     local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
-    local facilityBonus = 1.0
-    if team.finance and team.finance.facilities then
-        local scoutFacility = team.finance.facilities.scouting or 0
-        facilityBonus = 1.0 + scoutFacility * 0.05
-    end
+    local facilityBonus = FinanceManager.getFacilityBonuses(team).scoutingAccuracy
 
     return math.min(0.97, (0.50 + bestAbility * 0.02 + scoutBonus) * facilityBonus)
 end

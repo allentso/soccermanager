@@ -6,6 +6,7 @@ local EventBus = require("scripts/app/event_bus")
 local FinanceManager = require("scripts/systems/finance_manager")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
 local PositionTrainingManager = require("scripts/systems/position_training_manager")
+local StaffManager = require("scripts/systems/staff_manager")
 
 local TrainingManager = {}
 
@@ -177,6 +178,7 @@ function TrainingManager._processTeamDaily(gameState, team, opts)
     local intensityConfig = intensityTable[intensity] or intensityTable.medium
     local staffBonus = TrainingManager._calcStaffBonus(gameState, team)
     local facilityBonus = FinanceManager.getFacilityBonuses(team).trainingGain
+    local injuryRiskMult = StaffManager.getTrainingInjuryRiskMultiplier(gameState, team.id)
 
     local legendPositions = {}
     for _, pid in ipairs(team.playerIds or {}) do
@@ -191,7 +193,13 @@ function TrainingManager._processTeamDaily(gameState, team, opts)
         if p and not p.injured then
             TrainingManager._trainPlayer(
                 gameState, team, p, intensityConfig,
-                staffBonus * facilityBonus, legendPositions, opts)
+                staffBonus * facilityBonus, legendPositions, {
+                    notifyInjury = opts.notifyInjury,
+                    aiFastPath = opts.aiFastPath,
+                    trainingMods = trainingMods,
+                    seasonStartYear = seasonStartYear,
+                    injuryRisk = injuryRiskMult,
+                })
             if not opts.aiFastPath then
                 PositionTrainingManager.processDrillDay(p)
             end
@@ -223,6 +231,7 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     local baseChance = trainingMods.baseChance
     baseChance = baseChance * intensityConfig.growthMultiplier
     baseChance = baseChance * staffBonus
+    baseChance = baseChance * (opts.gkTrainingMult or 1.0)
 
     local seasonStartYear = opts.seasonStartYear or TrainingManager.getSeasonStartYear(gameState)
     local age = player:getAge(gameState.date.year)
@@ -274,7 +283,7 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     local fitnessLoss = randInt(0, intensityConfig.fitnessLoss)
     player.fitness = DifficultySettings.clampFitness(player.fitness - fitnessLoss)
 
-    if Random() < intensityConfig.injuryChance then
+    if Random() < intensityConfig.injuryChance * (opts.injuryRisk or 1.0) then
         local extraChance = player.fitness < 60 and 0.02 or 0
         if Random() < (0.5 + extraChance) then
             local EventFlavors = _getEventFlavors()
@@ -307,20 +316,8 @@ function TrainingManager._restDay(gameState, team)
 end
 
 function TrainingManager._calcStaffBonus(gameState, team)
-    local bonus = 0.85
-    for _, sid in ipairs(team.staffIds or {}) do
-        local s = gameState.staff[sid]
-        if s then
-            if s.role == "coach" then
-                local coaching = s.attributes and s.attributes.coaching or 10
-                bonus = bonus + coaching * 0.025
-            elseif s.role == "assistant" then
-                local coaching = s.attributes and s.attributes.coaching or 8
-                bonus = bonus + coaching * 0.015
-            end
-        end
-    end
-    return math.min(1.35, bonus)
+    -- 与 StaffManager.getTrainingBonus 对齐：训练职员贡献 0~30% 成长倍率
+    return 1.0 + StaffManager.getTrainingBonus(gameState, team.id)
 end
 
 function TrainingManager.setTeamFocus(gameState, focus)

@@ -458,6 +458,32 @@ function Finance._buildWages(team, gameState)
         if s then totalStaffWage = totalStaffWage + (s.wage or 0) end
     end
 
+    local staffWageRows = {}
+    for _, sid in ipairs(team.staffIds or {}) do
+        local s = gameState.staff[sid]
+        if s then
+            table.insert(staffWageRows, UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center",
+                marginTop = 4,
+                children = {
+                    UI.Label {
+                        text = (Constants.STAFF_ROLE_NAMES[s.role] or s.role) .. " · " .. s.displayName,
+                        fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1,
+                    },
+                    UI.Label {
+                        text = Finance._formatMoney(s.wage or 0) .. "/周",
+                        fontSize = 11, color = Theme.COLORS.ACCENT,
+                    },
+                },
+            })
+        end
+    end
+    if #staffWageRows == 0 then
+        table.insert(staffWageRows, UI.Label {
+            text = "暂无职员", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+        })
+    end
+
     -- Top 5 薪资
     table.sort(playerWages, function(a, b) return a.wage > b.wage end)
     for i = 1, math.min(5, #playerWages) do
@@ -586,6 +612,13 @@ function Finance._buildWages(team, gameState)
                         width = "100%",
                         children = top5Rows,
                     },
+                }
+            },
+
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "职员薪资明细" },
+                    UI.Panel { width = "100%", children = staffWageRows },
                 }
             },
 

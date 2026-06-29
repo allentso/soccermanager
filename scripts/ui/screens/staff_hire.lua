@@ -35,20 +35,20 @@ local function getRelevantAttrs(staff)
 
     if staff.role == "assistant" then
         table.insert(items, {label = "训练", value = attrs.training or 0})
-        table.insert(items, {label = "激励", value = attrs.motivation or 0})
         table.insert(items, {label = "战术", value = attrs.tactical or 0})
+        table.insert(items, {label = "青训", value = attrs.youthDev or 0})
     elseif staff.role == "coach" then
         table.insert(items, {label = "训练", value = attrs.training or 0})
-        table.insert(items, {label = "激励", value = attrs.motivation or 0})
         table.insert(items, {label = "青训", value = attrs.youthDev or 0})
+        table.insert(items, {label = "战术", value = attrs.tactical or 0})
     elseif staff.role == "scout" then
         table.insert(items, {label = "球探", value = attrs.scouting or 0})
         table.insert(items, {label = "战术", value = attrs.tactical or 0})
-        table.insert(items, {label = "激励", value = attrs.motivation or 0})
+        table.insert(items, {label = "青训", value = attrs.youthDev or 0})
     elseif staff.role == "physio" then
         table.insert(items, {label = "理疗", value = attrs.physiotherapy or 0})
         table.insert(items, {label = "青训", value = attrs.youthDev or 0})
-        table.insert(items, {label = "激励", value = attrs.motivation or 0})
+        table.insert(items, {label = "训练", value = attrs.training or 0})
     else
         table.insert(items, {label = "训练", value = attrs.training or 0})
         table.insert(items, {label = "球探", value = attrs.scouting or 0})
@@ -61,25 +61,49 @@ end
 local function avgAttr(staff)
     local attrs = staff.attributes or {}
     local sum = (attrs.training or 0) + (attrs.scouting or 0)
-        + (attrs.physiotherapy or 0) + (attrs.motivation or 0)
-        + (attrs.youthDev or 0) + (attrs.tactical or 0)
-    return sum / 6
+        + (attrs.physiotherapy or 0) + (attrs.youthDev or 0) + (attrs.tactical or 0)
+    return sum / 5
 end
 
 ------------------------------------------------------
 -- 签约确认
 ------------------------------------------------------
+local function formatDelta(delta, suffix, isPct)
+    if not delta or math.abs(delta) < 0.001 then return "—" end
+    local sign = delta > 0 and "+" or ""
+    if isPct then
+        return sign .. string.format("%.0f%%", delta * 100) .. (suffix or "")
+    end
+    return sign .. tostring(math.floor(delta * 100 + 0.5) / 100) .. (suffix or "")
+end
+
 local function confirmHire(staff, gameState, team)
     local fee = staff.wage * 4
+    local delta = StaffManager.previewHireDelta(gameState, team.id, staff)
+    local wageTotal = FinanceManager.getWeeklyWageTotal(gameState, team.id)
+    local wageBudget = team.wageBudget or 0
+    local newWageTotal = wageTotal + staff.wage
+    local balanceAfter = (team.balance or 0) - fee
+
+    local details = {
+        { label = "职位", value = Constants.STAFF_ROLE_NAMES[staff.role] or staff.role },
+        { label = "周薪", value = FinanceManager.formatMoney(staff.wage) },
+        { label = "签约费", value = FinanceManager.formatMoney(fee), valueColor = Theme.COLORS.WARNING },
+        { label = "签约后余额", value = FinanceManager.formatMoney(balanceAfter) },
+        { label = "周薪预算", value = string.format("%s / %s",
+            FinanceManager.formatMoney(newWageTotal), FinanceManager.formatMoney(wageBudget)) },
+    }
+
+    if delta then
+        table.insert(details, { label = "训练成长", value = formatDelta(delta.trainingDelta, "", true) })
+        table.insert(details, { label = "球探准确度", value = formatDelta(delta.scoutingDelta, "", true) })
+        table.insert(details, { label = "伤病恢复", value = formatDelta(delta.injuryDelta, "天/日", false) })
+        table.insert(details, { label = "青训训练", value = formatDelta(delta.youthDelta, "", true) })
+    end
 
     ConfirmDialog.showWithDetails({
         title = "签约 - " .. staff.displayName,
-        details = {
-            { label = "职位", value = Constants.STAFF_ROLE_NAMES[staff.role] or staff.role },
-            { label = "周薪", value = FinanceManager.formatMoney(staff.wage) },
-            { label = "签约费", value = FinanceManager.formatMoney(fee), valueColor = Theme.COLORS.WARNING },
-            { label = "当前余额", value = FinanceManager.formatMoney(team.balance or 0) },
-        },
+        details = details,
         confirmText = "确认签约",
         confirmColor = Theme.COLORS.SECONDARY,
         onConfirm = function()
@@ -148,7 +172,10 @@ function StaffHire.create(params)
             width = "100%", height = 120,
             alignItems = "center", justifyContent = "center",
             children = {
-                UI.Label { text = "暂无可签约的职员", fontSize = 14, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label {
+                    text = "暂无可签约的职员\n市场每月1日补充，解约职员也会回流",
+                    fontSize = 13, color = Theme.COLORS.TEXT_MUTED, textAlign = "center",
+                },
             }
         })
     else
@@ -156,11 +183,19 @@ function StaffHire.create(params)
             local roleName = Constants.STAFF_ROLE_NAMES[s.role] or s.role
             local roleColor = ROLE_COLORS[s.role] or Theme.COLORS.TEXT_SECONDARY
             local fee = s.wage * 4
+            local preview = StaffManager.previewHireDelta(gameState, team.id, s)
 
             local attrItems = getRelevantAttrs(s)
             local attrText = {}
             for _, a in ipairs(attrItems) do
                 table.insert(attrText, a.label .. a.value)
+            end
+
+            local deltaText = ""
+            if preview and preview.trainingDelta and preview.trainingDelta > 0.005 then
+                deltaText = string.format(" · 训练+%.0f%%", preview.trainingDelta * 100)
+            elseif preview and preview.scoutingDelta and preview.scoutingDelta > 0.005 then
+                deltaText = string.format(" · 球探+%.0f%%", preview.scoutingDelta * 100)
             end
 
             table.insert(listChildren, UI.Panel {
@@ -207,11 +242,10 @@ function StaffHire.create(params)
                     },
                     -- 第二行：属性
                     UI.Label {
-                        text = table.concat(attrText, " | "),
+                        text = table.concat(attrText, " | ") .. deltaText,
                         fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY,
                         marginTop = 4,
                     },
-                    -- 第三行：薪资
                     UI.Label {
                         text = string.format("周薪 %s · 签约费 %s",
                             FinanceManager.formatMoney(s.wage), FinanceManager.formatMoney(fee)),

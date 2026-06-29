@@ -27,7 +27,6 @@ local ATTR_LABELS = {
     scouting = "球探",
     physiotherapy = "理疗",
     youthDev = "青训",
-    motivation = "激励",
 }
 
 ------------------------------------------------------
@@ -42,19 +41,18 @@ function StaffPage.create(params)
 
     -- 获取球队职员
     local staffDetails = StaffManager.getTeamStaffDetails(gameState, team.id)
-    local bonuses = StaffManager.getTeamBonuses(gameState, team.id)
+    local effects = StaffManager.getTeamEffectSnapshot(gameState, team.id)
+    local hints = StaffManager.getRoleMixHints(gameState, team.id)
 
-    -- 总加成栏
-    local bonusSummary = StaffPage._buildBonusSummary(bonuses)
+    local bonusSummary = StaffPage._buildBonusSummary(effects, hints)
 
-    -- 职员卡片列表
     local staffCards = {}
     for _, detail in ipairs(staffDetails) do
         table.insert(staffCards, StaffPage._buildStaffCard(detail.staff, detail.contribution, gameState))
     end
 
     -- 空位提示
-    local maxStaff = 6
+    local maxStaff = StaffManager.MAX_STAFF_PER_TEAM
     local currentCount = #staffDetails
     if currentCount < maxStaff then
         table.insert(staffCards, UI.Button {
@@ -125,7 +123,16 @@ end
 ------------------------------------------------------
 -- 加成概览栏
 ------------------------------------------------------
-function StaffPage._buildBonusSummary(bonuses)
+function StaffPage._buildBonusSummary(effects, hints)
+    local hintChildren = {}
+    for _, hint in ipairs(hints or {}) do
+        table.insert(hintChildren, UI.Label {
+            text = "· " .. hint,
+            fontSize = 10, color = Theme.COLORS.WARNING,
+            marginBottom = 2,
+        })
+    end
+
     return UI.Panel {
         width = "100%",
         paddingLeft = 12, paddingRight = 12,
@@ -135,40 +142,34 @@ function StaffPage._buildBonusSummary(bonuses)
         borderColor = Theme.COLORS.BORDER,
         children = {
             UI.Label {
-                text = "团队加成",
+                text = "团队效果",
                 fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
                 marginBottom = 4,
             },
             UI.Panel {
                 width = "100%",
-                flexDirection = "row",
                 flexWrap = "wrap",
                 children = {
-                    StaffPage._bonusPill("训练", bonuses.training, 30),
-                    StaffPage._bonusPill("球探", bonuses.scouting, 10),
-                    StaffPage._bonusPill("康复", bonuses.physio, 10),
-                    StaffPage._bonusPill("青训", bonuses.youthDev, 9),
-                    StaffPage._bonusPill("激励", bonuses.motivation, 12),
+                    StaffPage._effectPill(effects.trainingLabel),
+                    StaffPage._effectPill(effects.scoutingLabel),
+                    StaffPage._effectPill(effects.injuryLabel),
+                    StaffPage._effectPill(effects.youthLabel),
+                    StaffPage._effectPill(effects.tacticalLabel),
                 },
             },
+            #hintChildren > 0 and UI.Panel {
+                width = "100%", marginTop = 6,
+                children = hintChildren,
+            } or UI.Panel { width = 0, height = 0 },
         }
     }
 end
 
-function StaffPage._bonusPill(label, value, maxVal)
-    local pct = math.min(100, math.floor(value / math.max(1, maxVal) * 100))
-    local color = Theme.COLORS.TEXT_MUTED
-    if pct >= 70 then color = Theme.COLORS.SECONDARY
-    elseif pct >= 40 then color = Theme.COLORS.ACCENT
-    end
-
-    return UI.Panel {
-        flexDirection = "row", alignItems = "center",
-        marginRight = 12, marginBottom = 4,
-        children = {
-            UI.Label { text = label, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginRight = 4 },
-            UI.Label { text = string.format("+%d", math.floor(value)), fontSize = 12, color = color, fontWeight = "bold" },
-        }
+function StaffPage._effectPill(text)
+    return UI.Label {
+        text = text,
+        fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY,
+        marginRight = 10, marginBottom = 4,
     }
 end
 
@@ -271,20 +272,20 @@ function StaffPage._getRelevantAttrs(staff)
 
     if staff.role == "assistant" then
         table.insert(items, {label = "训练", value = attrs.training or 0})
-        table.insert(items, {label = "激励", value = attrs.motivation or 0})
         table.insert(items, {label = "战术", value = attrs.tactical or 0})
+        table.insert(items, {label = "青训", value = attrs.youthDev or 0})
     elseif staff.role == "coach" then
         table.insert(items, {label = "训练", value = attrs.training or 0})
-        table.insert(items, {label = "激励", value = attrs.motivation or 0})
         table.insert(items, {label = "青训", value = attrs.youthDev or 0})
+        table.insert(items, {label = "战术", value = attrs.tactical or 0})
     elseif staff.role == "scout" then
         table.insert(items, {label = "球探", value = attrs.scouting or 0})
         table.insert(items, {label = "战术", value = attrs.tactical or 0})
-        table.insert(items, {label = "激励", value = attrs.motivation or 0})
+        table.insert(items, {label = "青训", value = attrs.youthDev or 0})
     elseif staff.role == "physio" then
         table.insert(items, {label = "理疗", value = attrs.physiotherapy or 0})
         table.insert(items, {label = "青训", value = attrs.youthDev or 0})
-        table.insert(items, {label = "激励", value = attrs.motivation or 0})
+        table.insert(items, {label = "训练", value = attrs.training or 0})
     else
         table.insert(items, {label = "训练", value = attrs.training or 0})
         table.insert(items, {label = "球探", value = attrs.scouting or 0})
@@ -298,6 +299,8 @@ end
 ------------------------------------------------------
 function StaffPage._confirmFire(staff, gameState)
     local compensation = staff.wage * 4
+    local team = gameState:getPlayerTeam()
+    local balanceAfter = (team and team.balance or 0) - compensation
 
     ConfirmDialog.showWithDetails({
         title = "解约 - " .. staff.displayName,
@@ -305,6 +308,8 @@ function StaffPage._confirmFire(staff, gameState)
             { label = "职位", value = Constants.STAFF_ROLE_NAMES[staff.role] or staff.role },
             { label = "当前周薪", value = FinanceManager.formatMoney(staff.wage) },
             { label = "解约补偿", value = FinanceManager.formatMoney(compensation), valueColor = Theme.COLORS.DANGER },
+            { label = "解约后余额", value = FinanceManager.formatMoney(balanceAfter),
+              valueColor = balanceAfter < 0 and Theme.COLORS.DANGER or Theme.COLORS.TEXT_PRIMARY },
         },
         confirmText = "确认解约",
         danger = true,

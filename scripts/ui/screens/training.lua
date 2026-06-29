@@ -8,6 +8,7 @@ local Constants = require("scripts/app/constants")
 local TrainingManager = require("scripts/systems/training_manager")
 local PositionFit = require("scripts/domain/position_fit")
 local PositionTrainingManager = require("scripts/systems/position_training_manager")
+local StaffManager = require("scripts/systems/staff_manager")
 
 local Training = {}
 
@@ -132,6 +133,20 @@ function Training.create(params)
 
             -- 二级导航
             Theme.SquadSubNav("training"),
+
+            UI.Panel {
+                width = "100%",
+                paddingLeft = 12, paddingRight = 12,
+                paddingTop = 6, paddingBottom = 4,
+                backgroundColor = Theme.COLORS.BG_CARD,
+                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                children = {
+                    UI.Label {
+                        text = StaffManager.getStaffChipText(gameState, team.id, "training"),
+                        fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY,
+                    },
+                },
+            },
 
             -- 训练标签
             UI.Panel {

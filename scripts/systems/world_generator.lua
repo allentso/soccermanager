@@ -383,7 +383,6 @@ local function generateStaff(gameState, teamId, country)
         Constants.STAFF_ROLES.SCOUT,
         Constants.STAFF_ROLES.PHYSIO
     }
-    local specialties = {"fitness", "technical", "tactical", "defense", "attack", "goalkeeper", "youth"}
     local team = gameState.teams[teamId]
 
     for _, role in ipairs(roles) do
@@ -403,9 +402,7 @@ local function generateStaff(gameState, teamId, country)
                 scouting = randInt(8, 16),
                 physiotherapy = randInt(8, 16),
                 youthDev = randInt(8, 16),
-                motivation = randInt(8, 16),
             },
-            specialty = pick(specialties),
         })
         team.staffIds[#team.staffIds + 1] = s.id
     end
@@ -474,32 +471,6 @@ function WorldGenerator.generate(gameState, opts)
                 WorldGenerator.generateAIManager(gameState, teamId, team.country)
             end
         end
-    end
-
-    -- 生成自由职员
-    for i = 1, Constants.FREE_STAFF_COUNT do
-        local countries = {"ENG", "ES", "DE", "FR", "IT", "PT", "NL", "BE"}
-        local country = pick(countries)
-        local first, last = getRandomName(country)
-        local roles = {Constants.STAFF_ROLES.COACH, Constants.STAFF_ROLES.SCOUT, Constants.STAFF_ROLES.PHYSIO}
-        gameState:addStaff({
-            firstName = first,
-            lastName = last,
-            displayName = first .. " " .. last,
-            nationality = country,
-            birthYear = randInt(1965, 1990),
-            role = pick(roles),
-            teamId = nil,
-            wage = randInt(2000, 6000),
-            attributes = {
-                training = randInt(6, 14),
-                tactical = randInt(6, 14),
-                scouting = randInt(6, 14),
-                physiotherapy = randInt(6, 14),
-                youthDev = randInt(6, 14),
-                motivation = randInt(6, 14),
-            },
-        })
     end
 
     -- 加载传奇自由球员（非五大联赛的知名球员）

@@ -7,6 +7,7 @@ local NewsGenerator = require("scripts/systems/news_generator")
 
 local DifficultySettings = require("scripts/systems/difficulty_settings")
 local Nationality = require("scripts/domain/nationality")
+local StaffManager = require("scripts/systems/staff_manager")
 
 local TransferManager = {}
 require("scripts/systems/transfers/transfer_completion")(TransferManager)
@@ -1545,7 +1546,7 @@ function TransferManager.processScoutReport(gameState)
     for _, sid in ipairs(team.staffIds) do
         local s = gameState.staff[sid]
         if s and s.role == "scout" then
-            scoutAbility = scoutAbility + (s.ability or 10)
+            scoutAbility = scoutAbility + (s.attributes and s.attributes.scouting or 10)
             scoutCount = scoutCount + 1
         end
     end
@@ -1568,6 +1569,11 @@ function TransferManager.processScoutReport(gameState)
     gameState.scoutDiscoveries = gameState.scoutDiscoveries or {}
 
     local actualDiscovered = 0
+    local avgScouting = math.floor(scoutAbility / scoutCount)
+    local scoutBonus = StaffManager.getScoutingBonus(gameState, team.id)
+    local accuracy = math.min(0.97, 0.50 + avgScouting * 0.02 + scoutBonus)
+    local error_range = math.max(1, math.floor((1.0 - accuracy) * 20))
+
     for _ = 1, discoverCount do
         local idx = randInt(1, #allPlayers)
         local player = allPlayers[idx]
@@ -1589,9 +1595,7 @@ function TransferManager.processScoutReport(gameState)
         end
 
         if not already then
-            -- 球探评估潜力（有一定误差，基于局内实际潜力）
-            local avgAbility = math.floor(scoutAbility / scoutCount)
-            local error_range = math.max(1, 15 - avgAbility)
+            -- 球探评估潜力（误差与球探准确度挂钩）
             local scoutedPotential = (player.actualPotential or player.potential) + randInt(-error_range, error_range)
             scoutedPotential = math.max(30, math.min(99, scoutedPotential))
 

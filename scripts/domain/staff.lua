@@ -19,16 +19,14 @@ function Staff.new(data)
     self.wage = data.wage or 5000
 
     -- 属性 (1-20)
-    self.attributes = data.attributes or {}
-    self.attributes.training = self.attributes.training or 10
-    self.attributes.tactical = self.attributes.tactical or 10
-    self.attributes.scouting = self.attributes.scouting or 10
-    self.attributes.physiotherapy = self.attributes.physiotherapy or 10
-    self.attributes.youthDev = self.attributes.youthDev or 10
-    self.attributes.motivation = self.attributes.motivation or 10
-
-    -- 专长
-    self.specialty = data.specialty or nil  -- "fitness","technical","tactical","defense","attack","goalkeeper","youth"
+    local attrs = data.attributes or {}
+    self.attributes = {
+        training = attrs.training or 10,
+        tactical = attrs.tactical or 10,
+        scouting = attrs.scouting or 10,
+        physiotherapy = attrs.physiotherapy or 10,
+        youthDev = attrs.youthDev or 10,
+    }
 
     return self
 end
@@ -49,7 +47,6 @@ function Staff:serialize()
         teamId = self.teamId,
         wage = self.wage,
         attributes = self.attributes,
-        specialty = self.specialty,
     }
 end
 

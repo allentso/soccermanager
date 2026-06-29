@@ -310,6 +310,7 @@ function GameState:serialize()
         -- 青训系统状态
         _youthCandidates = self._youthCandidates,
         _youthRefreshCounter = self._youthRefreshCounter,
+        _freeStaffIds = self._freeStaffIds,
         -- 传奇抽卡状态
         _legendGacha = self._legendGacha,
         -- 转生记录（防重复）
@@ -407,6 +408,7 @@ function GameState:deserialize(data)
     -- 青训系统状态
     self._youthCandidates = data._youthCandidates or {}
     self._youthRefreshCounter = data._youthRefreshCounter or 0
+    self._freeStaffIds = data._freeStaffIds or {}
     -- 传奇抽卡状态
     self._legendGacha = data._legendGacha or nil
     -- 转生记录
@@ -704,6 +706,10 @@ function GameState:deserialize(data)
     -- 旧存档：死敌关系未初始化时补全
     local TeamRivalries = require("scripts/data/team_rivalries")
     TeamRivalries.initializeIfNeeded(self)
+
+    -- 自由职员池：读档恢复或吸纳孤儿职员
+    local StaffManager = require("scripts/systems/staff_manager")
+    StaffManager.ensureFreePoolOnLoad(self)
 
     self:normalizePlayerDynamicState()
     self:normalizeRuntimeScalars()

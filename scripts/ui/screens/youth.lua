@@ -176,6 +176,19 @@ function Youth.create(params)
             }
         },
         Theme.SquadSubNav("youth"),
+        playerTeam and UI.Panel {
+            width = "100%",
+            paddingLeft = 12, paddingRight = 12,
+            paddingTop = 6, paddingBottom = 4,
+            backgroundColor = Theme.COLORS.BG_CARD,
+            borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+            children = {
+                UI.Label {
+                    text = StaffManager.getStaffChipText(gameState, playerTeam.id, "youth"),
+                    fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY,
+                },
+            },
+        } or UI.Panel { width = 0, height = 0 },
         -- 三级子目录：招募 / 传奇 / 自建 / 青训球员
         Youth._buildTabBar(#candidates, orphanCount, #customYouthSquad, #regularYouthSquad),
         UI.Panel {

@@ -442,6 +442,12 @@ function TacticsResolver.buildTeamContext(gameState, team)
         end
     end
 
+    local StaffManager = require("scripts/systems/staff_manager")
+    local staffProficiency = StaffManager.getTacticalProficiency(gameState, team.id)
+    local adjAttack = finalAttack * (1.0 + staffProficiency)
+    local adjDefense = finalDefense * (1.0 + staffProficiency * 0.6)
+    local adjPossession = finalPossession * (1.0 + staffProficiency * 0.4)
+
     return {
         team = team,
         players = players,
@@ -452,11 +458,12 @@ function TacticsResolver.buildTeamContext(gameState, team)
         avgFitness = avgFitness,
         avgMorale = morale / playerCount,
         avgStamina = stamina / playerCount,
-        attack = finalAttack,
-        defense = finalDefense,
-        possession = finalPossession,
+        attack = adjAttack,
+        defense = adjDefense,
+        possession = adjPossession,
+        tacticalProficiency = staffProficiency,
         -- averageOverall: 综合战力评分，供 match_engine 使用（取代硬编码 70）
-        averageOverall = (finalAttack + finalDefense + finalPossession) / 3,
+        averageOverall = (adjAttack + adjDefense + adjPossession) / 3,
         -- avgPlayerOverall: 首发球员 OVR 均值（与属性权重解耦的实力锚点）
         avgPlayerOverall = ovrSum / playerCount,
         tempo = finalTempo,

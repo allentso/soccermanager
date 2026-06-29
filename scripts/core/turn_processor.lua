@@ -1313,6 +1313,7 @@ function TurnProcessor._processPeriodicEvents(gameState)
         StaffManager.refreshFreePool(gameState)
         -- B3: AI球队月度管理（阵型/薪资评估）
         AIManager.processMonthly(gameState)
+        StaffManager.processAIMonthly(gameState)
         -- 目标系统：月度目标评估与刷新
         ObjectivesManager.onMonthEnd(gameState)
         -- 月度存档/内存重清理：球员池、青训引用、赛果明细、历史流水等。
@@ -1380,9 +1381,12 @@ function TurnProcessor.processInjuryRecovery(gameState)
         if p.injured and p.injuryDays > 0 then
             local team = p.teamId and gameState.teams[p.teamId]
             local recovery = 1
-            if team and p.teamId == gameState.playerTeamId then
+            if team then
                 local bonuses = FinanceManager.getFacilityBonuses(team)
-                recovery = bonuses.injuryRecovery >= 1.25 and 2 or 1
+                if bonuses.injuryRecovery >= 1.25 then
+                    recovery = 2
+                end
+                recovery = recovery + StaffManager.getInjuryRecoveryBonus(gameState, p.teamId)
             end
             p.injuryDays = p.injuryDays - recovery
             if p.injuryDays <= 0 then
