@@ -173,6 +173,7 @@ function TrainingManager._processTeamDaily(gameState, team, opts)
     end
 
     local trainingMods = opts.trainingMods or DifficultySettings.getTrainingModifiers()
+    local seasonStartYear = opts.seasonStartYear or TrainingManager.getSeasonStartYear(gameState)
     local intensity = team.trainingIntensity or "medium"
     local intensityTable = TrainingManager._getIntensity(trainingMods)
     local intensityConfig = intensityTable[intensity] or intensityTable.medium
