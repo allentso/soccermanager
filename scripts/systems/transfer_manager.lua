@@ -3821,11 +3821,12 @@ function TransferManager._createIncomingBid(gameState, buyerTeam, player, offerA
             buyerTeam.name, player.displayName, fmtMoney(offerAmount), fmtMoney(player.value), handleHint)
     gameState:sendMessage({
         category = "transfer",
+        messageType = "incoming_bid_received",
         title = title .. player.displayName,
         body = body,
         priority = "high",
         popup = true,
-        data = { bidId = bid.id, playerId = player.id },
+        data = { bidId = bid.id, playerId = player.id, isPoachBid = opts.isPoachBid or false },
     })
     return bid
 end

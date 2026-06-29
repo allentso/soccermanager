@@ -2443,6 +2443,116 @@ function Market._showBatchSaleConfirmSheet(gameState, pendingList, opts)
     })
 end
 
+function Market.isIncomingBidNotifyMessage(msg)
+    if msg.messageType == "incoming_bid_received" then return true end
+    if not msg.data or not msg.data.bidId or not msg.data.playerId then return false end
+    if msg.actions and #msg.actions > 0 then return false end
+    local title = msg.title or ""
+    return title:find("^收到报价:") ~= nil or title:find("^收到挖角报价:") ~= nil
+end
+
+function Market._showBatchIncomingBidNotifySheet(gameState, msgList, opts)
+    opts = opts or {}
+    if not msgList or #msgList == 0 then return end
+
+    local items = {}
+    for _, msg in ipairs(msgList) do
+        local bid = msg.data and TransferManager.getBidById(gameState, msg.data.bidId)
+        local player = msg.data and gameState.players[msg.data.playerId]
+        if bid and player and bid.status == "pending" and bid.isIncomingBid then
+            local buyerTeam = gameState.teams[bid.buyerTeamId]
+            table.insert(items, {
+                msg = msg,
+                bid = bid,
+                player = player,
+                buyerName = buyerTeam and buyerTeam.name or "未知球队",
+                isPoachBid = msg.data.isPoachBid or bid.isPoachBid,
+            })
+        end
+    end
+    if #items == 0 then
+        if opts.onComplete then opts.onComplete() end
+        return
+    end
+
+    table.sort(items, function(a, b)
+        return (a.bid.amount or 0) > (b.bid.amount or 0)
+    end)
+
+    local rows = {}
+    for _, item in ipairs(items) do
+        local playerValue = item.player.value or item.bid.playerValue or 0
+        local ratio = playerValue > 0 and math.floor((item.bid.amount or 0) / playerValue * 100) or 0
+        local ratioColor = ratio >= 100 and Theme.COLORS.SECONDARY
+            or ratio >= 80 and Theme.COLORS.WARNING
+            or Theme.COLORS.DANGER
+        local poachTag = item.isPoachBid and " [挖角]" or ""
+        table.insert(rows, UI.Panel {
+            width = "100%", padding = 10, marginBottom = 8,
+            backgroundColor = {30, 38, 55, 255}, borderRadius = 8,
+            borderWidth = 1,
+            borderColor = {Theme.COLORS.SECONDARY[1], Theme.COLORS.SECONDARY[2], Theme.COLORS.SECONDARY[3], 60},
+            children = {
+                UI.Label {
+                    text = item.player.displayName .. poachTag,
+                    fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                },
+                UI.Label {
+                    text = string.format("%s 出价 %s（身价 %s · %d%%）",
+                        item.buyerName,
+                        Market._formatValue(item.bid.amount or 0),
+                        Market._formatValue(playerValue),
+                        ratio),
+                    fontSize = 11, color = ratioColor, marginTop = 4,
+                },
+            },
+        })
+    end
+
+    table.insert(rows, UI.Label {
+        text = "前往转会市场「待售」或阵容页长按球员处理报价。",
+        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4, marginBottom = 4,
+    })
+
+    local suppressCloseComplete = false
+    local footer = UI.Panel {
+        width = "100%", flexDirection = "row", marginTop = 4,
+        children = {
+            UI.Button {
+                text = "知道了",
+                flexGrow = 1, height = 44,
+                backgroundColor = Theme.COLORS.SECONDARY,
+                borderRadius = 8, fontSize = 15, fontWeight = "bold",
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    suppressCloseComplete = true
+                    for _, item in ipairs(items) do
+                        item.msg.read = true
+                    end
+                    BottomSheet.close()
+                    if opts.onComplete then opts.onComplete() end
+                end,
+            },
+        },
+    }
+
+    BottomSheet.showCustom({
+        title = string.format("收到报价 (%d笔)", #items),
+        height = math.min(560, 180 + #items * 72),
+        showCancel = true,
+        children = rows,
+        footer = footer,
+        onClose = function()
+            if not suppressCloseComplete then
+                for _, item in ipairs(items) do
+                    item.msg.read = true
+                end
+            end
+            if opts.onComplete and not suppressCloseComplete then opts.onComplete() end
+        end,
+    })
+end
+
 function Market._showBatchFreeAgentConfirmSheet(gameState, pendingList, opts)
     opts = opts or {}
     pendingList = pendingList or TransferManager.getPendingFreeAgentSignConfirmations(gameState)

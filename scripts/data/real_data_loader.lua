@@ -977,6 +977,13 @@ local function loadYouthPoolFromJson(gameState, filename, opts)
         local position, naturalPositions = mapPositions(pData.position, pData.alternate_positions)
         local attrs = convertAttributes(pData.attributes or {})
         local birthYear = extractBirthYear(pData.date_of_birth)
+        -- 重生球员以 16 岁青训身份重生（与退役转生一致）。
+        -- 名单 date_of_birth 是写死的固定年份；老档（已推进数年）若沿用会让球员
+        -- 一进队就 ≥19 岁，被 AI 青训"自动释放"置空 teamId / 删除，
+        -- 导致转会市场搜索（要求 teamId 非空）再也搜不到该球员。
+        if opts.markRebirth then
+            birthYear = gameState.date.year - 16
+        end
 
         local fullNameCn, shortName = NameLocalizer.localizePlayerIdentity(pData)
         local matchName = pData.match_name or ""

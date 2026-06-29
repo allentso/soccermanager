@@ -214,8 +214,8 @@ function Dashboard.create(params)
     local function showPopupMessages(onDone)
         local queue = gameState:consumePopupQueue()
 
-        -- 多人转会/出售/自由球员待确认：合并为一页，避免连续弹窗
-        local signSingles, saleSingles, freeSingles = {}, {}, {}
+        -- 多人转会/出售/自由球员待确认、多笔收到报价：合并为一页，避免连续弹窗
+        local signSingles, saleSingles, freeSingles, bidNotifySingles = {}, {}, {}, {}
         local filteredQueue = {}
         for _, msg in ipairs(queue) do
             local firstAction = msg.actions and msg.actions[1]
@@ -229,6 +229,9 @@ function Dashboard.create(params)
             elseif actionId == "confirm_free_agent" then
                 msg.read = true
                 table.insert(freeSingles, msg)
+            elseif Market.isIncomingBidNotifyMessage(msg) then
+                msg.read = true
+                table.insert(bidNotifySingles, msg)
             else
                 table.insert(filteredQueue, msg)
             end
@@ -237,6 +240,7 @@ function Dashboard.create(params)
         if #signSingles == 1 then table.insert(queue, 1, signSingles[1]) end
         if #saleSingles == 1 then table.insert(queue, 1, saleSingles[1]) end
         if #freeSingles == 1 then table.insert(queue, 1, freeSingles[1]) end
+        if #bidNotifySingles == 1 then table.insert(queue, 1, bidNotifySingles[1]) end
 
         local batchSheets = {}
         if #signSingles > 1 then
@@ -252,6 +256,11 @@ function Dashboard.create(params)
         if #freeSingles > 1 then
             table.insert(batchSheets, function(done)
                 Market._showBatchFreeAgentConfirmSheet(gameState, nil, { onComplete = done })
+            end)
+        end
+        if #bidNotifySingles > 1 then
+            table.insert(batchSheets, function(done)
+                Market._showBatchIncomingBidNotifySheet(gameState, bidNotifySingles, { onComplete = done })
             end)
         end
 
