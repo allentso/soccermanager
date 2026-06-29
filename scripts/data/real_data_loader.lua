@@ -160,7 +160,7 @@ RealDataLoader.CORE_LEAGUE_FILES = {
 
 -- 可选联赛（新游戏时由玩家勾选）
 RealDataLoader.OPTIONAL_LEAGUES = {
-    CSL = {file = "fm2024_csl.json", name = "中超", country = "CHN", shortName = "CSL", tier = 1},
+    CSL = {file = "fm2025_csl.json", name = "中超", country = "CHN", shortName = "CSL", tier = 1},
 }
 
 -- 次级联赛（可选，与五大联赛一一对应）
