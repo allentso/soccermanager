@@ -14,6 +14,7 @@ local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
 local LegendImageRegistry = require("scripts/data/legend_image_registry")
 local SaveManager = require("scripts/persistence/save_manager")
+local SaleListingPriceSheet = require("scripts/ui/components/sale_listing_price_sheet")
 
 ---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
@@ -1006,6 +1007,20 @@ function Youth._showYouthActions(player, gameState)
     -- 挂牌出售 / 取消挂牌
     if player.listedForSale then
         table.insert(actions, {
+            label = "调整挂牌价",
+            color = Theme.COLORS.ACCENT,
+            action = function()
+                UI.CloseOverlay()
+                SaleListingPriceSheet.show({
+                    gameState = gameState,
+                    player = player,
+                    onDone = function()
+                        Router.replaceWith("youth")
+                    end,
+                })
+            end,
+        })
+        table.insert(actions, {
             label = "取消挂牌出售",
             color = Theme.COLORS.TEXT_MUTED,
             action = function()
@@ -1018,22 +1033,14 @@ function Youth._showYouthActions(player, gameState)
             label = "挂牌出售",
             color = Theme.COLORS.ACCENT,
             action = function()
-                local ok, err = TransferManager.listForSale(gameState, player)
-                if not ok then
-                    local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
-                    if TransferLimitDialog.handleError(err, player.displayName, gameState) then
-                        return
-                    end
-                    ConfirmDialog.show({
-                        title = "无法挂牌",
-                        message = err or "条件不满足",
-                        confirmText = "知道了",
-                        confirmColor = Theme.COLORS.TEXT_MUTED,
-                        onConfirm = function() end,
-                    })
-                else
-                    Router.replaceWith("youth")
-                end
+                UI.CloseOverlay()
+                SaleListingPriceSheet.show({
+                    gameState = gameState,
+                    player = player,
+                    onDone = function()
+                        Router.replaceWith("youth")
+                    end,
+                })
             end,
         })
     end

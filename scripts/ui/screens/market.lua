@@ -16,6 +16,7 @@ local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
 local AudioManager = require("scripts/systems/audio_manager")
 local YouthManager = require("scripts/systems/youth_manager")
+local SaleListingPriceSheet = require("scripts/ui/components/sale_listing_price_sheet")
 
 local Market = {}
 
@@ -1703,16 +1704,38 @@ local function _buildListedSalePlayerRow(gameState, team, p, opts)
             end,
         }
     elseif showCancelWhenNoBid then
-        actionButton = UI.Button {
-            text = "取消",
-            width = 50, height = 28,
-            backgroundColor = {80, 80, 100, 255},
-            borderRadius = 6, fontSize = 12,
-            color = Theme.COLORS.TEXT_SECONDARY,
-            onClick = function()
-                TransferManager.delistPlayer(gameState, p)
-                Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
-            end,
+        actionButton = UI.Panel {
+            flexDirection = "row",
+            children = {
+                UI.Button {
+                    text = "改价",
+                    width = 50, height = 28,
+                    backgroundColor = {50, 65, 90, 255},
+                    borderRadius = 6, fontSize = 12,
+                    color = Theme.COLORS.ACCENT,
+                    marginRight = 6,
+                    onClick = function()
+                        SaleListingPriceSheet.show({
+                            gameState = gameState,
+                            player = p,
+                            onDone = function()
+                                Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
+                            end,
+                        })
+                    end,
+                },
+                UI.Button {
+                    text = "取消",
+                    width = 50, height = 28,
+                    backgroundColor = {80, 80, 100, 255},
+                    borderRadius = 6, fontSize = 12,
+                    color = Theme.COLORS.TEXT_SECONDARY,
+                    onClick = function()
+                        TransferManager.delistPlayer(gameState, p)
+                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
+                    end,
+                },
+            },
         }
     end
 
@@ -1747,7 +1770,13 @@ local function _buildListedSalePlayerRow(gameState, team, p, opts)
             UI.Panel {
                 width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
                 children = {
-                    UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
+                    UI.Label { text = "身价 " .. Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
+                    UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
+                    UI.Label {
+                        text = "挂牌价 " .. Market._formatValue(TransferManager.getSaleAskingPrice(p)),
+                        fontSize = 11,
+                        color = Theme.COLORS.SECONDARY,
+                    },
                     UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
                     UI.Label {
                         text = hasBid and bidInfo
@@ -1880,23 +1909,13 @@ function Market._buildListedContent(gameState, listedSubTab)
                                 borderRadius = 6, fontSize = 12,
                                 color = {255, 255, 255, 255},
                                 onClick = function()
-                                    local ok, err = TransferManager.listForSale(gameState, p)
-                                    if not ok then
-                                        if not TransferLimitDialog.handleError(err, p.displayName, gameState) then
-                                            gameState:sendMessage({
-                                                category = "transfer",
-                                                title = "无法挂牌",
-                                                body = err or "条件不满足",
-                                                priority = "normal",
-                                            })
-                                        end
-                                        return
-                                    end
-                                    UI.Toast.Show({
-                                        message = p.displayName .. " 已挂牌，等待买家报价",
-                                        variant = "success",
+                                    SaleListingPriceSheet.show({
+                                        gameState = gameState,
+                                        player = p,
+                                        onDone = function()
+                                            Router.replaceWith("market", { tab = "listed", listedSubTab = "list" })
+                                        end,
                                     })
-                                    Router.replaceWith("market", { tab = "listed", listedSubTab = "list" })
                                 end,
                             } or UI.Label {
                                 text = "不可",

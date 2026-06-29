@@ -21,6 +21,7 @@ local ReincarnationImageRegistry = require("scripts/data/reincarnation_image_reg
 local YouthManager = require("scripts/systems/youth_manager")
 local PositionFit = require("scripts/domain/position_fit")
 local PositionTrainingManager = require("scripts/systems/position_training_manager")
+local SaleListingPriceSheet = require("scripts/ui/components/sale_listing_price_sheet")
 
 local PlayerDetail = {}
 
@@ -1360,20 +1361,43 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
 
     local inTransferWindow = TransferManager.isInTransferWindow(gameState)
 
-    -- 已挂牌 → 取消挂牌
+    -- 已挂牌 → 可调整挂牌价 / 取消挂牌
     if player.listedForSale then
-        return UI.Button {
-            text = "取消挂牌出售",
-            width = "100%", height = 44,
-            backgroundColor = {80, 80, 100, 255},
-            borderRadius = 8, fontSize = 14,
-            color = Theme.COLORS.WARNING,
+        return UI.Panel {
+            width = "100%",
+            flexDirection = "row",
             marginBottom = 10,
-            onClick = function()
-                TransferManager.delistPlayer(gameState, player)
-                UI.Toast.Show({ message = "已取消挂牌", variant = "info" })
-                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
-            end,
+            children = {
+                UI.Button {
+                    text = "调整挂牌价",
+                    flexGrow = 1, height = 44,
+                    backgroundColor = Theme.COLORS.ACCENT,
+                    borderRadius = 8, fontSize = 14,
+                    color = {255, 255, 255, 255},
+                    marginRight = 8,
+                    onClick = function()
+                        SaleListingPriceSheet.show({
+                            gameState = gameState,
+                            player = player,
+                            onDone = function()
+                                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                            end,
+                        })
+                    end,
+                },
+                UI.Button {
+                    text = "取消挂牌出售",
+                    flexGrow = 1, height = 44,
+                    backgroundColor = {80, 80, 100, 255},
+                    borderRadius = 8, fontSize = 14,
+                    color = Theme.COLORS.WARNING,
+                    onClick = function()
+                        TransferManager.delistPlayer(gameState, player)
+                        UI.Toast.Show({ message = "已取消挂牌", variant = "info" })
+                        Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                    end,
+                },
+            },
         }
     end
 
@@ -1387,19 +1411,13 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
             color = inTransferWindow and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
             marginBottom = 10,
             onClick = function()
-                local ok, err = TransferManager.listForSale(gameState, player)
-                if ok then
-                    UI.Toast.Show({
-                        message = player.displayName .. " 已挂牌，等待买家报价",
-                        variant = "success",
-                    })
-                    Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
-                else
-                    local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
-                    if not TransferLimitDialog.handleError(err, player.displayName, gameState) then
-                        UI.Toast.Show({ message = err or "无法挂牌", variant = "warning" })
-                    end
-                end
+                SaleListingPriceSheet.show({
+                    gameState = gameState,
+                    player = player,
+                    onDone = function()
+                        Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                    end,
+                })
             end,
         }
     end

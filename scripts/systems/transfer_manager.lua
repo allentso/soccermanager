@@ -291,6 +291,36 @@ function TransferManager._clearAIListedForSaleMeta(player)
     player._aiDelistedWindowKey = nil
 end
 
+local function _normalizeSaleAskingPrice(askingPrice)
+    if askingPrice == nil then return nil end
+    local amount = tonumber(askingPrice)
+    if not amount or amount <= 0 then return nil end
+    return math.max(10000, math.floor(amount / 1000) * 1000)
+end
+
+--- 获取玩家主动设置的出售挂牌价；未设置时回落到实时身价。
+function TransferManager.getSaleAskingPrice(player)
+    if not player then return 0 end
+    local askingPrice = _normalizeSaleAskingPrice(player.saleAskingPrice)
+    if player.listedForSale and askingPrice then
+        return askingPrice
+    end
+    return math.max(0, math.floor(player.value or 0))
+end
+
+--- 调整已挂牌球员的出售挂牌价。
+function TransferManager.setSaleAskingPrice(gameState, player, askingPrice)
+    if not gameState or not player then return false, "无效球员" end
+    if not player.listedForSale then return false, "球员尚未挂牌" end
+    if player.teamId ~= gameState.playerTeamId then return false, "只能调整本队球员挂牌价" end
+
+    local normalized = _normalizeSaleAskingPrice(askingPrice)
+    if not normalized then return false, "请输入有效挂牌价" end
+    player.saleAskingPrice = normalized
+    TransferManager._invalidateListedPlayerCache(gameState)
+    return true
+end
+
 function TransferManager._markAIListedForSale(gameState, player)
     if not player then return end
     player._aiListedForSaleWindowKey = TransferManager.getTransferWindowKey(gameState)
@@ -1468,6 +1498,7 @@ function TransferManager._completeTransfer(gameState, bid, opts)
     end
     player.listedForSale = false
     player.listedForLoan = false
+    player.saleAskingPrice = nil
     -- 青训球员被买走后转为一线队身份（避免遗留青训标记被月度青训逻辑误处理）
     player.isYouth = false
     player.squadRole = "first_team"
@@ -2320,6 +2351,7 @@ function TransferManager._aiReleaseToFreeAgent(gameState, player)
     player.teamId = nil
     player.listedForSale = false
     player.listedForLoan = false
+    player.saleAskingPrice = nil
     player.loanListDuration = nil
     player.squadRole = nil
     TransferManager._invalidateListedPlayerCache(gameState)
@@ -2917,7 +2949,8 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
             if not posMatch then return end
         end
 
-        if not isFree and (player.value or 0) > maxSpend then return end
+        local expectedCost = player.listedForSale and TransferManager.getSaleAskingPrice(player) or (player.value or 0)
+        if not isFree and expectedCost > maxSpend then return end
 
         local pOvr = player.overall or 50
         local inWindow = pOvr >= minOvr and pOvr <= maxOvr
@@ -3058,10 +3091,16 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
         end
     end
 
-    -- AI 报价：巨星升级目标愿意溢价 1.2~1.5×，挂牌稍低，普通 1.0~1.3×
+    -- AI 报价：玩家主动设置挂牌价时围绕要价出价；普通挂牌仍沿用身价折算。
     local multiplier
+    local priceBase = player.value or 0
     if player.listedForSale then
-        multiplier = 0.85 + Random() * 0.25
+        if isPlayerTeamTarget and player.saleAskingPrice then
+            priceBase = TransferManager.getSaleAskingPrice(player)
+            multiplier = 0.95 + Random() * 0.10
+        else
+            multiplier = 0.85 + Random() * 0.25
+        end
     elseif isPlayerPoachBid then
         if isStarTarget or TransferManager._isProspectSidecar(player, gameState) then
             multiplier = AI_STAR_BID_MIN + Random() * (AI_STAR_BID_MAX - AI_STAR_BID_MIN)
@@ -3073,7 +3112,11 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
     else
         multiplier = 1.0 + Random() * 0.3
     end
-    local offerAmount = math.floor(player.value * multiplier)
+    local offerAmount = math.floor(priceBase * multiplier)
+    if isPlayerTeamTarget and player.listedForSale and player.saleAskingPrice
+        and offerAmount > TransferManager._getAIEffectiveBudget(buyerTeam) then
+        return false
+    end
 
     -- 目标是玩家球队球员时，只生成收购报价让玩家决策；未挂牌挖角也不会静默成交。
     if isPlayerTeamTarget then
@@ -3117,6 +3160,7 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
     if player.teamId ~= buyerTeam.id then return false end
     player.listedForSale = false
     player.listedForLoan = false
+    player.saleAskingPrice = nil
     TransferManager._clearAIListedForSaleMeta(player)
     player.isYouth = false
     player.squadRole = "first_team"
@@ -3585,7 +3629,8 @@ function TransferManager._findBuyerForPlayer(gameState, player, teamCache)
     end
 
     local candidates = {}
-    local pValue035 = (player.value or 0) * 0.35
+    local expectedCost = player.listedForSale and TransferManager.getSaleAskingPrice(player) or (player.value or 0)
+    local pValue035 = expectedCost * 0.35
     local pGroup = _posToGroup()[player.position]
     local pBand = TransferManager._listedBandKey(pOvr)
     local function bandVisible(entry)
@@ -4040,6 +4085,7 @@ function TransferManager._completeIncomingSale(gameState, bid)
         return false, "买方一线队已满员，出售无法完成"
     end
     player.listedForSale = false
+    player.saleAskingPrice = nil
     player.isYouth = false
     player.squadRole = "first_team"
     TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
@@ -5882,6 +5928,7 @@ function TransferManager._acceptPushSale(gameState, bid)
 
     player.listedForSale = false
     player.listedForLoan = false
+    player.saleAskingPrice = nil
     TransferManager._clearAIListedForSaleMeta(player)
     player.isYouth = false
     player.squadRole = "first_team"
@@ -7210,9 +7257,10 @@ end
 --- 挂牌出售球员（一线队或青训队已签入球员）
 ---@param gameState table
 ---@param player table
+---@param askingPrice number|nil 玩家手动设置的挂牌价；nil 时按实时身价作为默认要价
 ---@return boolean success
 ---@return string|nil error
-function TransferManager.listForSale(gameState, player)
+function TransferManager.listForSale(gameState, player, askingPrice)
     if not gameState or not player then return false, "无效球员" end
 
     local YouthManager = require("scripts/systems/youth_manager")
@@ -7233,6 +7281,12 @@ function TransferManager.listForSale(gameState, player)
         return false, player:getInjuryBlockReason() or "伤员无法挂牌出售"
     end
 
+    local normalizedAskingPrice
+    if askingPrice ~= nil then
+        normalizedAskingPrice = _normalizeSaleAskingPrice(askingPrice)
+        if not normalizedAskingPrice then return false, "请输入有效挂牌价" end
+    end
+
     local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
     if not moveOk then return false, moveErr end
 
@@ -7241,14 +7295,16 @@ function TransferManager.listForSale(gameState, player)
 
     player.listedForSale = true
     player.listedForLoan = false
+    player.saleAskingPrice = normalizedAskingPrice
     TransferManager._clearAIListedForSaleMeta(player)
     TransferManager._invalidateListedPlayerCache(gameState)
+    local priceText = fmtMoney(TransferManager.getSaleAskingPrice(player))
     gameState:sendMessage({
         category = "transfer",
         title = player.displayName .. " 已挂牌",
         body = isYouthSquad
-            and string.format("%s 已被挂牌出售（青训），等待买家报价。", player.displayName)
-            or string.format("%s 已被挂牌出售，等待买家报价。", player.displayName),
+            and string.format("%s 已被挂牌出售（青训），挂牌价 %s，等待买家报价。", player.displayName, priceText)
+            or string.format("%s 已被挂牌出售，挂牌价 %s，等待买家报价。", player.displayName, priceText),
         priority = "normal",
     })
     return true
@@ -7268,6 +7324,7 @@ function TransferManager.delistPlayer(gameState, player)
     end
 
     player.listedForSale = false
+    player.saleAskingPrice = nil
     TransferManager._clearAIListedForSaleMeta(player)
     if gameState then TransferManager._invalidateListedPlayerCache(gameState) end
 
