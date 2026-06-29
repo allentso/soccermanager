@@ -9,6 +9,24 @@ local FinanceManager = require("scripts/systems/finance_manager")
 
 local MatchResult = {}
 
+local function teamSideBadge(name, isHome)
+    local label = name or (isHome and "主" or "客")
+    if #label > 6 then label = string.sub(label, 1, 6) end
+    return UI.Label {
+        text = label,
+        fontSize = 10,
+        color = isHome and Theme.COLORS.PRIMARY or Theme.COLORS.ACCENT,
+        backgroundColor = isHome and {33, 150, 243, 30} or {255, 153, 0, 30},
+        borderRadius = 4,
+        paddingLeft = 4,
+        paddingRight = 4,
+        paddingTop = 2,
+        paddingBottom = 2,
+        width = 52,
+        textAlign = "center",
+    }
+end
+
 local function nationModule(fixture)
     if fixture and fixture._isEuro then return require("scripts/systems/euro_cup") end
     if fixture and fixture._isWC then return require("scripts/systems/world_cup") end
@@ -53,29 +71,22 @@ function MatchResult.create(params)
         awayName = awayTeam and awayTeam.name or "客队"
         isPlayerHome = report.homeTeamId == gameState.playerTeamId
     end
-    local playerWon = (isPlayerHome and report.homeGoals > report.awayGoals) or
-                      (not isPlayerHome and report.awayGoals > report.homeGoals)
-    local isDraw = report.homeGoals == report.awayGoals
-
-    -- 淘汰赛点球胜负判定（点球不计入总比分，但决定晋级）
+    local playerSide = isPlayerHome and report.homeTeamId or report.awayTeamId
     local extraTime = MatchReport.getKnockoutExtras(report, fixture)
-    local penaltyWinner = MatchReport.getPenaltyWinner(report, fixture)
+    local effectiveWinner = MatchReport.getEffectiveWinner(report, fixture)
+    local displayHome, displayAway = MatchReport.getRegularTimeScore(report, fixture)
+    local showRegularLabel = MatchReport.isSeparateExtraTimeLeg(fixture) and extraTime ~= nil
 
-    -- 判断胜负（含点球结果）
-    if penaltyWinner then
-        local playerNationOrTeam
-        local ntPen = nationModule(fixture)
-        if ntPen then
-            playerNationOrTeam = ntPen._getPlayerNation(gameState)
-        else
-            playerNationOrTeam = gameState.playerTeamId
-        end
-        local playerSide = isPlayerHome and report.homeTeamId or report.awayTeamId
-        playerWon = (penaltyWinner == playerSide)
+    local playerWon, isDraw
+    if effectiveWinner then
+        playerWon = (effectiveWinner == playerSide)
         isDraw = false
+    else
+        playerWon = (isPlayerHome and displayHome > displayAway) or
+                    (not isPlayerHome and displayAway > displayHome)
+        isDraw = displayHome == displayAway
     end
 
-    -- 结果
     local resultColor = isDraw and Theme.COLORS.WARNING or (playerWon and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER)
     local resultText = isDraw and "平局" or (playerWon and "胜利!" or "失败")
 
@@ -86,7 +97,7 @@ function MatchResult.create(params)
     local goalsSection = MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
 
     -- 比赛事件时间线
-    local eventsSection = MatchResult._buildEventsTimeline(report, gameState)
+    local eventsSection = MatchResult._buildEventsTimeline(report, gameState, homeName, awayName)
 
     -- 统计对比
     local statsSection = MatchResult._buildStatsComparison(report, homeName, awayName)
@@ -179,11 +190,22 @@ function MatchResult.create(params)
                                     textAlign = "right",
                                     fontWeight = isPlayerHome and "bold" or "normal",
                                 },
-                                UI.Label {
-                                    text = string.format("  %d - %d  ", report.homeGoals, report.awayGoals),
-                                    fontSize = 28,
-                                    fontWeight = "bold",
-                                    color = Theme.COLORS.TEXT_PRIMARY,
+                                UI.Panel {
+                                    alignItems = "center",
+                                    children = {
+                                        showRegularLabel and UI.Label {
+                                            text = "90分钟",
+                                            fontSize = 10,
+                                            color = Theme.COLORS.TEXT_MUTED,
+                                            marginBottom = 2,
+                                        } or nil,
+                                        UI.Label {
+                                            text = string.format("  %d - %d  ", displayHome, displayAway),
+                                            fontSize = 28,
+                                            fontWeight = "bold",
+                                            color = Theme.COLORS.TEXT_PRIMARY,
+                                        },
+                                    },
                                 },
                                 UI.Label {
                                     text = awayName,
@@ -199,10 +221,11 @@ function MatchResult.create(params)
                     -- 加时赛/点球标注
                     if extraTime or (fixture and fixture.penalties) then
                         local etText = MatchReport.formatExtraTimeDetail(
-                            report.homeGoals, report.awayGoals, extraTime, fixture)
+                            report.homeGoals, report.awayGoals, extraTime, fixture, homeName, awayName)
                         if not etText and fixture and fixture.penalties then
                             local pen = fixture.penalties
-                            etText = string.format("点球 %d-%d", pen.homeScore or 0, pen.awayScore or 0)
+                            etText = string.format("点球 %s %d-%d %s",
+                                homeName, pen.homeScore or 0, pen.awayScore or 0, awayName)
                         end
                         if etText then
                             table.insert(scoreChildren, UI.Label {
@@ -475,17 +498,7 @@ function MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
                         },
                     }
                 },
-                UI.Label {
-                    text = isHome and "主" or "客",
-                    fontSize = 10,
-                    color = isHome and Theme.COLORS.PRIMARY or Theme.COLORS.ACCENT,
-                    backgroundColor = isHome and {33, 150, 243, 30} or {255, 153, 0, 30},
-                    borderRadius = 4,
-                    paddingLeft = 6,
-                    paddingRight = 6,
-                    paddingTop = 2,
-                    paddingBottom = 2,
-                },
+                teamSideBadge(isHome and homeName or awayName, isHome),
             }
         })
     end
@@ -599,7 +612,7 @@ end
 ---------------------------------------------------------------------------
 -- 事件时间线
 ---------------------------------------------------------------------------
-function MatchResult._buildEventsTimeline(report, gameState)
+function MatchResult._buildEventsTimeline(report, gameState, homeName, awayName)
     local events = report.events or {}
     if #events == 0 then
         return Theme.Card {
@@ -672,12 +685,7 @@ function MatchResult._buildEventsTimeline(report, gameState)
                         flexGrow = 1,
                         flexShrink = 1,
                     },
-                    UI.Label {
-                        text = isHome and "主" or "客",
-                        fontSize = 10,
-                        color = Theme.COLORS.TEXT_MUTED,
-                        width = 20,
-                    },
+                    teamSideBadge(isHome and homeName or awayName, isHome),
                 }
             })
         end

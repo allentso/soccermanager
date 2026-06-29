@@ -321,13 +321,13 @@ local function buildHistoryTab(team, gameState, teamId)
             local oppId = isHome and f.awayTeamId or f.homeTeamId
             local oppTeam = gameState.teams[oppId]
             local oppName = oppTeam and oppTeam.name or "???"
-            local score = tostring(f.homeGoals or 0) .. " - " .. tostring(f.awayGoals or 0)
+            local myGoals = isHome and f.homeGoals or f.awayGoals
+            local theirGoals = isHome and f.awayGoals or f.homeGoals
+            local score = tostring(myGoals) .. " - " .. tostring(theirGoals)
             local venue = isHome and "主" or "客"
 
             -- 结果颜色
             local resultColor = COLORS.WARNING
-            local myGoals = isHome and f.homeGoals or f.awayGoals
-            local theirGoals = isHome and f.awayGoals or f.homeGoals
             if myGoals > theirGoals then resultColor = COLORS.SECONDARY
             elseif myGoals < theirGoals then resultColor = COLORS.DANGER end
 
@@ -553,11 +553,11 @@ local function buildWorldHistoryTab(team, gameState, teamId)
             local oppId = isHome and f.awayTeamId or f.homeTeamId
             local oppTeam = gameState.teams[oppId]
             local oppName = oppTeam and oppTeam.name or "???"
-            local score = tostring(f.homeGoals or 0) .. " - " .. tostring(f.awayGoals or 0)
-            local venue = isHome and "主" or "客"
-            local resultColor = COLORS.WARNING
             local myGoals = isHome and f.homeGoals or f.awayGoals
             local theirGoals = isHome and f.awayGoals or f.homeGoals
+            local score = tostring(myGoals) .. " - " .. tostring(theirGoals)
+            local venue = isHome and "主" or "客"
+            local resultColor = COLORS.WARNING
             if myGoals > theirGoals then resultColor = COLORS.SECONDARY
             elseif myGoals < theirGoals then resultColor = COLORS.DANGER end
 
