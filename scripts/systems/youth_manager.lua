@@ -1034,48 +1034,32 @@ function YouthManager.createCustomYouthPlayer(gameState, opts)
     end
 
     local position = Constants.normalizePosition(opts.position) or "ST"
-    local nationality = Nationality.normalize(opts.nationality or team.country or "ENG")
+    if not opts.nationality or tostring(opts.nationality) == "" then
+        return false, "请选择国籍"
+    end
+    local nationality = Nationality.normalize(opts.nationality)
 
-    local age = 16
-    local birthYear = gameState.date.year - age
-    local youthMods = DifficultySettings.getYouthModifiers()
     local facilityYouthBonus = YouthManager._getTeamYouthFacilityBonus(gameState, team.id)
-    local facilityLevel = YouthManager._facilityLevelFromBonus(facilityYouthBonus)
-    local tier = YouthManager.YOUTH_FACILITY_TIERS[facilityLevel]
-        or YouthManager.YOUTH_FACILITY_TIERS[1]
-
-    local potential = randInt(75, 88)
-
-    local overallFloor = math.max(youthMods.overallMin + (tier.floorLift or 0), 52)
-    local overallCap = math.min(youthMods.overallMax,
-        math.max(overallFloor, math.floor(potential * 0.75)))
-
-    local attributes, actualOverall
-    for attempt = 1, 5 do
-        local overall = randInt(overallFloor, overallCap)
-        if attempt > 1 then
-            overall = math.min(overallCap, overall + (attempt - 1) * 2)
-        end
-        attributes = YouthManager._generateAttributes(position, overall)
-        actualOverall = Player.calculateOverallFromAttrs(position, attributes)
-        if actualOverall >= overallFloor then
-            break
-        end
-    end
-    if actualOverall < overallFloor then
-        actualOverall = overallFloor
-    end
+    local usedNames = _collectYouthUsedNames(gameState, team.id)
+    local candidate = YouthManager._generateYouthPlayer(
+        gameState,
+        facilityYouthBonus,
+        usedNames,
+        team.country,
+        position,
+        { displayName = displayName, nationality = nationality }
+    )
 
     local playerData = {
-        firstName = displayName,
-        lastName = "",
+        firstName = candidate.firstName,
+        lastName = candidate.lastName,
         displayName = displayName,
-        nationality = nationality,
-        birthYear = birthYear,
-        position = position,
-        attributes = attributes,
-        potential = potential,
-        overall = actualOverall,
+        nationality = candidate.nationality,
+        birthYear = candidate.birthYear,
+        position = candidate.position,
+        attributes = candidate.attributes,
+        potential = candidate.potential,
+        overall = candidate.overall,
         wage = YOUTH_WAGE,
         isYouth = true,
         isCustomYouth = true,
@@ -1347,7 +1331,9 @@ function YouthManager._rollYouthPotential(youthMods, facilityLevel)
     return math.max(40, math.min(99, math.floor(basePotential + 0.5)))
 end
 
-function YouthManager._generateYouthPlayer(gameState, facilityYouthBonus, usedNames, teamCountry, targetPosition)
+---@param overrides table|nil { displayName?: string, nationality?: string }
+function YouthManager._generateYouthPlayer(gameState, facilityYouthBonus, usedNames, teamCountry, targetPosition, overrides)
+    overrides = overrides or {}
     facilityYouthBonus = facilityYouthBonus or 1.0
     local position = _normalizeYouthPosition(targetPosition) or _pickWeightedYouthPosition()
 
@@ -1391,7 +1377,9 @@ function YouthManager._generateYouthPlayer(gameState, facilityYouthBonus, usedNa
     -- 先随机国籍，再从对应名字池取名（本批/本队 usedNames 去重）
     -- 根据球队所属国家偏向本国国籍（中超球队85%中国球员）
     local nationality
-    if teamCountry == "CHN" then
+    if overrides.nationality then
+        nationality = Nationality.normalize(overrides.nationality)
+    elseif teamCountry == "CHN" then
         if randInt(1, 100) <= 85 then
             nationality = "CHN"
         else
@@ -1400,8 +1388,15 @@ function YouthManager._generateYouthPlayer(gameState, facilityYouthBonus, usedNa
     else
         nationality = YOUTH_NATIONALITIES[randInt(1, #YOUTH_NATIONALITIES)]
     end
-    local displayName = _pickYouthDisplayName(nationality, usedNames)
-    local firstName, lastName = _formatYouthNameFields(displayName)
+
+    local displayName, firstName, lastName
+    if overrides.displayName then
+        displayName = overrides.displayName
+        firstName, lastName = _formatYouthNameFields(displayName)
+    else
+        displayName = _pickYouthDisplayName(nationality, usedNames)
+        firstName, lastName = _formatYouthNameFields(displayName)
+    end
 
     return {
         firstName = firstName,

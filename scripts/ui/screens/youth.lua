@@ -5,6 +5,7 @@ local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
+local Nationality = require("scripts/domain/nationality")
 local YouthManager = require("scripts/systems/youth_manager")
 local TransferManager = require("scripts/systems/transfer_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
@@ -12,6 +13,7 @@ local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 local LegendImageRegistry = require("scripts/data/legend_image_registry")
 local SaveManager = require("scripts/persistence/save_manager")
 local SaleListingPriceSheet = require("scripts/ui/components/sale_listing_price_sheet")
@@ -57,6 +59,34 @@ local CUSTOM_POSITION_OPTIONS = {
     "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST",
 }
 local _customCreatePos = "ST"
+local _customCreateNat = nil
+local _customNationOptions = nil
+
+local function getCustomNationOptions()
+    if not _customNationOptions then
+        _customNationOptions = ScoutManager.getNationOptionList()
+    end
+    return _customNationOptions
+end
+
+local function resolveCustomNationIndex(natCode)
+    local options = getCustomNationOptions()
+    if #options == 0 then return 1 end
+    for i, opt in ipairs(options) do
+        if Nationality.matches(opt.code, natCode) then
+            return i
+        end
+    end
+    return 1
+end
+
+local function cycleCustomNation(delta)
+    local options = getCustomNationOptions()
+    if #options == 0 then return end
+    local idx = resolveCustomNationIndex(_customCreateNat)
+    idx = ((idx - 1 + delta) % #options) + 1
+    _customCreateNat = options[idx].code
+end
 
 --- 叙事标签池 UI 配置
 local LEGEND_POOL_UI = {
@@ -653,7 +683,6 @@ function Youth._buildCustomSection(customSquad, gameState)
     local canCreate = #customSquad < maxCustom
     local playerTeam = gameState:getPlayerTeam()
     local defaultNat = playerTeam and playerTeam.country or "ENG"
-    local natName = ScoutManager.getNationName(defaultNat) or defaultNat
 
     local rows = {}
     table.insert(rows, UI.Panel {
@@ -680,14 +709,19 @@ function Youth._buildCustomSection(customSquad, gameState)
                 disabled = not canCreate,
                 onClick = function()
                     if canCreate then
-                        Youth._showCreateCustomModal(gameState, defaultNat, natName)
+                        _customCreatePos = "ST"
+                        _customCreateNat = Nationality.normalize(defaultNat)
+                        Youth._showCreateCustomModal(gameState, defaultNat)
                     end
                 end,
             },
         },
     })
     table.insert(rows, UI.Label {
-        text = string.format("可创建 %d 名专属青训，16岁起步，国籍默认为 %s", maxCustom, natName),
+        text = string.format(
+            "可创建 %d 名专属青训；年龄/潜力/能力按俱乐部青训系统随机生成",
+            maxCustom
+        ),
         fontSize = 10,
         color = Theme.COLORS.TEXT_MUTED,
         marginBottom = 8,
@@ -709,7 +743,14 @@ function Youth._buildCustomSection(customSquad, gameState)
     return Theme.Card { children = rows }
 end
 
-function Youth._showCreateCustomModal(gameState, defaultNat, natName)
+function Youth._showCreateCustomModal(gameState, defaultNat)
+    if not _customCreateNat then
+        _customCreateNat = Nationality.normalize(defaultNat or "ENG")
+    end
+
+    local youthMods = DifficultySettings.getYouthModifiers()
+    local selectedNatName = ScoutManager.getNationName(_customCreateNat) or _customCreateNat
+
     local function cycleCustomPos(delta)
         local idx = 1
         for i, pos in ipairs(CUSTOM_POSITION_OPTIONS) do
@@ -720,6 +761,11 @@ function Youth._showCreateCustomModal(gameState, defaultNat, natName)
         end
         idx = ((idx - 1 + delta) % #CUSTOM_POSITION_OPTIONS) + 1
         _customCreatePos = CUSTOM_POSITION_OPTIONS[idx]
+    end
+
+    local function reopenModal()
+        UI.CloseOverlay()
+        Youth._showCreateCustomModal(gameState, defaultNat)
     end
 
     UI.ShowOverlay(UI.Panel {
@@ -748,7 +794,11 @@ function Youth._showCreateCustomModal(gameState, defaultNat, natName)
                         marginBottom = 4,
                     },
                     UI.Label {
-                        text = string.format("16岁 · 国籍 %s · 占用 1 个自建名额", natName),
+                        text = string.format(
+                            "%d–%d岁 · 潜力/能力随俱乐部青训设施随机 · 占用 1 个自建名额",
+                            youthMods.minAge or 16,
+                            youthMods.maxAge or 18
+                        ),
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                         marginBottom = 14,
@@ -775,6 +825,68 @@ function Youth._showCreateCustomModal(gameState, defaultNat, natName)
                         paddingLeft = 12,
                     },
                     UI.Label {
+                        text = "国籍",
+                        fontSize = 12,
+                        color = Theme.COLORS.GOLD,
+                        marginBottom = 6,
+                        fontWeight = "bold",
+                    },
+                    UI.Panel {
+                        width = "100%",
+                        flexDirection = "row",
+                        alignItems = "center",
+                        justifyContent = "center",
+                        marginBottom = 14,
+                        children = {
+                            UI.Button {
+                                text = "‹",
+                                width = 36,
+                                height = 36,
+                                borderRadius = 18,
+                                backgroundColor = Theme.COLORS.BG_SURFACE,
+                                fontSize = 18,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                marginRight = 12,
+                                onClick = function()
+                                    cycleCustomNation(-1)
+                                    reopenModal()
+                                end,
+                            },
+                            UI.Panel {
+                                minWidth = 96,
+                                alignItems = "center",
+                                children = {
+                                    UI.Label {
+                                        text = selectedNatName,
+                                        fontSize = 15,
+                                        color = Theme.COLORS.TEXT_PRIMARY,
+                                        fontWeight = "bold",
+                                    },
+                                    UI.Label {
+                                        text = _customCreateNat,
+                                        fontSize = 10,
+                                        color = Theme.COLORS.TEXT_MUTED,
+                                        marginTop = 2,
+                                    },
+                                },
+                            },
+                            UI.Button {
+                                text = "›",
+                                width = 36,
+                                height = 36,
+                                borderRadius = 18,
+                                backgroundColor = Theme.COLORS.BG_SURFACE,
+                                fontSize = 18,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                marginLeft = 12,
+                                onClick = function()
+                                    cycleCustomNation(1)
+                                    reopenModal()
+                                end,
+                            },
+                        },
+                    },
+                    UI.Label {
                         text = "场上位置",
                         fontSize = 12,
                         color = Theme.COLORS.GOLD,
@@ -799,8 +911,7 @@ function Youth._showCreateCustomModal(gameState, defaultNat, natName)
                                 marginRight = 12,
                                 onClick = function()
                                     cycleCustomPos(-1)
-                                    UI.CloseOverlay()
-                                    Youth._showCreateCustomModal(gameState, defaultNat, natName)
+                                    reopenModal()
                                 end,
                             },
                             UI.Panel {
@@ -832,8 +943,7 @@ function Youth._showCreateCustomModal(gameState, defaultNat, natName)
                                 marginLeft = 12,
                                 onClick = function()
                                     cycleCustomPos(1)
-                                    UI.CloseOverlay()
-                                    Youth._showCreateCustomModal(gameState, defaultNat, natName)
+                                    reopenModal()
                                 end,
                             },
                         },
@@ -854,11 +964,12 @@ function Youth._showCreateCustomModal(gameState, defaultNat, natName)
                             local ok, result = YouthManager.createCustomYouthPlayer(gameState, {
                                 displayName = displayName,
                                 position = _customCreatePos,
-                                nationality = defaultNat,
+                                nationality = _customCreateNat,
                             })
                             if ok then
                                 SaveManager.save(gameState, "auto")
                                 UI.CloseOverlay()
+                                _customCreateNat = nil
                                 UI.Toast.Show({
                                     message = (result.displayName or displayName) .. " 已加入自建球员",
                                     variant = "success",
@@ -882,6 +993,7 @@ function Youth._showCreateCustomModal(gameState, defaultNat, natName)
                         color = Theme.COLORS.TEXT_SECONDARY,
                         onClick = function()
                             UI.CloseOverlay()
+                            _customCreateNat = nil
                         end,
                     },
                 },

@@ -66,6 +66,27 @@ function ScoutManager.getNationName(code)
     return NATION_NAMES[code] or code
 end
 
+--- 获取全部可选国籍（去重、按中文名排序）
+---@return table[] { code: string, name: string }
+function ScoutManager.getNationOptionList()
+    local seen = {}
+    local list = {}
+    for code, name in pairs(NATION_NAMES) do
+        local norm = Nationality.normalize(code)
+        if not seen[norm] then
+            seen[norm] = true
+            table.insert(list, { code = norm, name = name })
+        end
+    end
+    table.sort(list, function(a, b)
+        if a.name == b.name then
+            return a.code < b.code
+        end
+        return a.name < b.name
+    end)
+    return list
+end
+
 --- 判断球员国籍是否匹配搜索关键词（支持中文名、代码及别名）
 function ScoutManager.nationalityMatchesSearch(natCode, lowerQuery)
     if not natCode or lowerQuery == "" then return false end
