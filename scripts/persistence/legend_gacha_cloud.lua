@@ -13,6 +13,11 @@ local CACHE_VERSION = 1
 local cache_ = nil
 local syncInFlight_ = false
 local bootstrapped_ = false
+local ready_ = false
+local bootstrapping_ = false
+local pendingSync_ = false
+local syncSeq_ = 0
+local inflightSeq_ = nil
 
 local function nowSeconds()
     return math.floor(os.time and os.time() or os.clock())
@@ -117,6 +122,23 @@ local function normalizeState(state)
     return state
 end
 
+--- 将远端/快照状态 in-place 写入目标表，保持引用稳定
+local function applyStateInPlace(target, source)
+    if type(target) ~= "table" then return target end
+    local normalized = normalizeState(source)
+    for k in pairs(target) do
+        target[k] = nil
+    end
+    for k, v in pairs(normalized) do
+        if type(v) == "table" then
+            target[k] = copyArray(v)
+        else
+            target[k] = v
+        end
+    end
+    return target
+end
+
 local function newCache(enabled)
     return {
         version = CACHE_VERSION,
@@ -158,12 +180,52 @@ local function ensureLoaded()
     return cache_
 end
 
+local function canUseClientCloud()
+    return type(clientCloud) == "userdata" or type(clientCloud) == "table"
+end
+
+local function markReady()
+    ready_ = true
+    bootstrapping_ = false
+end
+
+local function scheduleSyncIfNeeded()
+    if pendingSync_ and not syncInFlight_ then
+        LegendGachaCloud.syncToCloud()
+    end
+end
+
 function LegendGachaCloud.getCloudKey()
     return CLOUD_KEY
 end
 
 function LegendGachaCloud.isEnabled()
     return ensureLoaded().enabled == true
+end
+
+function LegendGachaCloud.isReady()
+    local cache = ensureLoaded()
+    if not cache.enabled then return true end
+    return ready_
+end
+
+function LegendGachaCloud.canMutate()
+    local cache = ensureLoaded()
+    if not cache.enabled then return true end
+    return ready_ and not bootstrapping_
+end
+
+function LegendGachaCloud.getStatus()
+    local cache = ensureLoaded()
+    return {
+        enabled = cache.enabled == true,
+        ready = ready_,
+        bootstrapping = bootstrapping_,
+        dirty = cache.dirty == true,
+        syncInFlight = syncInFlight_,
+        pendingSync = pendingSync_,
+        lastSyncAt = cache.lastSyncAt or 0,
+    }
 end
 
 function LegendGachaCloud.saveLocal()
@@ -186,44 +248,64 @@ function LegendGachaCloud.saveLocal()
     return true
 end
 
-local function canUseClientCloud()
-    return type(clientCloud) == "userdata" or type(clientCloud) == "table"
-end
-
 function LegendGachaCloud.syncToCloud(events)
     local cache = ensureLoaded()
     if not cache.enabled then return false, "disabled" end
     if not canUseClientCloud() then
         cache.dirty = true
+        pendingSync_ = true
         LegendGachaCloud.saveLocal()
         return false, "clientCloud unavailable"
     end
-    if syncInFlight_ then return false, "sync in flight" end
+    if syncInFlight_ then
+        pendingSync_ = true
+        return false, "sync in flight"
+    end
 
     syncInFlight_ = true
-    local payload = normalizeState(cache.state)
+    pendingSync_ = false
+    syncSeq_ = syncSeq_ + 1
+    local thisSeq = syncSeq_
+    inflightSeq_ = thisSeq
+
+    local payload = {}
+    applyStateInPlace(payload, cache.state)
     payload.updatedAt = nowSeconds()
-    cache.state = payload
+    applyStateInPlace(cache.state, payload)
 
     clientCloud:Set(CLOUD_KEY, payload, {
         ok = function()
             syncInFlight_ = false
-            cache.dirty = false
-            cache.lastSyncAt = nowSeconds()
-            LegendGachaCloud.saveLocal()
-            logInfo("云端写入成功")
+            if inflightSeq_ == thisSeq then
+                inflightSeq_ = nil
+                if syncSeq_ == thisSeq then
+                    cache.dirty = false
+                end
+                cache.lastSyncAt = nowSeconds()
+                LegendGachaCloud.saveLocal()
+                logInfo("云端写入成功")
+            end
             if events and events.ok then events.ok() end
+            scheduleSyncIfNeeded()
         end,
         error = function(code, reason)
             syncInFlight_ = false
+            if inflightSeq_ == thisSeq then
+                inflightSeq_ = nil
+            end
             cache.dirty = true
+            pendingSync_ = true
             LegendGachaCloud.saveLocal()
             logWarn("云端写入失败: " .. tostring(code) .. " " .. tostring(reason))
             if events and events.error then events.error(code, reason) end
         end,
         timeout = function()
             syncInFlight_ = false
+            if inflightSeq_ == thisSeq then
+                inflightSeq_ = nil
+            end
             cache.dirty = true
+            pendingSync_ = true
             LegendGachaCloud.saveLocal()
             logWarn("云端写入超时")
             if events and events.timeout then events.timeout() end
@@ -235,9 +317,6 @@ end
 function LegendGachaCloud.syncFromCloud(events)
     local cache = ensureLoaded()
     if not cache.enabled then return false, "disabled" end
-    if cache.dirty then
-        return LegendGachaCloud.syncToCloud(events)
-    end
     if not canUseClientCloud() then
         return false, "clientCloud unavailable"
     end
@@ -249,14 +328,21 @@ function LegendGachaCloud.syncFromCloud(events)
             syncInFlight_ = false
             local remote = values and values[CLOUD_KEY]
             if type(remote) == "table" then
-                cache.state = normalizeState(remote)
-                cache.dirty = false
+                applyStateInPlace(cache.state, remote)
+                if not cache.dirty then
+                    cache.dirty = false
+                end
                 cache.lastSyncAt = nowSeconds()
                 LegendGachaCloud.saveLocal()
                 logInfo("云端读取成功")
+                markReady()
+                if cache.dirty then
+                    LegendGachaCloud.syncToCloud()
+                end
             else
                 cache.dirty = true
                 LegendGachaCloud.saveLocal()
+                markReady()
                 LegendGachaCloud.syncToCloud()
             end
             if events and events.ok then events.ok(cache.state) end
@@ -278,17 +364,18 @@ end
 function LegendGachaCloud.bootstrap()
     local cache = ensureLoaded()
     if not cache.enabled then return false, "disabled" end
+    if bootstrapped_ then return true end
     bootstrapped_ = true
-    if cache.dirty then
-        return LegendGachaCloud.syncToCloud()
-    end
+    bootstrapping_ = true
+    ready_ = false
+    -- 云端权威：始终先 Get，再根据远端是否存在决定是否 Set
     return LegendGachaCloud.syncFromCloud()
 end
 
 function LegendGachaCloud.tryGetState()
     local cache = ensureLoaded()
     if not cache.enabled then return nil end
-    cache.state = normalizeState(cache.state)
+    normalizeState(cache.state)
     if not bootstrapped_ then
         LegendGachaCloud.bootstrap()
     end
@@ -298,11 +385,21 @@ end
 function LegendGachaCloud.markDirty()
     local cache = ensureLoaded()
     if not cache.enabled then return false end
-    cache.state = normalizeState(cache.state)
+    if not LegendGachaCloud.canMutate() then
+        return false, "legend_cloud_syncing"
+    end
+    normalizeState(cache.state)
     cache.state.updatedAt = nowSeconds()
     cache.dirty = true
     LegendGachaCloud.saveLocal()
-    LegendGachaCloud.syncToCloud()
+    local ok, err = LegendGachaCloud.syncToCloud()
+    if not ok then
+        pendingSync_ = true
+        if err == "sync in flight" then
+            syncSeq_ = syncSeq_ + 1
+        end
+        return false, err
+    end
     return true
 end
 
@@ -310,6 +407,10 @@ function LegendGachaCloud.disableForDeveloper()
     local cache = ensureLoaded()
     cache.enabled = false
     cache.dirty = false
+    ready_ = false
+    bootstrapped_ = false
+    bootstrapping_ = false
+    pendingSync_ = false
     return LegendGachaCloud.saveLocal()
 end
 
@@ -403,7 +504,10 @@ function LegendGachaCloud.enableAndResetForDeveloper(gameState, events)
     cache.enabled = true
     cache.dirty = true
     cache.lastSyncAt = 0
-    cache.state = cleanState()
+    applyStateInPlace(cache.state, cleanState())
+    bootstrapped_ = true
+    bootstrapping_ = false
+    ready_ = true
     if gameState then
         gameState._legendGacha = nil
     end
@@ -414,9 +518,27 @@ end
 function LegendGachaCloud.getDebugSummary()
     local cache = ensureLoaded()
     local state = normalizeState(cache.state)
-    return string.format("enabled=%s dirty=%s pulls=%d legends=%d lastSync=%s",
-        tostring(cache.enabled), tostring(cache.dirty), tonumber(state.pulls) or 0,
+    return string.format("enabled=%s ready=%s dirty=%s pulls=%d legends=%d lastSync=%s",
+        tostring(cache.enabled), tostring(ready_), tostring(cache.dirty), tonumber(state.pulls) or 0,
         #(state.pulledLegendIds or {}), tostring(cache.lastSyncAt or 0))
+end
+
+--- 测试专用：重置模块内存状态
+function LegendGachaCloud._resetForTests(opts)
+    opts = opts or {}
+    cache_ = nil
+    syncInFlight_ = false
+    bootstrapped_ = false
+    ready_ = false
+    bootstrapping_ = false
+    pendingSync_ = false
+    syncSeq_ = 0
+    inflightSeq_ = nil
+    if opts.cache then
+        cache_ = normalizeCache(opts.cache)
+    end
+    if opts.ready ~= nil then ready_ = opts.ready end
+    if opts.bootstrapped ~= nil then bootstrapped_ = opts.bootstrapped end
 end
 
 return LegendGachaCloud

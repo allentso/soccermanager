@@ -1,5 +1,5 @@
 -- ui/screens/youth.lua
--- 青训学院页面：青训球员列表、候选招募、提拔/释放
+-- 青训学院页面：青训球员列表、候选招募、传奇抽卡、提拔/释放
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
@@ -20,7 +20,35 @@ local sdk = sdk
 
 local Youth = {}
 
---- 子目录标签（在路由切换间保留）：recruit=招募(候选+传奇) / squad=青训球员
+local function showLegendCloudSyncingToast()
+    UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+end
+
+local function legendCloudMutateBlocked()
+    return not YouthManager.canMutateLegendGacha()
+end
+
+local function buildLegendCloudSyncBanner()
+    if not legendCloudMutateBlocked() then return nil end
+    return UI.Panel {
+        width = "100%",
+        padding = 8,
+        marginBottom = 8,
+        backgroundColor = {40, 45, 70, 255},
+        borderRadius = 8,
+        borderWidth = 1,
+        borderColor = Theme.COLORS.BORDER,
+        children = {
+            UI.Label {
+                text = "云存档同步中，传奇抽卡操作暂不可用",
+                fontSize = 11,
+                color = Theme.COLORS.TEXT_SECONDARY,
+            },
+        },
+    }
+end
+
+--- 子目录标签（在路由切换间保留）：recruit=招募 / legend=传奇 / squad=青训球员
 local _activeTab = "recruit"
 
 --- 叙事标签池 UI 配置
@@ -94,16 +122,21 @@ function Youth.create(params)
         _activeTab = params.tab
     end
 
-    -- 子目录内容：招募(候选+传奇) / 青训球员
+    local orphanCount = #YouthManager.getOrphanedPulledLegends(gameState)
+
+    -- 子目录内容：招募 / 传奇 / 青训球员
     local tabContent
     if _activeTab == "squad" then
         tabContent = {
             Youth._buildSquadSection(youthSquad, gameState),
         }
-    else
+    elseif _activeTab == "legend" then
         tabContent = {
             Youth._buildOrphanReclaimBanner(gameState),
             Youth._buildLegendGachaSection(gameState),
+        }
+    else
+        tabContent = {
             Youth._buildCandidatesSection(candidates, gameState),
         }
     end
@@ -131,8 +164,8 @@ function Youth.create(params)
             }
         },
         Theme.SquadSubNav("youth"),
-        -- 三级子目录：招募 / 青训球员
-        Youth._buildTabBar(#candidates, #youthSquad),
+        -- 三级子目录：招募 / 传奇 / 青训球员
+        Youth._buildTabBar(#candidates, orphanCount, #youthSquad),
         UI.Panel {
             width = "100%", flexGrow = 1,
             padding = 12,
@@ -157,11 +190,12 @@ function Youth.create(params)
 end
 
 ------------------------------------------------------
--- 三级子目录标签栏（招募 / 青训球员）
+-- 三级子目录标签栏（招募 / 传奇 / 青训球员）
 ------------------------------------------------------
-function Youth._buildTabBar(candidateCount, youthCount)
+function Youth._buildTabBar(candidateCount, orphanCount, youthCount)
     local tabs = {
         { key = "recruit", label = "招募", count = candidateCount },
+        { key = "legend",  label = "传奇", count = orphanCount > 0 and orphanCount or nil },
         { key = "squad",   label = "青训球员", count = youthCount },
     }
 
@@ -185,7 +219,7 @@ function Youth._buildTabBar(candidateCount, youthCount)
             onClick = function()
                 if not isActive then
                     _activeTab = tab.key
-                    Router.replaceWith("youth")
+                    Router.replaceWith("youth", { tab = tab.key })
                 end
             end,
         })
@@ -979,10 +1013,14 @@ function Youth._buildLegendPoolSelector(gameState)
             color = labelColor,
             fontWeight = isSelected and "bold" or "normal",
             onClick = function()
+                if legendCloudMutateBlocked() then
+                    showLegendCloudSyncingToast()
+                    return
+                end
                 if pool.id ~= selectedId then
                     YouthManager.setSelectedLegendPool(gameState, pool.id)
                     SaveManager.save(gameState, "auto")
-                    Router.replaceWith("youth")
+                    Router.replaceWith("youth", { tab = "legend" })
                 end
             end,
         })
@@ -1358,7 +1396,7 @@ function Youth._showOrphanReclaimModal(gameState)
                                 message = name .. " 已补签加入青训队",
                                 variant = "success",
                             })
-                            Router.replaceWith("youth", { tab = "recruit" })
+                            Router.replaceWith("youth", { tab = "legend" })
                         else
                             UI.Toast.Show({
                                 message = err or "签入失败",
@@ -1435,6 +1473,8 @@ end
 
 function Youth._buildLegendGachaSection(gameState)
     local gachaState = YouthManager.getLegendGachaState(gameState)
+    local cloudBlocked = legendCloudMutateBlocked()
+    local syncBanner = buildLegendCloudSyncBanner()
 
     -- 未解锁状态：显示进度条和观看广告按钮
     if not gachaState.unlocked then
@@ -1442,64 +1482,67 @@ function Youth._buildLegendGachaSection(gameState)
         local total = YouthManager.getUnlockAdsRequired()
         local progressPct = math.floor(progress / total * 100)
 
-        return Theme.Card {
+        local children = {}
+        if syncBanner then table.insert(children, syncBanner) end
+        table.insert(children, UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            justifyContent = "space-between",
+            alignItems = "center",
+            marginBottom = 8,
             children = {
                 UI.Panel {
-                    width = "100%",
-                    flexDirection = "row",
-                    justifyContent = "space-between",
-                    alignItems = "center",
-                    marginBottom = 8,
+                    flexDirection = "row", alignItems = "center",
                     children = {
-                        UI.Panel {
-                            flexDirection = "row", alignItems = "center",
-                            children = {
-                                UI.Label {
-                                    text = "⭐",
-                                    fontSize = 16, marginRight = 4,
-                                },
-                                Theme.Subtitle { text = "传奇球星池", marginBottom = 0 },
-                            },
-                        },
                         UI.Label {
-                            text = string.format("%d/%d 解锁", progress, total),
-                            fontSize = 11,
-                            color = Theme.COLORS.ACCENT,
+                            text = "⭐",
+                            fontSize = 16, marginRight = 4,
                         },
-                    },
-                },
-                -- 进度条
-                UI.Panel {
-                    width = "100%", height = 6,
-                    backgroundColor = Theme.COLORS.BG_DARK,
-                    borderRadius = 3,
-                    marginBottom = 10,
-                    children = {
-                        UI.Panel {
-                            width = tostring(progressPct) .. "%",
-                            height = "100%",
-                            backgroundColor = Theme.COLORS.ACCENT,
-                            borderRadius = 3,
-                        },
+                        Theme.Subtitle { text = "传奇球星池", marginBottom = 0 },
                     },
                 },
                 UI.Label {
-                    text = "观看广告解锁传奇抽卡，解锁后可在5个叙事标签池中自由选择！",
-                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
-                },
-                UI.Button {
-                    text = "观看广告 (" .. progress .. "/" .. total .. ")",
-                    width = "100%", height = 36,
-                    backgroundColor = Theme.COLORS.PRIMARY,
-                    borderRadius = 8,
-                    fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY,
-                    fontWeight = "bold",
-                    onClick = function()
-                        Youth._watchAdForUnlock(gameState)
-                    end,
+                    text = string.format("%d/%d 解锁", progress, total),
+                    fontSize = 11,
+                    color = Theme.COLORS.ACCENT,
                 },
             },
-        }
+        })
+        table.insert(children, UI.Panel {
+            width = "100%", height = 6,
+            backgroundColor = Theme.COLORS.BG_DARK,
+            borderRadius = 3,
+            marginBottom = 10,
+            children = {
+                UI.Panel {
+                    width = tostring(progressPct) .. "%",
+                    height = "100%",
+                    backgroundColor = Theme.COLORS.ACCENT,
+                    borderRadius = 3,
+                },
+            },
+        })
+        table.insert(children, UI.Label {
+            text = "观看广告解锁传奇抽卡，解锁后可在5个叙事标签池中自由选择！",
+            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+        })
+        table.insert(children, UI.Button {
+            text = cloudBlocked and "云存档同步中..." or ("观看广告 (" .. progress .. "/" .. total .. ")"),
+            width = "100%", height = 36,
+            backgroundColor = cloudBlocked and Theme.COLORS.BG_SURFACE or Theme.COLORS.PRIMARY,
+            borderRadius = 8,
+            fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY,
+            fontWeight = "bold",
+            disabled = cloudBlocked,
+            onClick = function()
+                if cloudBlocked then
+                    showLegendCloudSyncingToast()
+                    return
+                end
+                Youth._watchAdForUnlock(gameState)
+            end,
+        })
+        return Theme.Card { children = children }
     end
 
     -- 已解锁状态：显示抽取次数和十连抽按钮
@@ -1508,159 +1551,170 @@ function Youth._buildLegendGachaSection(gameState)
 
     local selectedPool = YouthManager.getSelectedLegendPool(gameState)
     local poolProgress = YouthManager.getLegendPoolProgress(gameState)
-    local canSingle = pulls >= 1
-    local canTen = pulls >= 10
+    local canSingle = pulls >= 1 and not cloudBlocked
+    local canTen = pulls >= 10 and not cloudBlocked
 
-    return Theme.Card {
+    local unlockedChildren = {}
+    if syncBanner then table.insert(unlockedChildren, syncBanner) end
+    table.insert(unlockedChildren, UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        justifyContent = "space-between",
+        alignItems = "center",
+        marginBottom = 10,
         children = {
-            -- 标题行
             UI.Panel {
-                width = "100%",
-                flexDirection = "row",
-                justifyContent = "space-between",
-                alignItems = "center",
-                marginBottom = 10,
+                flexDirection = "row", alignItems = "center",
                 children = {
-                    UI.Panel {
-                        flexDirection = "row", alignItems = "center",
-                        children = {
-                            UI.Label {
-                                text = "⭐",
-                                fontSize = 18, marginRight = 6,
-                            },
-                            Theme.Subtitle { text = "传奇球星池", marginBottom = 0, color = Theme.COLORS.GOLD },
-                        },
-                    },
-                    -- 已解锁徽章
-                    UI.Panel {
-                        backgroundColor = Theme.COLORS.BG_SURFACE,
-                        borderRadius = 10,
-                        borderWidth = 1,
-                        borderColor = Theme.COLORS.SECONDARY,
-                        paddingLeft = 8, paddingRight = 8, paddingTop = 3, paddingBottom = 3,
-                        children = {
-                            UI.Label {
-                                text = "已解锁",
-                                fontSize = 10,
-                                color = Theme.COLORS.SECONDARY,
-                                fontWeight = "bold",
-                            },
-                        },
-                    },
-                },
-            },
-            -- 池选择器
-            Youth._buildLegendPoolSelector(gameState),
-            -- 资源条：可用次数（突出）+ 池内剩余
-            UI.Panel {
-                width = "100%",
-                flexDirection = "row",
-                alignItems = "center",
-                backgroundColor = Theme.COLORS.BG_DARK,
-                borderRadius = 10,
-                padding = 10,
-                marginBottom = 8,
-                children = {
-                    UI.Panel {
-                        flexDirection = "row",
-                        alignItems = "baseline",
-                        flexGrow = 1,
-                        children = {
-                            UI.Label {
-                                text = "可用次数",
-                                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginRight = 6,
-                            },
-                            UI.Label {
-                                text = tostring(pulls),
-                                fontSize = 20,
-                                color = pulls > 0 and Theme.COLORS.GOLD or Theme.COLORS.TEXT_MUTED,
-                                fontWeight = "bold",
-                            },
-                        },
-                    },
                     UI.Label {
-                        text = string.format("池内剩余 %d/%d", poolProgress.remaining, poolProgress.total),
-                        fontSize = 11,
-                        color = Theme.COLORS.TEXT_SECONDARY,
+                        text = "⭐",
+                        fontSize = 18, marginRight = 6,
                     },
+                    Theme.Subtitle { text = "传奇球星池", marginBottom = 0, color = Theme.COLORS.GOLD },
                 },
             },
-            -- 规则说明
-            UI.Label {
-                text = string.format(
-                    "仅在「%s」池内出传奇，十连抽刷新候选名单",
-                    selectedPool and selectedPool.name_cn or "标签"
-                ),
-                fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
-            },
-            -- 看广告赚次数（整行）
-            UI.Button {
-                text = adProgress > 0
-                    and string.format("看广告赚次数 (%d/%d)", adProgress, adTotal)
-                    or "看广告赚次数",
-                width = "100%", height = 34,
-                backgroundColor = Theme.COLORS.BG_SURFACE,
-                borderRadius = 8,
-                borderWidth = 1, borderColor = Theme.COLORS.BORDER,
-                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
-                marginBottom = 8,
-                onClick = function()
-                    Youth._showAdForPullsModal(gameState)
-                end,
-            },
-            -- 抽卡按钮行
             UI.Panel {
-                width = "100%",
-                flexDirection = "row",
+                backgroundColor = Theme.COLORS.BG_SURFACE,
+                borderRadius = 10,
+                borderWidth = 1,
+                borderColor = Theme.COLORS.SECONDARY,
+                paddingLeft = 8, paddingRight = 8, paddingTop = 3, paddingBottom = 3,
                 children = {
-                    -- 单抽按钮
-                    UI.Button {
-                        text = "单抽",
-                        height = 42, flexGrow = 1,
-                        backgroundColor = canSingle and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
-                        borderRadius = 8,
-                        fontSize = 14,
-                        color = canSingle and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                    UI.Label {
+                        text = "已解锁",
+                        fontSize = 10,
+                        color = Theme.COLORS.SECONDARY,
                         fontWeight = "bold",
-                        marginRight = 8,
-                        disabled = not canSingle,
-                        onClick = function()
-                            if canSingle then
-                                Youth._doSinglePull(gameState)
-                            end
-                        end,
-                    },
-                    -- 十连抽按钮
-                    UI.Button {
-                        text = canTen and "十连抽" or ("十连抽 (" .. pulls .. "/10)"),
-                        height = 42, flexGrow = 1.6,
-                        backgroundColor = canTen and Theme.COLORS.ACCENT or Theme.COLORS.BG_SURFACE,
-                        borderRadius = 8,
-                        fontSize = 15,
-                        color = canTen and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
-                        fontWeight = "bold",
-                        disabled = not canTen,
-                        onClick = function()
-                            if canTen then
-                                Youth._doTenPull(gameState)
-                            end
-                        end,
                     },
                 },
             },
         },
-    }
+    })
+    table.insert(unlockedChildren, Youth._buildLegendPoolSelector(gameState))
+    table.insert(unlockedChildren, UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        alignItems = "center",
+        backgroundColor = Theme.COLORS.BG_DARK,
+        borderRadius = 10,
+        padding = 10,
+        marginBottom = 8,
+        children = {
+            UI.Panel {
+                flexDirection = "row",
+                alignItems = "baseline",
+                flexGrow = 1,
+                children = {
+                    UI.Label {
+                        text = "可用次数",
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginRight = 6,
+                    },
+                    UI.Label {
+                        text = tostring(pulls),
+                        fontSize = 20,
+                        color = pulls > 0 and Theme.COLORS.GOLD or Theme.COLORS.TEXT_MUTED,
+                        fontWeight = "bold",
+                    },
+                },
+            },
+            UI.Label {
+                text = string.format("池内剩余 %d/%d", poolProgress.remaining, poolProgress.total),
+                fontSize = 11,
+                color = Theme.COLORS.TEXT_SECONDARY,
+            },
+        },
+    })
+    table.insert(unlockedChildren, UI.Label {
+        text = string.format(
+            "仅在「%s」池内出传奇，十连抽刷新候选名单",
+            selectedPool and selectedPool.name_cn or "标签"
+        ),
+        fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
+    })
+    table.insert(unlockedChildren, UI.Button {
+        text = cloudBlocked and "云存档同步中..."
+            or (adProgress > 0 and string.format("看广告赚次数 (%d/%d)", adProgress, adTotal) or "看广告赚次数"),
+        width = "100%", height = 34,
+        backgroundColor = Theme.COLORS.BG_SURFACE,
+        borderRadius = 8,
+        borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+        fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
+        marginBottom = 8,
+        disabled = cloudBlocked,
+        onClick = function()
+            if cloudBlocked then
+                showLegendCloudSyncingToast()
+                return
+            end
+            Youth._showAdForPullsModal(gameState)
+        end,
+    })
+    table.insert(unlockedChildren, UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        children = {
+            UI.Button {
+                text = cloudBlocked and "同步中" or "单抽",
+                height = 42, flexGrow = 1,
+                backgroundColor = canSingle and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
+                borderRadius = 8,
+                fontSize = 14,
+                color = canSingle and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                fontWeight = "bold",
+                marginRight = 8,
+                disabled = not canSingle,
+                onClick = function()
+                    if cloudBlocked then
+                        showLegendCloudSyncingToast()
+                        return
+                    end
+                    if canSingle then
+                        Youth._doSinglePull(gameState)
+                    end
+                end,
+            },
+            UI.Button {
+                text = cloudBlocked and "同步中"
+                    or (canTen and "十连抽" or ("十连抽 (" .. pulls .. "/10)")),
+                height = 42, flexGrow = 1.6,
+                backgroundColor = canTen and Theme.COLORS.ACCENT or Theme.COLORS.BG_SURFACE,
+                borderRadius = 8,
+                fontSize = 15,
+                color = canTen and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                fontWeight = "bold",
+                disabled = not canTen,
+                onClick = function()
+                    if cloudBlocked then
+                        showLegendCloudSyncingToast()
+                        return
+                    end
+                    if canTen then
+                        Youth._doTenPull(gameState)
+                    end
+                end,
+            },
+        },
+    })
+    return Theme.Card { children = unlockedChildren }
 end
 
 --- 观看广告解锁
 function Youth._watchAdForUnlock(gameState)
+    if legendCloudMutateBlocked() then
+        showLegendCloudSyncingToast()
+        return
+    end
     if not sdk then
         UI.Toast.Show({ message = "广告暂不可用", variant = "warning" })
         return
     end
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
-            local unlocked, _progress = YouthManager.watchAdForUnlock(gameState)
+            local unlocked, _progress, err = YouthManager.watchAdForUnlock(gameState)
+            if err == YouthManager.LEGEND_CLOUD_SYNCING then
+                showLegendCloudSyncingToast()
+                return
+            end
             -- 实时存档，防止闪退丢失广告进度
             SaveManager.save(gameState, "auto")
             -- 广告视频释放后强制 GC，防止连续观看时内存峰值过高
@@ -1672,11 +1726,11 @@ function Youth._watchAdForUnlock(gameState)
                     confirmText = "太好了！",
                     confirmColor = Theme.COLORS.ACCENT,
                     onConfirm = function()
-                        Router.replaceWith("youth")
+                        Router.replaceWith("youth", { tab = "legend" })
                     end,
                 })
             else
-                Router.replaceWith("youth")
+                Router.replaceWith("youth", { tab = "legend" })
             end
         else
             UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
@@ -1686,6 +1740,10 @@ end
 
 --- 显示广告观看弹窗（类似潜力透视的对话框样式）
 function Youth._showAdForPullsModal(gameState)
+    if legendCloudMutateBlocked() then
+        showLegendCloudSyncingToast()
+        return
+    end
     local adProgress, adTotal = YouthManager.getPullAdProgress(gameState)
     local gachaState = YouthManager.getLegendGachaState(gameState)
     local currentPulls = gachaState.pulls
@@ -1822,13 +1880,21 @@ end
 
 --- 在弹窗流程中观看广告并弹出奖励反馈
 function Youth._doWatchAdInModal(gameState)
+    if legendCloudMutateBlocked() then
+        showLegendCloudSyncingToast()
+        return
+    end
     if not sdk then
         UI.Toast.Show({ message = "广告暂不可用", variant = "warning" })
         return
     end
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
-            local newPulls = YouthManager.watchAdForPulls(gameState)
+            local newPulls, err = YouthManager.watchAdForPulls(gameState)
+            if err == YouthManager.LEGEND_CLOUD_SYNCING then
+                showLegendCloudSyncingToast()
+                return
+            end
             -- 实时存档，防止闪退丢失广告进度
             SaveManager.save(gameState, "auto")
             -- 广告视频释放后强制 GC，防止连续观看时内存峰值过高
@@ -1921,7 +1987,7 @@ function Youth._showAdRewardPopup(gameState, newPulls)
                         color = Theme.COLORS.TEXT_SECONDARY,
                         onClick = function()
                             UI.CloseOverlay()
-                            Router.replaceWith("youth")
+                            Router.replaceWith("youth", { tab = "legend" })
                         end,
                     },
                 },
@@ -1932,7 +1998,15 @@ end
 
 --- 执行单抽
 function Youth._doSinglePull(gameState)
-    local candidate = YouthManager.doSinglePull(gameState)
+    if legendCloudMutateBlocked() then
+        showLegendCloudSyncingToast()
+        return
+    end
+    local candidate, err = YouthManager.doSinglePull(gameState)
+    if err == YouthManager.LEGEND_CLOUD_SYNCING then
+        showLegendCloudSyncingToast()
+        return
+    end
     if not candidate then return end
     SaveManager.save(gameState, "auto")
 
@@ -1941,13 +2015,21 @@ function Youth._doSinglePull(gameState)
         Youth._showLegendReveal(candidate, false)
     else
         UI.Toast.Show({ message = string.format("获得 %s（%s）", candidate.displayName, candidate.position), variant = "success" })
-        Router.replaceWith("youth")
+        Router.replaceWith("youth", { tab = "recruit" })
     end
 end
 
 --- 执行十连抽
 function Youth._doTenPull(gameState)
-    local results = YouthManager.doTenPull(gameState)
+    if legendCloudMutateBlocked() then
+        showLegendCloudSyncingToast()
+        return
+    end
+    local results, err = YouthManager.doTenPull(gameState)
+    if err == YouthManager.LEGEND_CLOUD_SYNCING then
+        showLegendCloudSyncingToast()
+        return
+    end
     if not results then return end
     SaveManager.save(gameState, "auto")
 
@@ -1969,7 +2051,7 @@ function Youth._doTenPull(gameState)
             confirmText = "查看候选",
             confirmColor = Theme.COLORS.PRIMARY,
             onConfirm = function()
-                Router.replaceWith("youth")
+                Router.replaceWith("youth", { tab = "recruit" })
             end,
         })
     end
@@ -2111,7 +2193,7 @@ function Youth._showLegendReveal(legendPlayer, isFirstPull)
                         fontWeight = "bold",
                         onClick = function()
                             UI.CloseOverlay()
-                            Router.replaceWith("youth")
+                            Router.replaceWith("youth", { tab = "recruit" })
                         end,
                     },
                 },

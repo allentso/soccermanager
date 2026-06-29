@@ -1463,6 +1463,11 @@ function Settings._claimCompensationLegend()
     local gameState = _G.gameState
     if not gameState then return end
 
+    if not YouthManager.canMutateLegendGacha() then
+        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        return
+    end
+
     -- 防止重复领取
     local gachaState = YouthManager.getLegendGachaState(gameState)
     if gachaState.compensationClaimed or gachaState.compensationClaimedRound == "2.5" then
@@ -1801,6 +1806,11 @@ function Settings._cheatUnlockLegendPool()
     local gameState = _G.gameState
     if not gameState then return end
 
+    if not YouthManager.canMutateLegendGacha() then
+        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        return
+    end
+
     local YouthManager = require("scripts/systems/youth_manager")
     local state = YouthManager.getLegendGachaState(gameState)
 
@@ -1826,6 +1836,11 @@ end
 function Settings._cheatAddPulls()
     local gameState = _G.gameState
     if not gameState then return end
+
+    if not YouthManager.canMutateLegendGacha() then
+        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        return
+    end
 
     local YouthManager = require("scripts/systems/youth_manager")
     local state = YouthManager.getLegendGachaState(gameState)
@@ -1855,6 +1870,11 @@ end
 function Settings._cheatForceLegend()
     local gameState = _G.gameState
     if not gameState then return end
+
+    if not YouthManager.canMutateLegendGacha() then
+        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        return
+    end
 
     local YouthManager = require("scripts/systems/youth_manager")
     local state = YouthManager.getLegendGachaState(gameState)
@@ -1890,6 +1910,11 @@ end
 function Settings._cheatResetLegendPool()
     local gameState = _G.gameState
     if not gameState then return end
+
+    if not YouthManager.canMutateLegendGacha() then
+        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        return
+    end
 
     local YouthManager = require("scripts/systems/youth_manager")
     local state = YouthManager.getLegendGachaState(gameState)

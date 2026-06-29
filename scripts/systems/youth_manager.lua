@@ -1564,6 +1564,31 @@ end
 
 local LegendTagPools = require("scripts/data/legend_tag_pools")
 
+YouthManager.LEGEND_CLOUD_SYNCING = "legend_cloud_syncing"
+
+--- 云存档模式下是否允许修改传奇抽卡账本
+---@return boolean
+function YouthManager.canMutateLegendGacha()
+    if not LegendGachaCloud.isEnabled() then return true end
+    return LegendGachaCloud.canMutate()
+end
+
+--- 云存档是否已完成首次同步
+---@return boolean
+function YouthManager.isLegendGachaCloudReady()
+    if not LegendGachaCloud.isEnabled() then return true end
+    return LegendGachaCloud.isReady()
+end
+
+---@return boolean ok
+---@return string|nil err
+local function _requireLegendGachaMutate()
+    if LegendGachaCloud.isEnabled() and not LegendGachaCloud.canMutate() then
+        return false, YouthManager.LEGEND_CLOUD_SYNCING
+    end
+    return true
+end
+
 --- 获取抽卡状态
 ---@param gameState table
 ---@return table state
@@ -1618,6 +1643,8 @@ end
 ---@param poolId string
 ---@return boolean ok
 function YouthManager.setSelectedLegendPool(gameState, poolId)
+    local okMutate = _requireLegendGachaMutate()
+    if not okMutate then return false end
     if not LegendTagPools.isValidPoolId(poolId) then
         return false
     end
@@ -1771,9 +1798,12 @@ end
 ---@param gameState table
 ---@param lData table
 function YouthManager.markLegendCollected(gameState, lData)
+    local okMutate, err = _requireLegendGachaMutate()
+    if not okMutate then return false, err end
     local state = YouthManager.getLegendGachaState(gameState)
     _markLegendPulled(state, lData)
     LegendGachaCloud.markDirty()
+    return true
 end
 
 -- 漏签补偿：传奇 JSON 索引（lazy）
@@ -1907,6 +1937,11 @@ end
 ---@return boolean unlocked 是否刚刚解锁
 ---@return number progress 当前进度
 function YouthManager.watchAdForUnlock(gameState)
+    local okMutate, err = _requireLegendGachaMutate()
+    if not okMutate then
+        local s = YouthManager.getLegendGachaState(gameState)
+        return false, s and s.adsWatched or 0, err
+    end
     local state = YouthManager.getLegendGachaState(gameState)
     if state.unlocked then return false, LEGEND_UNLOCK_ADS end
 
@@ -1928,6 +1963,8 @@ end
 ---@param gameState table
 ---@return number newPulls 本次新增次数
 function YouthManager.watchAdForPulls(gameState)
+    local okMutate, err = _requireLegendGachaMutate()
+    if not okMutate then return 0, err end
     local state = YouthManager.getLegendGachaState(gameState)
     if not state.unlocked then return 0 end
 
@@ -1977,6 +2014,8 @@ end
 ---@param gameState table
 ---@return table|nil candidate 生成的球员，nil表示次数不足
 function YouthManager.doSinglePull(gameState)
+    local okMutate, err = _requireLegendGachaMutate()
+    if not okMutate then return nil, err end
     local state = YouthManager.getLegendGachaState(gameState)
     if not state.unlocked or state.pulls < 1 then
         return nil
@@ -2057,6 +2096,8 @@ end
 ---@param gameState table
 ---@return table|nil results {candidates=候选列表, legendCount=出传奇数, isFirstTenPull=bool}
 function YouthManager.doTenPull(gameState)
+    local okMutate, err = _requireLegendGachaMutate()
+    if not okMutate then return nil, err end
     local state = YouthManager.getLegendGachaState(gameState)
     if not state.unlocked or state.pulls < 10 then
         return nil
