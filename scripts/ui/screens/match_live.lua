@@ -577,10 +577,7 @@ function MatchLive.create(params)
     local homeGoalScorers = {}
     local awayGoalScorers = {}
     for _, evt in ipairs(goalEvents) do
-        local player = evt.playerId and gameState.players[evt.playerId]
-        local pName = player and player.lastName or player and player.displayName or ""
-        local ogSuffix = evt.isOwnGoal and " (乌龙球)" or ""
-        local entry = pName .. " " .. tostring(evt.minute) .. "'" .. ogSuffix
+        local entry = MatchLive._formatGoalScorerEntry(evt, gameState)
         if evt.teamId == session.fixture.homeTeamId then
             table.insert(homeGoalScorers, entry)
         else
@@ -1480,6 +1477,20 @@ function MatchLive._buildCommentaryRows(session, gameState, currentMinute, match
     return rows
 end
 
+function MatchLive._formatGoalScorerEntry(evt, gameState)
+    local player = evt.playerId and gameState.players[evt.playerId]
+    local pName = player and player.lastName or player and player.displayName or ""
+    local ogSuffix = evt.isOwnGoal and " (乌龙球)" or ""
+    local assistSuffix = ""
+    if not evt.isOwnGoal and evt.assistPlayerId and evt.assistPlayerId ~= evt.playerId then
+        local assister = gameState.players[evt.assistPlayerId]
+        if assister then
+            assistSuffix = " (" .. assister.displayName .. ")"
+        end
+    end
+    return pName .. " " .. tostring(evt.minute) .. "'" .. ogSuffix .. assistSuffix
+end
+
 function MatchLive._buildKeyEventRows(session, gameState, homeName, awayName)
     local keyEvents = {}
     for _, evt in ipairs(session.events) do
@@ -1497,10 +1508,17 @@ function MatchLive._buildKeyEventRows(session, gameState, homeName, awayName)
         local icon = evt.type == "goal" and "⚽" or "🟥"
         local text
         if evt.type == "goal" then
+            local assistSuffix = ""
+            if not evt.isOwnGoal and evt.assistPlayerId and evt.assistPlayerId ~= evt.playerId then
+                local assister = gameState.players[evt.assistPlayerId]
+                if assister then
+                    assistSuffix = " · " .. assister.displayName .. " 助攻"
+                end
+            end
             if evt.isOwnGoal then
                 text = string.format("%s 乌龙球 (%s)", pName, teamName)
             else
-                text = string.format("%s (%s)", pName, teamName)
+                text = string.format("%s%s (%s)", pName, assistSuffix, teamName)
             end
         else
             text = string.format("%s 红牌 (%s)", pName, teamName)
@@ -1583,10 +1601,7 @@ function MatchLive._refreshLiveUI()
     local homeGoalScorers = {}
     local awayGoalScorers = {}
     for _, evt in ipairs(goalEvents) do
-        local player = evt.playerId and gameState.players[evt.playerId]
-        local pName = player and player.lastName or player and player.displayName or ""
-        local ogSuffix = evt.isOwnGoal and " (乌龙球)" or ""
-        local entry = pName .. " " .. tostring(evt.minute) .. "'" .. ogSuffix
+        local entry = MatchLive._formatGoalScorerEntry(evt, gameState)
         if evt.teamId == session.fixture.homeTeamId then
             table.insert(homeGoalScorers, entry)
         else

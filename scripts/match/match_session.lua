@@ -140,18 +140,13 @@ function MatchSession._resolveTwoLegAggregate(gameState, fixture)
     if not fixture._isUCL and not fixture._isUEL then return nil end
 
     local tournament = fixture._isUCL and gameState.championsLeague or gameState.europaLeague
-    if not tournament or not tournament.knockout then return nil end
+    if not tournament or not tournament.knockout or not tournament.phase then return nil end
 
-    local knockoutPhases = {"playoff", "r16", "qf", "sf"}
-    for _, phase in ipairs(knockoutPhases) do
-        if tournament.phase == phase or tournament.knockout[phase] then
-            local fixtures = tournament.knockout[phase]
-            if fixtures then
-                for _, f in ipairs(fixtures) do
-                    if f.matchIndex == fixture.matchIndex and f.leg == 1 and f.status == "finished" then
-                        return { leg1Home = f.homeGoals, leg1Away = f.awayGoals }
-                    end
-                end
+    local fixtures = tournament.knockout[tournament.phase]
+    if fixtures then
+        for _, f in ipairs(fixtures) do
+            if f.matchIndex == fixture.matchIndex and f.leg == 1 and f.status == "finished" then
+                return { leg1Home = f.homeGoals, leg1Away = f.awayGoals }
             end
         end
     end
@@ -535,6 +530,8 @@ function MatchSession:_getPhaseOptions()
     end
     options.allowSeasonEnding = true
     options.seasonDaysRemaining = self._seasonDaysRemaining
+    options.playerTeamId = self.gameState and self.gameState.playerTeamId
+    options.gameState = self.gameState
     if self.gameState and self.gameState.date then
         options.currentYear = self.gameState.date.year
     end

@@ -1146,11 +1146,35 @@ function TurnProcessor._applyContinentalResult(gameState, tournament, fixture, r
                         local awayTeam = gameState.teams[fixture.awayTeamId]
                         if homeTeam and awayTeam then
                             local TacticsResolver = require("scripts/match/tactics_resolver")
+                            local EventFlavors = require("scripts/match/event_flavors")
                             local homeContext = TacticsResolver.buildTeamContext(gameState, homeTeam)
                             local awayContext = TacticsResolver.buildTeamContext(gameState, awayTeam)
                             if #homeContext.players > 0 and #awayContext.players > 0 then
+                                local state = {
+                                    events = report.events or {},
+                                    homeGoals = report.homeGoals or 0,
+                                    awayGoals = report.awayGoals or 0,
+                                    homeShots = report.stats and report.stats.homeShots or 0,
+                                    awayShots = report.stats and report.stats.awayShots or 0,
+                                    homeShotsOnTarget = report.stats and report.stats.homeShotsOnTarget or 0,
+                                    awayShotsOnTarget = report.stats and report.stats.awayShotsOnTarget or 0,
+                                    homeFouls = report.stats and report.stats.homeFouls or 0,
+                                    awayFouls = report.stats and report.stats.awayFouls or 0,
+                                    homePossessionTicks = 0,
+                                    totalPossessionTicks = 0,
+                                }
                                 local extraTime = MatchEngine.simulateExtraTimeAndPenalties(
-                                    fixture, homeContext, awayContext)
+                                    fixture, homeContext, awayContext, state, {
+                                        twoLegAggregate = {
+                                            leg1Home = leg1.homeGoals,
+                                            leg1Away = leg1.awayGoals,
+                                        },
+                                        allowSeasonEnding = true,
+                                        seasonDaysRemaining = EventFlavors.estimateSeasonDaysRemaining(gameState),
+                                        currentYear = gameState.date and gameState.date.year,
+                                        playerTeamId = gameState.playerTeamId,
+                                        gameState = gameState,
+                                    })
                                 _storeKnockoutExtras(fixture, extraTime)
                             end
                         end

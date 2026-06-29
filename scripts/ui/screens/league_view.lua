@@ -641,6 +641,23 @@ function LeagueView._createUCLView(gameState, leagueTabs)
                             local agg1 = leg1.homeGoals + leg2.awayGoals
                             local agg2 = leg1.awayGoals + leg2.homeGoals
                             aggText = string.format("(%d-%d)", agg1, agg2)
+                            if leg2.extraTime and leg2.extraTime.played then
+                                local etHome = leg2.extraTime.homeExtraGoals or 0
+                                local etAway = leg2.extraTime.awayExtraGoals or 0
+                                if etHome > 0 or etAway > 0 then
+                                    aggText = aggText .. string.format(" 加:%d-%d", etHome, etAway)
+                                end
+                            end
+                            if leg2._penaltyWinner or (leg2.penalties and leg2.penalties.winner) then
+                                local pen = leg2.penalties or (leg2.extraTime and leg2.extraTime.penalties)
+                                if pen then
+                                    aggText = aggText .. string.format(" 点:%d-%d",
+                                        pen.homeScore or pen.homeScored or 0,
+                                        pen.awayScore or pen.awayScored or 0)
+                                else
+                                    aggText = aggText .. " 点球"
+                                end
+                            end
                         end
 
                         table.insert(contentChildren, UI.Panel {

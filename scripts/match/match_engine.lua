@@ -248,6 +248,74 @@ local function pickInjuryPlayer(context)
     end)
 end
 
+local function positionGroupForSub(pos)
+    if pos == "GK" then return "GK" end
+    if pos == "CB" or pos == "LB" or pos == "RB" or pos == "LWB" or pos == "RWB" then return "DEF" end
+    if pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then return "FWD" end
+    return "MID"
+end
+
+local function pickInjurySubstitute(context, gameState, offPlayer)
+    if not context or not context.team or not gameState then return nil end
+
+    local onPitch = {}
+    for _, p in ipairs(context.players or {}) do
+        onPitch[p.id] = true
+    end
+
+    local offGroup = positionGroupForSub(offPlayer and offPlayer.position)
+    local candidates = {}
+    for _, pid in ipairs(context.team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not onPitch[p.id] and not p.retired then
+            table.insert(candidates, p)
+        end
+    end
+    if #candidates == 0 then return nil end
+
+    table.sort(candidates, function(a, b)
+        local aGroup = positionGroupForSub(a.position)
+        local bGroup = positionGroupForSub(b.position)
+        local aPosFit = (aGroup == offGroup) and 1 or (aGroup == "MID" and 0.5 or 0)
+        local bPosFit = (bGroup == offGroup) and 1 or (bGroup == "MID" and 0.5 or 0)
+        local aScore = (a.overall or 0) + aPosFit * 20
+        local bScore = (b.overall or 0) + bPosFit * 20
+        return aScore > bScore
+    end)
+    return candidates[1]
+end
+
+function MatchEngine.applyInjurySubstitution(fixture, context, offPlayer, minute, events, options)
+    options = options or {}
+    if not offPlayer or not context then return false end
+
+    local autoSub = options.autoSub ~= false
+    if not autoSub then return false end
+
+    if not removePlayerFromPitch(context, offPlayer.id) then
+        return false
+    end
+
+    context.subsUsed = context.subsUsed or 0
+    if context.subsUsed >= 3 then return true end
+
+    local onPlayer = pickInjurySubstitute(context, options.gameState, offPlayer)
+    if not onPlayer then return true end
+
+    table.insert(context.players, onPlayer)
+    context.subsUsed = context.subsUsed + 1
+    table.insert(events, {
+        type = "substitution",
+        minute = minute,
+        playerId = onPlayer.id,
+        offPlayerId = offPlayer.id,
+        teamId = options.teamId,
+        isInjurySub = true,
+        templateIdx = RandomInt(1, 100),
+    })
+    return true
+end
+
 function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMinute, endMinute, state, options)
     options = options or {}
     local events = state.events
@@ -659,6 +727,15 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                 injurySeasonEnding = injury.isSeasonEnding,
                 templateIdx = RandomInt(1, 100),
             })
+            if player then
+                local teamId = injuredHome and fixture.homeTeamId or fixture.awayTeamId
+                local isPlayerTeam = options.playerTeamId and teamId == options.playerTeamId
+                MatchEngine.applyInjurySubstitution(fixture, context, player, minute, events, {
+                    autoSub = not isPlayerTeam,
+                    gameState = options.gameState,
+                    teamId = teamId,
+                })
+            end
         end
 
         state.homePossessionTicks = state.homePossessionTicks + (attackingHome and 1 or 0)
@@ -711,10 +788,19 @@ function MatchEngine._resolveTeams(gameState, fixture)
     return gameState.teams[fixture.homeTeamId], gameState.teams[fixture.awayTeamId]
 end
 
+--- 判断两回合制总比分是否平局
+function MatchEngine.isTwoLegAggregateTied(twoLegAggregate, homeGoals, awayGoals)
+    if not twoLegAggregate then return false end
+    local team1Total = (twoLegAggregate.leg1Home or 0) + (awayGoals or 0)
+    local team2Total = (twoLegAggregate.leg1Away or 0) + (homeGoals or 0)
+    return team1Total == team2Total
+end
+
 --- 淘汰赛加时 + 点球（单场决胜或两回合次回合决胜共用）
 ---@return table extraTime
 ---@return table state 更新后的模拟状态（含加时进球）
-function MatchEngine.simulateExtraTimeAndPenalties(fixture, homeContext, awayContext, state)
+function MatchEngine.simulateExtraTimeAndPenalties(fixture, homeContext, awayContext, state, options)
+    options = options or {}
     state = state or {
         events = {},
         homeGoals = 0,
@@ -734,6 +820,11 @@ function MatchEngine.simulateExtraTimeAndPenalties(fixture, homeContext, awayCon
     MatchEngine._simulateMinutes(fixture, homeContext, awayContext, 91, 120, state, {
         phaseChance = 0.35,
         injuryChance = 0.0018,
+        allowSeasonEnding = options.allowSeasonEnding,
+        seasonDaysRemaining = options.seasonDaysRemaining,
+        currentYear = options.currentYear,
+        playerTeamId = options.playerTeamId,
+        gameState = options.gameState,
     })
 
     local extraTime = {
@@ -741,7 +832,14 @@ function MatchEngine.simulateExtraTimeAndPenalties(fixture, homeContext, awayCon
         homeExtraGoals = state.homeGoals - beforeHome,
         awayExtraGoals = state.awayGoals - beforeAway,
     }
-    if state.homeGoals == state.awayGoals then
+    local needsPenalties
+    if options.twoLegAggregate then
+        needsPenalties = MatchEngine.isTwoLegAggregateTied(
+            options.twoLegAggregate, state.homeGoals, state.awayGoals)
+    else
+        needsPenalties = state.homeGoals == state.awayGoals
+    end
+    if needsPenalties then
         extraTime.penalties = MatchEngine._simulatePenaltyShootout(homeContext, awayContext, fixture)
     end
     return extraTime, state
@@ -832,6 +930,8 @@ function MatchEngine.simulate(gameState, fixture)
         allowSeasonEnding = true,
         seasonDaysRemaining = EventFlavors.estimateSeasonDaysRemaining(gameState),
         currentYear = gameState.date and gameState.date.year,
+        playerTeamId = gameState.playerTeamId,
+        gameState = gameState,
     })
 
     local extraTime = nil
