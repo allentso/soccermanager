@@ -1,5 +1,5 @@
 -- ui/screens/youth.lua
--- 青训学院页面：青训球员列表、候选招募、传奇抽卡、提拔/释放
+-- 青训学院页面：青训球员列表、候选招募、传奇抽卡、自建球员、提拔/释放
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
@@ -48,8 +48,14 @@ local function buildLegendCloudSyncBanner()
     }
 end
 
---- 子目录标签（在路由切换间保留）：recruit=招募 / legend=传奇 / squad=青训球员
+--- 子目录标签（在路由切换间保留）：recruit=招募 / legend=传奇 / custom=自建 / squad=青训球员
 local _activeTab = "recruit"
+
+--- 自建球员可选位置
+local CUSTOM_POSITION_OPTIONS = {
+    "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST",
+}
+local _customCreatePos = "ST"
 
 --- 叙事标签池 UI 配置
 local LEGEND_POOL_UI = {
@@ -111,6 +117,8 @@ function Youth.create(params)
     if not gameState then return UI.Panel{} end
 
     local youthSquad = YouthManager.getYouthSquad(gameState)
+    local regularYouthSquad = YouthManager.getRegularYouthSquad(gameState)
+    local customYouthSquad = YouthManager.getCustomYouthSquad(gameState)
     local candidates = YouthManager.getCandidates(gameState)
     local playerTeam = gameState:getPlayerTeam()
     local maxYouthSquad = playerTeam
@@ -124,16 +132,20 @@ function Youth.create(params)
 
     local orphanCount = #YouthManager.getOrphanedPulledLegends(gameState)
 
-    -- 子目录内容：招募 / 传奇 / 青训球员
+    -- 子目录内容：招募 / 传奇 / 自建 / 青训球员
     local tabContent
     if _activeTab == "squad" then
         tabContent = {
-            Youth._buildSquadSection(youthSquad, gameState),
+            Youth._buildSquadSection(regularYouthSquad, gameState),
         }
     elseif _activeTab == "legend" then
         tabContent = {
             Youth._buildOrphanReclaimBanner(gameState),
             Youth._buildLegendGachaSection(gameState),
+        }
+    elseif _activeTab == "custom" then
+        tabContent = {
+            Youth._buildCustomSection(customYouthSquad, gameState),
         }
     else
         tabContent = {
@@ -164,8 +176,8 @@ function Youth.create(params)
             }
         },
         Theme.SquadSubNav("youth"),
-        -- 三级子目录：招募 / 传奇 / 青训球员
-        Youth._buildTabBar(#candidates, orphanCount, #youthSquad),
+        -- 三级子目录：招募 / 传奇 / 自建 / 青训球员
+        Youth._buildTabBar(#candidates, orphanCount, #customYouthSquad, #regularYouthSquad),
         UI.Panel {
             width = "100%", flexGrow = 1,
             padding = 12,
@@ -190,13 +202,14 @@ function Youth.create(params)
 end
 
 ------------------------------------------------------
--- 三级子目录标签栏（招募 / 传奇 / 青训球员）
+-- 三级子目录标签栏（招募 / 传奇 / 自建 / 青训球员）
 ------------------------------------------------------
-function Youth._buildTabBar(candidateCount, orphanCount, youthCount)
+function Youth._buildTabBar(candidateCount, orphanCount, customCount, youthCount)
     local tabs = {
         { key = "recruit", label = "招募", count = candidateCount },
         { key = "legend",  label = "传奇", count = orphanCount > 0 and orphanCount or nil },
-        { key = "squad",   label = "青训球员", count = youthCount },
+        { key = "custom",  label = "自建", count = customCount > 0 and customCount or nil },
+        { key = "squad",   label = "青训", count = youthCount },
     }
 
     local buttons = {}
@@ -209,13 +222,13 @@ function Youth._buildTabBar(candidateCount, orphanCount, youthCount)
         table.insert(buttons, UI.Button {
             text = labelText,
             height = 30,
-            paddingLeft = 14, paddingRight = 14,
+            paddingLeft = 10, paddingRight = 10,
             backgroundColor = isActive and Theme.COLORS.GOLD or Theme.COLORS.TRANSPARENT,
             borderRadius = 15,
-            fontSize = 13,
+            fontSize = 12,
             color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_MUTED,
             fontWeight = isActive and "bold" or "normal",
-            marginRight = 8,
+            marginRight = 6,
             onClick = function()
                 if not isActive then
                     _activeTab = tab.key
@@ -228,10 +241,11 @@ function Youth._buildTabBar(candidateCount, orphanCount, youthCount)
     return UI.Panel {
         width = "100%", height = 40,
         flexDirection = "row", alignItems = "center",
-        paddingLeft = 12, paddingRight = 12,
+        paddingLeft = 8, paddingRight = 8,
         backgroundColor = Theme.COLORS.BG_CARD,
         borderBottomWidth = 1,
         borderColor = Theme.COLORS.BORDER,
+        overflow = "scroll",
         children = buttons,
     }
 end
@@ -617,6 +631,251 @@ function Youth._buildSquadSection(youthSquad, gameState)
     return Theme.Card { children = rows }
 end
 
+------------------------------------------------------
+-- 自建球员
+------------------------------------------------------
+function Youth._buildCustomSection(customSquad, gameState)
+    local maxCustom = YouthManager.getMaxCustomYouthSlots()
+    local canCreate = #customSquad < maxCustom
+    local playerTeam = gameState:getPlayerTeam()
+    local defaultNat = playerTeam and playerTeam.country or "ENG"
+    local natName = ScoutManager.getNationName(defaultNat) or defaultNat
+
+    local rows = {}
+    table.insert(rows, UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        justifyContent = "space-between",
+        alignItems = "center",
+        marginBottom = 4,
+        children = {
+            Theme.Subtitle {
+                text = string.format("自建球员 (%d/%d)", #customSquad, maxCustom),
+                marginBottom = 0,
+            },
+            UI.Button {
+                text = canCreate and "创建球员" or "名额已满",
+                height = 30,
+                paddingLeft = 12,
+                paddingRight = 12,
+                backgroundColor = canCreate and Theme.COLORS.SECONDARY or Theme.COLORS.BG_SURFACE,
+                borderRadius = 15,
+                fontSize = 12,
+                color = canCreate and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+                fontWeight = "bold",
+                disabled = not canCreate,
+                onClick = function()
+                    if canCreate then
+                        Youth._showCreateCustomModal(gameState, defaultNat, natName)
+                    end
+                end,
+            },
+        },
+    })
+    table.insert(rows, UI.Label {
+        text = string.format("可创建 %d 名专属青训，16岁起步，国籍默认为 %s", maxCustom, natName),
+        fontSize = 10,
+        color = Theme.COLORS.TEXT_MUTED,
+        marginBottom = 8,
+    })
+
+    if #customSquad == 0 then
+        table.insert(rows, UI.Label {
+            text = "还没有自建球员，点击右上角创建你的第一位专属新星。",
+            fontSize = 13,
+            color = Theme.COLORS.TEXT_MUTED,
+            marginTop = 8,
+        })
+    else
+        for _, player in ipairs(customSquad) do
+            table.insert(rows, Youth._buildYouthPlayerRow(player, gameState))
+        end
+    end
+
+    return Theme.Card { children = rows }
+end
+
+function Youth._showCreateCustomModal(gameState, defaultNat, natName)
+    local function cycleCustomPos(delta)
+        local idx = 1
+        for i, pos in ipairs(CUSTOM_POSITION_OPTIONS) do
+            if pos == _customCreatePos then
+                idx = i
+                break
+            end
+        end
+        idx = ((idx - 1 + delta) % #CUSTOM_POSITION_OPTIONS) + 1
+        _customCreatePos = CUSTOM_POSITION_OPTIONS[idx]
+    end
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%",
+        height = "100%",
+        justifyContent = "center",
+        alignItems = "center",
+        backgroundColor = {0, 0, 0, 190},
+        children = {
+            UI.Panel {
+                width = "90%",
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                borderRadius = 16,
+                borderWidth = 1,
+                borderColor = Theme.COLORS.BORDER_LIGHT,
+                paddingTop = 18,
+                paddingBottom = 18,
+                paddingLeft = 16,
+                paddingRight = 16,
+                children = {
+                    UI.Label {
+                        text = "创建自建球员",
+                        fontSize = 16,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                        marginBottom = 4,
+                    },
+                    UI.Label {
+                        text = string.format("16岁 · 国籍 %s · 占用 1 个自建名额", natName),
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginBottom = 14,
+                    },
+                    UI.Label {
+                        text = "球员姓名",
+                        fontSize = 12,
+                        color = Theme.COLORS.GOLD,
+                        marginBottom = 6,
+                        fontWeight = "bold",
+                    },
+                    UI.TextField {
+                        id = "customYouthName",
+                        width = "100%",
+                        height = 42,
+                        placeholder = "最多12字",
+                        fontSize = 14,
+                        backgroundColor = Theme.COLORS.BG_CARD,
+                        borderRadius = 10,
+                        borderWidth = 1,
+                        borderColor = Theme.COLORS.BORDER,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        marginBottom = 14,
+                        paddingLeft = 12,
+                    },
+                    UI.Label {
+                        text = "场上位置",
+                        fontSize = 12,
+                        color = Theme.COLORS.GOLD,
+                        marginBottom = 6,
+                        fontWeight = "bold",
+                    },
+                    UI.Panel {
+                        width = "100%",
+                        flexDirection = "row",
+                        alignItems = "center",
+                        justifyContent = "center",
+                        marginBottom = 16,
+                        children = {
+                            UI.Button {
+                                text = "‹",
+                                width = 36,
+                                height = 36,
+                                borderRadius = 18,
+                                backgroundColor = Theme.COLORS.BG_SURFACE,
+                                fontSize = 18,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                marginRight = 12,
+                                onClick = function()
+                                    cycleCustomPos(-1)
+                                    UI.CloseOverlay()
+                                    Youth._showCreateCustomModal(gameState, defaultNat, natName)
+                                end,
+                            },
+                            UI.Panel {
+                                minWidth = 88,
+                                alignItems = "center",
+                                children = {
+                                    UI.Label {
+                                        text = Constants.POSITION_NAMES[_customCreatePos] or _customCreatePos,
+                                        fontSize = 16,
+                                        color = Theme.COLORS.TEXT_PRIMARY,
+                                        fontWeight = "bold",
+                                    },
+                                    UI.Label {
+                                        text = _customCreatePos,
+                                        fontSize = 10,
+                                        color = Theme.COLORS.TEXT_MUTED,
+                                        marginTop = 2,
+                                    },
+                                },
+                            },
+                            UI.Button {
+                                text = "›",
+                                width = 36,
+                                height = 36,
+                                borderRadius = 18,
+                                backgroundColor = Theme.COLORS.BG_SURFACE,
+                                fontSize = 18,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                marginLeft = 12,
+                                onClick = function()
+                                    cycleCustomPos(1)
+                                    UI.CloseOverlay()
+                                    Youth._showCreateCustomModal(gameState, defaultNat, natName)
+                                end,
+                            },
+                        },
+                    },
+                    UI.Button {
+                        text = "确认创建",
+                        width = "100%",
+                        height = 42,
+                        backgroundColor = Theme.COLORS.SECONDARY,
+                        borderRadius = 10,
+                        fontSize = 14,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                        marginBottom = 8,
+                        onClick = function()
+                            local nameField = UI.FindById("customYouthName")
+                            local displayName = nameField and nameField:GetText() or ""
+                            local ok, result = YouthManager.createCustomYouthPlayer(gameState, {
+                                displayName = displayName,
+                                position = _customCreatePos,
+                                nationality = defaultNat,
+                            })
+                            if ok then
+                                SaveManager.save(gameState, "auto")
+                                UI.CloseOverlay()
+                                UI.Toast.Show({
+                                    message = (result.displayName or displayName) .. " 已加入自建球员",
+                                    variant = "success",
+                                })
+                                Router.replaceWith("youth", { tab = "custom" })
+                            else
+                                UI.Toast.Show({
+                                    message = result or "创建失败",
+                                    variant = "error",
+                                })
+                            end
+                        end,
+                    },
+                    UI.Button {
+                        text = "取消",
+                        width = "100%",
+                        height = 36,
+                        backgroundColor = {51, 59, 84, 255},
+                        borderRadius = 10,
+                        fontSize = 13,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                        onClick = function()
+                            UI.CloseOverlay()
+                        end,
+                    },
+                },
+            },
+        },
+    })
+end
+
 function Youth._buildYouthPlayerRow(player, gameState)
     local posColor = Theme.posColor(player.position)
 
@@ -666,8 +925,9 @@ function Youth._buildYouthPlayerRow(player, gameState)
                         fontWeight = "bold",
                     },
                     UI.Label {
-                        text = string.format("%d岁 | 能力%d | 潜力%s%s",
+                        text = string.format("%d岁 | 能力%d | 潜力%s%s%s",
                             age, math.min(Constants.ABILITY_MAX, player.overall or 0), potStarText,
+                            player.isCustomYouth and " | 自建" or "",
                             player.listedForSale and " | 挂牌中" or ""),
                         fontSize = 11,
                         color = player.listedForSale and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED,

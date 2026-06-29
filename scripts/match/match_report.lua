@@ -248,6 +248,15 @@ function MatchReport.isSeparateExtraTimeLeg(fixture)
     return fixture and (fixture._isUCL or fixture._isUEL) and fixture.leg == 2
 end
 
+local function _scoreIncludesExtraTime(report)
+    for _, evt in ipairs((report and report.events) or {}) do
+        if evt.type == "goal" and (evt.minute or 0) > 90 then
+            return true
+        end
+    end
+    return false
+end
+
 function MatchReport.getRegularTimeScore(report, fixture)
     local homeGoals = (report and report.homeGoals) or 0
     local awayGoals = (report and report.awayGoals) or 0
@@ -255,7 +264,7 @@ function MatchReport.getRegularTimeScore(report, fixture)
         return homeGoals, awayGoals
     end
     local extraTime = MatchReport.getKnockoutExtras(report, fixture)
-    if not extraTime then return homeGoals, awayGoals end
+    if not extraTime or not _scoreIncludesExtraTime(report) then return homeGoals, awayGoals end
     return homeGoals - (extraTime.homeExtraGoals or 0),
            awayGoals - (extraTime.awayExtraGoals or 0)
 end

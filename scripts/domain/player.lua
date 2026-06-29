@@ -154,6 +154,7 @@ function Player.new(data)
     -- 阵容角色: "key"=绝对主力, "rotation"=轮换球员, "squad"=阵容球员, "youth"=青年球员, "loaned"=租借
     self.squadRole = data.squadRole or "rotation"
     self.isYouth = data.isYouth or false
+    self.isCustomYouth = data.isCustomYouth or false
 
     -- 职业历史 (每赛季记录；超过上限的早期赛季由 Housekeeping 折叠进 careerTotals)
     self.careerHistory = data.careerHistory or {}
@@ -1054,6 +1055,7 @@ function Player:serialize()
         reputation = self.reputation,
         morale_core = self.morale_core,
         isYouth = self.isYouth or false,
+        isCustomYouth = self.isCustomYouth or false,
         isLegend = self.isLegend or false,
         legendName = self.legendName,
         legendData = self.legendData,

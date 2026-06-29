@@ -23,6 +23,7 @@ local YOUTH_REFRESH_INTERVAL = 3   -- 每3个月刷新一批（processMonthly每
 local YOUTH_POOL_SIZE = 10         -- 每次刷新10名候选
 local MAX_YOUTH_SQUAD = 18         -- AI 球队青训上限
 local MAX_YOUTH_SQUAD_PLAYER = 30  -- 玩家球队青训上限
+local MAX_CUSTOM_YOUTH = 3         -- 玩家自建青训球员上限
 local INITIAL_YOUTH_COUNT = 10     -- 每队初始青训人数
 local AI_TIER2_YOUTH_COUNT = 7     -- 次级 AI 队青训目标，降低长档球员总量
 local YOUTH_MIN_AGE = 15
@@ -289,6 +290,7 @@ end
 -- 导出常量供 UI 使用
 YouthManager.MAX_YOUTH_SQUAD = MAX_YOUTH_SQUAD
 YouthManager.MAX_YOUTH_SQUAD_PLAYER = MAX_YOUTH_SQUAD_PLAYER
+YouthManager.MAX_CUSTOM_YOUTH = MAX_CUSTOM_YOUTH
 YouthManager.YOUTH_POOL_SIZE = YOUTH_POOL_SIZE
 YouthManager.INITIAL_YOUTH_COUNT = INITIAL_YOUTH_COUNT
 YouthManager.AI_TIER2_YOUTH_COUNT = AI_TIER2_YOUTH_COUNT
@@ -962,6 +964,134 @@ function YouthManager.getYouthSquad(gameState)
         end
     end
     return result
+end
+
+--- 是否为自建青训球员
+---@param player table|nil
+---@return boolean
+function YouthManager.isCustomYouthPlayer(player)
+    return player ~= nil and player.isCustomYouth == true
+end
+
+--- 获取自建青训球员列表
+---@param gameState table
+---@return table[]
+function YouthManager.getCustomYouthSquad(gameState)
+    local result = {}
+    for _, p in ipairs(YouthManager.getYouthSquad(gameState)) do
+        if YouthManager.isCustomYouthPlayer(p) then
+            table.insert(result, p)
+        end
+    end
+    return result
+end
+
+--- 获取常规青训球员列表（不含自建）
+---@param gameState table
+---@return table[]
+function YouthManager.getRegularYouthSquad(gameState)
+    local result = {}
+    for _, p in ipairs(YouthManager.getYouthSquad(gameState)) do
+        if not YouthManager.isCustomYouthPlayer(p) then
+            table.insert(result, p)
+        end
+    end
+    return result
+end
+
+--- 获取自建青训名额上限
+---@return number
+function YouthManager.getMaxCustomYouthSlots()
+    return MAX_CUSTOM_YOUTH
+end
+
+--- 创建自建青训球员
+---@param gameState table
+---@param opts table { displayName: string, position?: string, nationality?: string }
+---@return boolean success, table|string resultOrError
+function YouthManager.createCustomYouthPlayer(gameState, opts)
+    opts = opts or {}
+    local team = gameState:getPlayerTeam()
+    if not team then return false, "没有球队" end
+
+    local customSquad = YouthManager.getCustomYouthSquad(gameState)
+    if #customSquad >= MAX_CUSTOM_YOUTH then
+        return false, string.format("自建球员名额已满(%d人)", MAX_CUSTOM_YOUTH)
+    end
+
+    team._youthPlayerIds = team._youthPlayerIds or {}
+    local maxSquad = YouthManager.getMaxYouthSquad(gameState, team)
+    if #team._youthPlayerIds >= maxSquad then
+        return false, string.format("青训名额已满(%d人)", maxSquad)
+    end
+
+    local displayName = tostring(opts.displayName or ""):match("^%s*(.-)%s*$") or ""
+    if displayName == "" then
+        return false, "请输入球员姓名"
+    end
+    if #displayName > 12 then
+        return false, "姓名不能超过12字"
+    end
+
+    local position = Constants.normalizePosition(opts.position) or "ST"
+    local nationality = Nationality.normalize(opts.nationality or team.country or "ENG")
+
+    local age = 16
+    local birthYear = gameState.date.year - age
+    local youthMods = DifficultySettings.getYouthModifiers()
+    local youthDevBonus, facilityYouthBonus = YouthManager._getTeamYouthGenBonuses(gameState, team.id)
+    local facilityLevel = YouthManager._facilityLevelFromBonus(facilityYouthBonus)
+    local tier = YouthManager.YOUTH_FACILITY_TIERS[facilityLevel]
+        or YouthManager.YOUTH_FACILITY_TIERS[1]
+
+    local potential = randInt(75, 88)
+    potential = math.min(potential + math.floor((youthDevBonus or 0) * 10), 92)
+
+    local overallFloor = math.max(youthMods.overallMin + (tier.floorLift or 0), 52)
+    local overallCap = math.min(youthMods.overallMax,
+        math.max(overallFloor, math.floor(potential * 0.75)))
+
+    local attributes, actualOverall
+    for attempt = 1, 5 do
+        local overall = randInt(overallFloor, overallCap)
+        if attempt > 1 then
+            overall = math.min(overallCap, overall + (attempt - 1) * 2)
+        end
+        attributes = YouthManager._generateAttributes(position, overall)
+        actualOverall = Player.calculateOverallFromAttrs(position, attributes)
+        if actualOverall >= overallFloor then
+            break
+        end
+    end
+    if actualOverall < overallFloor then
+        actualOverall = overallFloor
+    end
+
+    local playerData = {
+        firstName = displayName,
+        lastName = "",
+        displayName = displayName,
+        nationality = nationality,
+        birthYear = birthYear,
+        position = position,
+        attributes = attributes,
+        potential = potential,
+        overall = actualOverall,
+        wage = YOUTH_WAGE,
+        isYouth = true,
+        isCustomYouth = true,
+        contractEnd = {year = gameState.date.year + 3, month = 6, day = 30},
+    }
+    local player = gameState:addPlayer(playerData)
+    player.teamId = team.id
+    player.wage = FinanceManager.estimateYouthAcademyWage(player, team, gameState)
+    player.paRating = PotentialSystem.rawToRating(player.potential)
+    player.actualPotential = PotentialSystem.generateActualPotential(
+        player.paRating, (gameState.potentialSeed or 0) + player.id * 7919)
+
+    table.insert(team._youthPlayerIds, player.id)
+    MessageManager.send(gameState, "youth_signed", {player.displayName, player.position})
+    return true, player
 end
 
 --- 确定青训球员的训练焦点（复用 TrainingManager 优先级链）

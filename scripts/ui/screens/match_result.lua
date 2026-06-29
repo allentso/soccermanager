@@ -170,6 +170,22 @@ function MatchResult.create(params)
                 backgroundColor = Theme.COLORS.BG_CARD,
                 alignItems = "center",
                 children = (function()
+                    local scoreValueChildren = {}
+                    if showRegularLabel then
+                        table.insert(scoreValueChildren, UI.Label {
+                            text = "90分钟",
+                            fontSize = 10,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            marginBottom = 2,
+                        })
+                    end
+                    table.insert(scoreValueChildren, UI.Label {
+                        text = string.format("  %d - %d  ", displayHome, displayAway),
+                        fontSize = 28,
+                        fontWeight = "bold",
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                    })
+
                     local scoreChildren = {
                         UI.Label {
                             text = resultText,
@@ -192,20 +208,7 @@ function MatchResult.create(params)
                                 },
                                 UI.Panel {
                                     alignItems = "center",
-                                    children = {
-                                        showRegularLabel and UI.Label {
-                                            text = "90分钟",
-                                            fontSize = 10,
-                                            color = Theme.COLORS.TEXT_MUTED,
-                                            marginBottom = 2,
-                                        } or nil,
-                                        UI.Label {
-                                            text = string.format("  %d - %d  ", displayHome, displayAway),
-                                            fontSize = 28,
-                                            fontWeight = "bold",
-                                            color = Theme.COLORS.TEXT_PRIMARY,
-                                        },
-                                    },
+                                    children = scoreValueChildren,
                                 },
                                 UI.Label {
                                     text = awayName,
