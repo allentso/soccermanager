@@ -170,6 +170,7 @@ end
 ---   footer?: Widget - 固定在底部的 widget（如提交按钮），不参与滚动
 ---   showCancel?: boolean - 是否显示取消按钮（默认 true）
 ---   height?: number - 自定义高度（默认 400）
+---   contentHeight?: number - 滚动内容区精确高度（复杂布局时避免 ScrollView 测高不准）
 ---   onClose?: function - 关闭回调
 function BottomSheet.showCustom(opts)
     local children = opts.children or {}
@@ -225,10 +226,13 @@ function BottomSheet.showCustom(opts)
         padding = 0,
         children = {
             -- 用单一 Panel 包裹所有子元素，确保 ScrollView 内容高度计算准确
-            UI.Panel {
-                width = "100%",
-                children = children,
-            }
+            (function()
+                local wrap = { width = "100%", children = children }
+                if opts.contentHeight then
+                    wrap.height = opts.contentHeight
+                end
+                return UI.Panel(wrap)
+            end)(),
         },
     })
 
@@ -260,6 +264,7 @@ function BottomSheet.showCustom(opts)
     local content = UI.Panel {
         width = "100%",
         height = drawerHeight,
+        flexDirection = "column",
         paddingTop = padV,
         paddingBottom = padV,
         paddingLeft = padH,

@@ -1294,25 +1294,29 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         end
     end
 
-    -- 估算弹窗高度：固定部分（标题/位置信息/关闭按钮/padding）+ 各列表区域
-    -- 标题 39 + 位置信息行 44 + 关闭按钮 54 + 上下 padding 32 ≈ 169
-    local fixed = 169
-    -- 球员角色区域（仅当该位置有多个角色可选时显示）
-    if posRoles and #posRoles > 1 then
-        fixed = fixed + 96  -- 标签 + 角色按钮（可能换行）+ 描述
-    end
-    -- 替补球员列表（含标签）
-    local benchH = #benchCandidates > 0 and (26 + math.min(8, #benchCandidates) * 38) or 0
-    -- 位置互换列表（含标签）
-    local swapH = #swapCandidates > 0 and (26 + math.min(5, #swapCandidates) * 38) or 0
-    local sheetHeight = fixed + benchH + swapH
-    -- 取屏幕 85% 高度为上限
+    -- 弹窗固定占屏幕 85% 高度，内容区可滚动；contentHeight 供 ScrollView 准确计算可滚范围
     local maxH = math.floor(graphics:GetHeight() / graphics:GetDPR() * 0.85)
-    sheetHeight = math.min(sheetHeight, maxH)
+    local contentHeight = 62  -- 位置信息 + 形态摘要
+    if slotPos ~= "GK" then
+        contentHeight = contentHeight + 130  -- 位置选择
+    end
+    if posRoles and #posRoles > 1 then
+        contentHeight = contentHeight + 96  -- 球员角色
+    end
+    if slotPos ~= "GK" then
+        contentHeight = contentHeight + 120  -- 站位微调
+    end
+    if #benchCandidates > 0 then
+        contentHeight = contentHeight + 26 + math.min(8, #benchCandidates) * 38
+    end
+    if #swapCandidates > 0 then
+        contentHeight = contentHeight + 26 + math.min(5, #swapCandidates) * 38
+    end
 
     BottomSheet.showCustom({
         title = "更换球员 — " .. posLabel,
-        height = sheetHeight,
+        height = maxH,
+        contentHeight = contentHeight,
         showCancel = true,
         children = children,
     })
