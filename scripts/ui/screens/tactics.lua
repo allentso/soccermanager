@@ -1027,317 +1027,340 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     table.sort(benchCandidates, function(a, b) return a.score > b.score end)
     table.sort(swapCandidates, function(a, b) return a.score > b.score end)
 
-    -- 构建弹窗内容
-    local children = {}
-
-    -- 当前位置信息
     local posLabel = Constants.POSITION_NAMES[slotPos] or slotPos
-    table.insert(children, UI.Panel {
-        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 10,
-        children = {
-            UI.Label {
-                text = string.format("位置 #%d: %s", slotIdx, posLabel),
-                fontSize = 14, fontWeight = "bold", color = Theme.COLORS.ACCENT, flexGrow = 1,
-            },
-            currentPlayer and UI.Label {
-                text = "当前: " .. currentPlayer.displayName .. " (" .. currentPlayer.overall .. ")",
-                fontSize = 12, color = Theme.COLORS.TEXT_MUTED,
-            } or nil,
+    local posRoles = Constants.POSITION_ROLES[slotPos]
+
+    local screenH = math.floor(graphics:GetHeight() / graphics:GetDPR())
+    local maxH = math.floor(screenH * 0.85)
+    local pageSize = 5
+    local showMain, showBenchPage, showSwapPage, showPositionSheet, showRoleSheet, showNudgeSheet
+
+    local function refreshPage()
+        BottomSheet.close()
+        Router.replaceWith("tactics", { tab = "formation" })
+    end
+
+    local function menuButton(text, onClick, color, bg)
+        return UI.Button {
+            text = text,
+            width = "100%", height = 42, marginBottom = 6,
+            backgroundColor = bg or {38, 46, 71, 255},
+            borderRadius = 8,
+            fontSize = 12,
+            textAlign = "left",
+            paddingLeft = 12,
+            color = color or Theme.COLORS.TEXT_PRIMARY,
+            onClick = onClick,
         }
-    })
+    end
 
-    -- 形态预览摘要
-    table.insert(children, UI.Label {
-        text = string.format("选用阵型 %s · 实战结构 %s",
-            team.formation or "4-4-2",
-            shapeAnalysis.structure and shapeAnalysis.structure.label or "未知"),
-        fontSize = 11,
-        color = shapeAnalysis.alignedWithFormation == false and {255, 180, 80, 220} or Theme.COLORS.TEXT_MUTED,
-        marginBottom = 4,
-    })
-    table.insert(children, UI.Label {
-        text = string.format("本槽区域：%s",
-            shapeAnalysis.slotZones[slotIdx] and (FormationShape.ZONE_LABELS[shapeAnalysis.slotZones[slotIdx]] or shapeAnalysis.slotZones[slotIdx]) or "未知"),
-        fontSize = 11,
-        color = Theme.COLORS.TEXT_MUTED,
-        marginBottom = 8,
-    })
-
-    -- 位置选择（兼容位置）
-    if slotPos ~= "GK" then
-        local slotZone = shapeAnalysis and shapeAnalysis.slotZones and shapeAnalysis.slotZones[slotIdx]
-        local compatible = FormationShape.getCompatiblePositions(slotPos, slotZone)
-        local posBtns = {}
-        for _, pos in ipairs(compatible) do
-            local isActive = slotPos == pos
-            local label = Constants.POSITION_NAMES[pos] or pos
-            if currentPlayer then
-                label = string.format("%s ·适配%d", label, math.floor(AIManager._playerPositionScore(currentPlayer, pos)))
-            end
-            table.insert(posBtns, UI.Button {
-                text = label,
-                height = 32,
-                paddingLeft = 10, paddingRight = 10,
-                backgroundColor = isActive and {212, 175, 55, 50} or {38, 46, 71, 255},
-                borderRadius = 15,
-                borderWidth = isActive and 2 or 1,
-                borderColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.BORDER,
-                fontSize = 11,
-                color = isActive and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_SECONDARY,
-                fontWeight = isActive and "bold" or "normal",
-                marginRight = 6, marginBottom = 4,
-                onClick = function()
-                    FormationShape.setSlotPosition(team, slotIdx, pos)
-                    saveAfterChange()
-                    BottomSheet.close()
-                    Router.replaceWith("tactics", { tab = "formation" })
-                end,
-            })
-        end
+    local function addBackClose(children)
         table.insert(children, UI.Panel {
-            width = "100%", marginBottom = 10,
+            width = "100%", flexDirection = "row", marginTop = 8,
             children = {
-                UI.Label {
-                    text = "位置选择", fontSize = 12, fontWeight = "bold",
-                    color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4,
+                UI.Button {
+                    text = "返回",
+                    flexGrow = 1, height = 40, marginRight = 8,
+                    backgroundColor = {38, 46, 71, 255},
+                    borderRadius = 8, fontSize = 13,
+                    color = Theme.COLORS.TEXT_SECONDARY,
+                    onClick = function() showMain() end,
                 },
-                UI.Label {
-                    text = "切换后识别形态将按新槽位自动更新",
-                    fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 4,
-                },
-                UI.Panel {
-                    width = "100%", flexDirection = "row", flexWrap = "wrap",
-                    children = posBtns,
+                UI.Button {
+                    text = "关闭",
+                    flexGrow = 1, height = 40,
+                    backgroundColor = Theme.COLORS.TRANSPARENT,
+                    borderRadius = 8, borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+                    fontSize = 13, color = Theme.COLORS.TEXT_MUTED,
+                    onClick = function() BottomSheet.close() end,
                 },
             }
         })
     end
 
-    -- 角色选择区域
-    local posRoles = Constants.POSITION_ROLES[slotPos]
-    if posRoles and #posRoles > 1 then
-        -- 确保 slotRoles 表存在
+    local function openSheet(title, height, children)
+        BottomSheet.showCustom({
+            title = title,
+            height = math.min(height, maxH),
+            noScroll = true,
+            showCancel = false,
+            children = children,
+        })
+    end
+
+    local function buildHeaderChildren()
+        local zoneLabel = shapeAnalysis.slotZones[slotIdx]
+            and (FormationShape.ZONE_LABELS[shapeAnalysis.slotZones[slotIdx]] or shapeAnalysis.slotZones[slotIdx])
+            or "未知"
+        local header = {
+            UI.Label {
+                text = string.format("位置 #%d: %s", slotIdx, posLabel),
+                fontSize = 14, fontWeight = "bold", color = Theme.COLORS.ACCENT, marginBottom = 4,
+            },
+        }
+        if currentPlayer then
+            table.insert(header, UI.Label {
+                text = string.format("当前: %s (%d)", currentPlayer.displayName, currentPlayer.overall or 0),
+                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4,
+            })
+        end
+        table.insert(header, UI.Label {
+            text = string.format("阵型 %s · 区域 %s", team.formation or "4-4-2", zoneLabel),
+            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
+        })
+        return header
+    end
+
+    showMain = function()
+        local children = buildHeaderChildren()
+
+        if #benchCandidates > 0 then
+            table.insert(children, menuButton(
+                string.format("替补球员 (%d人)  分页选择", #benchCandidates),
+                function() showBenchPage(1) end,
+                Theme.COLORS.ACCENT
+            ))
+        end
+        if #swapCandidates > 0 then
+            table.insert(children, menuButton(
+                string.format("位置互换 (%d人)  与其他首发交换", #swapCandidates),
+                function() showSwapPage(1) end,
+                {180, 160, 220, 255},
+                {50, 40, 60, 255}
+            ))
+        end
+        if slotPos ~= "GK" then
+            table.insert(children, menuButton("位置选择", function() showPositionSheet() end))
+            table.insert(children, menuButton("站位微调", function() showNudgeSheet() end))
+        end
+        if posRoles and #posRoles > 1 then
+            table.insert(children, menuButton("球员角色", function() showRoleSheet() end))
+        end
+
+        table.insert(children, UI.Button {
+            text = "关闭",
+            width = "100%", height = 42, marginTop = 6,
+            backgroundColor = Theme.COLORS.TRANSPARENT,
+            borderRadius = 8, borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+            fontSize = 13, color = Theme.COLORS.TEXT_MUTED,
+            onClick = function() BottomSheet.close() end,
+        })
+
+        openSheet("更换球员 — " .. posLabel, 430, children)
+    end
+
+    showBenchPage = function(page)
+        local totalPages = math.max(1, math.ceil(#benchCandidates / pageSize))
+        page = math.max(1, math.min(totalPages, page or 1))
+        local startIdx = (page - 1) * pageSize + 1
+        local endIdx = math.min(#benchCandidates, startIdx + pageSize - 1)
+        local children = {
+            UI.Label {
+                text = string.format("替补球员  第 %d/%d 页", page, totalPages),
+                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 8,
+            },
+        }
+
+        for i = startIdx, endIdx do
+            local c = benchCandidates[i]
+            local p = c.player
+            local scoreColor = c.score >= 80 and Theme.COLORS.SECONDARY
+                or (c.score >= 60 and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED)
+            table.insert(children, menuButton(
+                string.format("%s  %s  能力%d  适配%d",
+                    Constants.POSITION_NAMES[p.position] or p.position,
+                    p.displayName, p.overall or 0, math.floor(c.score)),
+                function()
+                    team.startingXI[slotIdx] = p.id
+                    saveAfterChange()
+                    refreshPage()
+                end,
+                scoreColor
+            ))
+        end
+
+        if totalPages > 1 then
+            table.insert(children, UI.Panel {
+                width = "100%", flexDirection = "row", marginTop = 2,
+                children = {
+                    UI.Button {
+                        text = "上一页",
+                        flexGrow = 1, height = 38, marginRight = 8,
+                        backgroundColor = page > 1 and {38, 46, 71, 255} or {30, 34, 46, 255},
+                        borderRadius = 8, fontSize = 12,
+                        color = page > 1 and Theme.COLORS.TEXT_SECONDARY or Theme.COLORS.TEXT_MUTED,
+                        onClick = function() if page > 1 then showBenchPage(page - 1) end end,
+                    },
+                    UI.Button {
+                        text = "下一页",
+                        flexGrow = 1, height = 38,
+                        backgroundColor = page < totalPages and {38, 46, 71, 255} or {30, 34, 46, 255},
+                        borderRadius = 8, fontSize = 12,
+                        color = page < totalPages and Theme.COLORS.TEXT_SECONDARY or Theme.COLORS.TEXT_MUTED,
+                        onClick = function() if page < totalPages then showBenchPage(page + 1) end end,
+                    },
+                }
+            })
+        end
+
+        addBackClose(children)
+        openSheet("替补球员 — " .. posLabel, 170 + (endIdx - startIdx + 1) * 48, children)
+    end
+
+    showSwapPage = function(page)
+        local totalPages = math.max(1, math.ceil(#swapCandidates / pageSize))
+        page = math.max(1, math.min(totalPages, page or 1))
+        local startIdx = (page - 1) * pageSize + 1
+        local endIdx = math.min(#swapCandidates, startIdx + pageSize - 1)
+        local children = {
+            UI.Label {
+                text = string.format("首发互换  第 %d/%d 页", page, totalPages),
+                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 8,
+            },
+        }
+
+        for i = startIdx, endIdx do
+            local c = swapCandidates[i]
+            local p = c.player
+            local otherSlotPos = slots[c.index] or "?"
+            table.insert(children, menuButton(
+                string.format("互换 %s (%s #%d, 能力%d)",
+                    p.displayName,
+                    Constants.POSITION_NAMES[otherSlotPos] or otherSlotPos,
+                    c.index, p.overall or 0),
+                function()
+                    local tmp = team.startingXI[slotIdx]
+                    team.startingXI[slotIdx] = team.startingXI[c.index]
+                    team.startingXI[c.index] = tmp
+                    saveAfterChange()
+                    refreshPage()
+                end,
+                {180, 160, 220, 255},
+                {50, 40, 60, 255}
+            ))
+        end
+
+        if totalPages > 1 then
+            table.insert(children, UI.Panel {
+                width = "100%", flexDirection = "row", marginTop = 2,
+                children = {
+                    UI.Button {
+                        text = "上一页",
+                        flexGrow = 1, height = 38, marginRight = 8,
+                        backgroundColor = page > 1 and {38, 46, 71, 255} or {30, 34, 46, 255},
+                        borderRadius = 8, fontSize = 12,
+                        color = page > 1 and Theme.COLORS.TEXT_SECONDARY or Theme.COLORS.TEXT_MUTED,
+                        onClick = function() if page > 1 then showSwapPage(page - 1) end end,
+                    },
+                    UI.Button {
+                        text = "下一页",
+                        flexGrow = 1, height = 38,
+                        backgroundColor = page < totalPages and {38, 46, 71, 255} or {30, 34, 46, 255},
+                        borderRadius = 8, fontSize = 12,
+                        color = page < totalPages and Theme.COLORS.TEXT_SECONDARY or Theme.COLORS.TEXT_MUTED,
+                        onClick = function() if page < totalPages then showSwapPage(page + 1) end end,
+                    },
+                }
+            })
+        end
+
+        addBackClose(children)
+        openSheet("位置互换 — " .. posLabel, 170 + (endIdx - startIdx + 1) * 48, children)
+    end
+
+    showPositionSheet = function()
+        local slotZone = shapeAnalysis and shapeAnalysis.slotZones and shapeAnalysis.slotZones[slotIdx]
+        local compatible = FormationShape.getCompatiblePositions(slotPos, slotZone)
+        local children = {
+            UI.Label {
+                text = "切换后识别形态将按新槽位自动更新",
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+            },
+        }
+        for _, pos in ipairs(compatible) do
+            local isActive = slotPos == pos
+            local label = Constants.POSITION_NAMES[pos] or pos
+            if currentPlayer then
+                label = string.format("%s · 适配%d", label, math.floor(AIManager._playerPositionScore(currentPlayer, pos)))
+            end
+            table.insert(children, menuButton(
+                label,
+                function()
+                    FormationShape.setSlotPosition(team, slotIdx, pos)
+                    saveAfterChange()
+                    refreshPage()
+                end,
+                isActive and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_SECONDARY,
+                isActive and {212, 175, 55, 50} or nil
+            ))
+        end
+        addBackClose(children)
+        openSheet("位置选择 — " .. posLabel, 180 + #compatible * 48, children)
+    end
+
+    showRoleSheet = function()
         if not team.slotRoles then team.slotRoles = {} end
         local currentRoleKey = team.slotRoles[slotIdx] or "default"
-
-        local roleBtns = {}
-        for _, role in ipairs(posRoles) do
+        local children = {}
+        for _, role in ipairs(posRoles or {}) do
             local isActive = role.key == currentRoleKey
-            table.insert(roleBtns, UI.Button {
-                text = role.name,
-                height = 30,
-                paddingLeft = 10, paddingRight = 10,
-                backgroundColor = isActive and {212, 175, 55, 50} or {38, 46, 71, 255},
-                borderRadius = 15,
-                borderWidth = isActive and 2 or 1,
-                borderColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.BORDER,
-                fontSize = 11,
-                color = isActive and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_SECONDARY,
-                fontWeight = isActive and "bold" or "normal",
-                marginRight = 6, marginBottom = 4,
-                onClick = function()
+            table.insert(children, menuButton(
+                role.name .. (role.desc and role.desc ~= "" and ("  " .. role.desc) or ""),
+                function()
                     if role.key == "default" then
                         team.slotRoles[slotIdx] = nil
                     else
                         team.slotRoles[slotIdx] = role.key
                     end
                     saveAfterChange()
-                    BottomSheet.close()
-                    Router.replaceWith("tactics", { tab = "formation" })
+                    refreshPage()
                 end,
-            })
+                isActive and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_SECONDARY,
+                isActive and {212, 175, 55, 50} or nil
+            ))
         end
-
-        -- 当前角色的描述
-        local activeRole = Constants.getPositionRole(slotPos, currentRoleKey)
-        local roleDesc = activeRole and activeRole.desc or ""
-
-        table.insert(children, UI.Panel {
-            width = "100%", marginBottom = 10,
-            children = {
-                UI.Label {
-                    text = "球员角色", fontSize = 12, fontWeight = "bold",
-                    color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4,
-                },
-                UI.Panel {
-                    width = "100%", flexDirection = "row", flexWrap = "wrap",
-                    children = roleBtns,
-                },
-                roleDesc ~= "" and UI.Label {
-                    text = roleDesc, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
-                } or nil,
-            }
-        })
+        addBackClose(children)
+        openSheet("球员角色 — " .. posLabel, 160 + #(posRoles or {}) * 48, children)
     end
 
-    -- 站位微调（改变球场区域归属，影响形态效果）
-    if slotPos ~= "GK" then
+    showNudgeSheet = function()
         local zoneKey = shapeAnalysis and shapeAnalysis.slotZones and shapeAnalysis.slotZones[slotIdx]
         local zoneLabel = zoneKey and (FormationShape.ZONE_LABELS[zoneKey] or zoneKey) or "未知区域"
+        local children = {
+            UI.Label {
+                text = "当前区域：" .. zoneLabel,
+                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 8,
+            },
+        }
         local function nudgeAndRefresh(direction)
             FormationShape.nudgeSlot(team, slotIdx, direction)
             saveAfterChange()
-            BottomSheet.close()
-            Router.replaceWith("tactics", { tab = "formation" })
+            refreshPage()
         end
-        local nudgeBtns = {
-            UI.Button { text = "前移", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
-                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
-                onClick = function() nudgeAndRefresh("forward") end },
-            UI.Button { text = "后移", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
-                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
-                onClick = function() nudgeAndRefresh("back") end },
-        }
+        table.insert(children, menuButton("前移", function() nudgeAndRefresh("forward") end))
+        table.insert(children, menuButton("后移", function() nudgeAndRefresh("back") end))
+
         local x = FormationShape.getSlotCoords(team, slotIdx)
         local isWideSlot = slotPos == "LB" or slotPos == "RB"
             or slotPos == "LM" or slotPos == "RM"
             or slotPos == "LW" or slotPos == "RW"
             or x < 32 or x > 68
         if isWideSlot then
-            table.insert(nudgeBtns, UI.Button { text = "拉边", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
-                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
-                onClick = function() nudgeAndRefresh("wide") end })
-            table.insert(nudgeBtns, UI.Button { text = "内收", width = "23%", height = 32, fontSize = 11, marginBottom = 4,
-                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
-                onClick = function() nudgeAndRefresh("narrow") end })
+            table.insert(children, menuButton("拉边", function() nudgeAndRefresh("wide") end))
+            table.insert(children, menuButton("内收", function() nudgeAndRefresh("narrow") end))
         end
-        table.insert(children, UI.Panel {
-            width = "100%", marginBottom = 10,
-            children = {
-                UI.Label {
-                    text = "站位微调 · 当前区域：" .. zoneLabel,
-                    fontSize = 12, fontWeight = "bold",
-                    color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4,
-                },
-                UI.Panel {
-                    width = "100%", flexDirection = "row", flexWrap = "wrap",
-                    children = nudgeBtns,
-                },
-                UI.Button {
-                    text = "重置此位置",
-                    width = "100%", height = 30, marginTop = 4,
-                    backgroundColor = {50, 50, 60, 255}, borderRadius = 6,
-                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
-                    onClick = function()
-                        if team.slotOffsets then team.slotOffsets[slotIdx] = nil end
-                        local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
-                        FormationShape.setSlotPosition(team, slotIdx, defaultPos)
-                        saveAfterChange()
-                        BottomSheet.close()
-                        Router.replaceWith("tactics", { tab = "formation" })
-                    end,
-                },
-            }
-        })
+        table.insert(children, menuButton("重置此位置", function()
+            if team.slotOffsets then team.slotOffsets[slotIdx] = nil end
+            local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
+            FormationShape.setSlotPosition(team, slotIdx, defaultPos)
+            saveAfterChange()
+            refreshPage()
+        end, Theme.COLORS.TEXT_MUTED, {50, 50, 60, 255}))
+        addBackClose(children)
+        openSheet("站位微调 — " .. posLabel, 320 + (isWideSlot and 96 or 0), children)
     end
 
-    -- 板凳球员列表
-    if #benchCandidates > 0 then
-        table.insert(children, UI.Label {
-            text = "替补球员", fontSize = 12, fontWeight = "bold",
-            color = Theme.COLORS.TEXT_SECONDARY, marginTop = 6, marginBottom = 4,
-        })
-        local maxBench = math.min(8, #benchCandidates)
-        for i = 1, maxBench do
-            local c = benchCandidates[i]
-            local p = c.player
-            local scoreColor = c.score >= 80 and Theme.COLORS.SECONDARY or (c.score >= 60 and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED)
-            table.insert(children, UI.Button {
-                text = string.format("%s  %s  能力%d  适配%d",
-                    Constants.POSITION_NAMES[p.position] or p.position,
-                    p.displayName, p.overall, math.floor(c.score)),
-                width = "100%", height = 36, marginBottom = 2,
-                backgroundColor = {38, 46, 71, 255}, borderRadius = 6,
-                fontSize = 12, textAlign = "left", paddingLeft = 10,
-                color = scoreColor,
-                onClick = function()
-                    -- 将该板凳球员放入 slotIdx 位置，移除原球员
-                    team.startingXI[slotIdx] = p.id
-                    saveAfterChange()
-                    BottomSheet.close()
-                    Router.replaceWith("tactics", { tab = "formation" })
-                end,
-            })
-        end
-    end
-
-    -- 位置互换
-    if #swapCandidates > 0 then
-        table.insert(children, UI.Label {
-            text = "位置互换（与其他首发交换）", fontSize = 12, fontWeight = "bold",
-            color = Theme.COLORS.TEXT_SECONDARY, marginTop = 10, marginBottom = 4,
-        })
-        local maxSwap = math.min(5, #swapCandidates)
-        for i = 1, maxSwap do
-            local c = swapCandidates[i]
-            local p = c.player
-            local otherSlotPos = slots[c.index] or "?"
-            table.insert(children, UI.Button {
-                text = string.format("↔ %s (%s #%d, 能力%d)",
-                    p.displayName,
-                    Constants.POSITION_NAMES[otherSlotPos] or otherSlotPos,
-                    c.index, p.overall),
-                width = "100%", height = 36, marginBottom = 2,
-                backgroundColor = {50, 40, 60, 255}, borderRadius = 6,
-                fontSize = 12, textAlign = "left", paddingLeft = 10,
-                color = {180, 160, 220, 255},
-                onClick = function()
-                    -- 交换两个位置的球员
-                    local tmp = team.startingXI[slotIdx]
-                    team.startingXI[slotIdx] = team.startingXI[c.index]
-                    team.startingXI[c.index] = tmp
-                    saveAfterChange()
-                    BottomSheet.close()
-                    Router.replaceWith("tactics", { tab = "formation" })
-                end,
-            })
-        end
-    end
-
-    -- 关闭按钮放入滚动内容内，避免固定底栏遮挡/拦截列表滑动手势。
-    table.insert(children, UI.Button {
-        text = "关闭",
-        width = "100%", height = 44,
-        backgroundColor = Theme.COLORS.TRANSPARENT,
-        borderRadius = 8,
-        borderWidth = 1,
-        borderColor = Theme.COLORS.BORDER,
-        fontSize = 14,
-        color = Theme.COLORS.TEXT_MUTED,
-        marginTop = 10,
-        marginBottom = 8,
-        onClick = function()
-            BottomSheet.close()
-        end,
-    })
-
-    -- 弹窗固定占屏幕 85% 高度，内容区可滚动；contentHeight 供 ScrollView 准确计算可滚范围
-    local maxH = math.floor(graphics:GetHeight() / graphics:GetDPR() * 0.85)
-    local contentHeight = 62  -- 位置信息 + 形态摘要
-    if slotPos ~= "GK" then
-        contentHeight = contentHeight + 130  -- 位置选择
-    end
-    if posRoles and #posRoles > 1 then
-        contentHeight = contentHeight + 96  -- 球员角色
-    end
-    if slotPos ~= "GK" then
-        contentHeight = contentHeight + 120  -- 站位微调
-    end
-    if #benchCandidates > 0 then
-        contentHeight = contentHeight + 26 + math.min(8, #benchCandidates) * 38
-    end
-    if #swapCandidates > 0 then
-        contentHeight = contentHeight + 26 + math.min(5, #swapCandidates) * 38
-    end
-    contentHeight = contentHeight + 62  -- 滚动内容里的关闭按钮
-
-    BottomSheet.showCustom({
-        title = "更换球员 — " .. posLabel,
-        height = maxH,
-        contentHeight = contentHeight,
-        showCancel = false,
-        children = children,
-    })
+    showMain()
 end
 
 ---------------------------------------------------------------------------
