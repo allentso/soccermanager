@@ -15,6 +15,8 @@ local YouthManager = require("scripts/systems/youth_manager")
 local RealDataLoader = require("scripts/data/real_data_loader")
 local LayoutAdapter = require("scripts/ui/layout_adapter")
 local DayAdvanceOverlay = require("scripts/ui/components/day_advance_overlay")
+local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local LegendGachaCloud = require("scripts/persistence/legend_gacha_cloud")
 
 local Settings = {}
 
@@ -564,6 +566,17 @@ function Settings._showCheatMenu()
                 onClick = function()
                     BottomSheet.close()
                     Settings._cheatAddPulls()
+                end,
+            },
+            UI.Button {
+                text = "开启传奇云存档灰度（全清）",
+                width = "100%", height = 44,
+                backgroundColor = "#154360",
+                color = "#FFFFFF",
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatEnableLegendCloudSave()
                 end,
             },
 
@@ -1590,6 +1603,7 @@ function Settings._claimCompensationLegend()
 
     -- 标记已领取（存储在 _legendGacha 中，确保持久化到存档）
     gachaState.compensationClaimedRound = "2.5"
+    LegendGachaCloud.markDirty()
     SaveManager.save(gameState, "auto")
 
     -- 显示获得提示
@@ -1744,6 +1758,43 @@ function Settings._saveSettings()
 end
 
 ------------------------------------------------------
+-- 作弊：开启传奇云存档灰度（全清）
+------------------------------------------------------
+function Settings._cheatEnableLegendCloudSave()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    ConfirmDialog.show({
+        title = "开启传奇云存档灰度",
+        message = "该操作会清空当前本地传奇抽卡状态、删除当前存档内所有传奇球员实体，并用一份全新的账号级云存档状态覆盖云端。仅用于开发者测试，无法撤销。确认继续？",
+        confirmText = "确认全清并开启",
+        confirmColor = Theme.COLORS.DANGER,
+        onConfirm = function()
+            local purge = LegendGachaCloud.purgeLegendEntitiesForDeveloperTest(gameState)
+            LegendGachaCloud.enableAndResetForDeveloper(gameState, {
+                ok = function()
+                    UI.Toast.Show({ message = "传奇云存档已开启并同步云端", variant = "success" })
+                end,
+                error = function(_, reason)
+                    UI.Toast.Show({ message = "云同步失败，已写入本地缓存: " .. tostring(reason), variant = "warning" })
+                end,
+                timeout = function()
+                    UI.Toast.Show({ message = "云同步超时，已写入本地缓存", variant = "warning" })
+                end,
+            })
+            SaveManager.save(gameState, "auto")
+            gameState:sendMessage({
+                category = "youth",
+                title = "传奇云存档灰度已开启",
+                body = string.format("开发者工具：已清空传奇抽卡状态，删除传奇球员 %d 名、候选 %d 名。后续传奇抽卡状态走账号级云存档。", purge.players or 0, purge.candidates or 0),
+                priority = "high",
+            })
+            Router.replaceWith("dashboard")
+        end,
+    })
+end
+
+------------------------------------------------------
 -- 作弊：解锁传奇池
 ------------------------------------------------------
 function Settings._cheatUnlockLegendPool()
@@ -1757,6 +1808,7 @@ function Settings._cheatUnlockLegendPool()
     state.adsWatched = YouthManager.getUnlockAdsRequired()
     -- 赠送30次抽取
     state.pulls = math.max(state.pulls, 30)
+    LegendGachaCloud.markDirty()
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({
@@ -1785,6 +1837,7 @@ function Settings._cheatAddPulls()
     end
 
     state.pulls = (state.pulls or 0) + 100
+    LegendGachaCloud.markDirty()
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({
@@ -1819,6 +1872,7 @@ function Settings._cheatForceLegend()
     if (state.pulls or 0) < 10 then
         state.pulls = 10
     end
+    LegendGachaCloud.markDirty()
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({
@@ -1842,8 +1896,11 @@ function Settings._cheatResetLegendPool()
 
     local previousCount = state.pulledLegends and #state.pulledLegends or 0
     state.pulledLegends = {}
+    state.pulledLegendIds = {}
     state.pityCounter = 0
     state.firstTenPull = true
+    state.singlePullCounter = 0
+    LegendGachaCloud.markDirty()
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({

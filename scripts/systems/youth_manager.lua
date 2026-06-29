@@ -12,6 +12,7 @@ local TrainingManager = require("scripts/systems/training_manager")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
 local FinanceManager = require("scripts/systems/finance_manager")
 local Nationality = require("scripts/domain/nationality")
+local LegendGachaCloud = require("scripts/persistence/legend_gacha_cloud")
 
 local YouthManager = {}
 
@@ -1567,6 +1568,11 @@ local LegendTagPools = require("scripts/data/legend_tag_pools")
 ---@param gameState table
 ---@return table state
 function YouthManager.getLegendGachaState(gameState)
+    local cloudState = LegendGachaCloud.tryGetState(gameState)
+    if cloudState then
+        return cloudState
+    end
+
     gameState._legendGacha = gameState._legendGacha or {}
     local s = gameState._legendGacha
     -- 逐项补全：兼容旧档/残缺档，避免 nil 参与运算
@@ -1617,6 +1623,7 @@ function YouthManager.setSelectedLegendPool(gameState, poolId)
     end
     local state = YouthManager.getLegendGachaState(gameState)
     state.selectedPoolId = poolId
+    LegendGachaCloud.markDirty()
     return true
 end
 
@@ -1766,6 +1773,7 @@ end
 function YouthManager.markLegendCollected(gameState, lData)
     local state = YouthManager.getLegendGachaState(gameState)
     _markLegendPulled(state, lData)
+    LegendGachaCloud.markDirty()
 end
 
 -- 漏签补偿：传奇 JSON 索引（lazy）
@@ -1908,8 +1916,10 @@ function YouthManager.watchAdForUnlock(gameState)
         -- 解锁赠送30连抽
         state.pulls = state.pulls + 30
         log:Write(LOG_INFO, "YouthManager: 传奇池已解锁，赠送30次抽取")
+        LegendGachaCloud.markDirty()
         return true, state.adsWatched
     end
+    LegendGachaCloud.markDirty()
     return false, state.adsWatched
 end
 
@@ -1932,6 +1942,7 @@ function YouthManager.watchAdForPulls(gameState)
         added = added + bonus
         state.pullAdProgress = 0
     end
+    LegendGachaCloud.markDirty()
     return added
 end
 
@@ -2038,6 +2049,7 @@ function YouthManager.doSinglePull(gameState)
         state.selectedPoolId or "?",
         state.pulls, state.pityCounter))
 
+    LegendGachaCloud.markDirty()
     return candidate
 end
 
@@ -2132,6 +2144,7 @@ function YouthManager.doTenPull(gameState)
         "YouthManager: 十连抽完成，池=%s，出传奇%d名，累计十连%d次，保底计数%d",
         state.selectedPoolId or "?", legendCount, state.tenPullCount, state.pityCounter))
 
+    LegendGachaCloud.markDirty()
     return {
         candidates = candidates,
         legendCount = legendCount,
