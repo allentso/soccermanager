@@ -1825,20 +1825,15 @@ function YouthManager.getLegendGachaState(gameState)
 end
 
 --- 是否已领取当前轮次的传奇抽卡补偿（300抽）
---- 旧版 compensationClaimed=true 为「领3名球员」，不阻塞新版活动
+--- 旧版领3球员曾用 compensationClaimed=true 或 compensationClaimedRound="2.5"，均不阻塞本活动
 ---@param state table|nil
 ---@return boolean
 function YouthManager.hasClaimedLegendGachaCompensation(state)
     if not state then return false end
-    local round = Constants.LEGEND_GACHA_COMPENSATION_ROUND
-    if state.compensationClaimedRound == round then
+    if state.compensation300PullClaimed == true then
         return true
     end
-    -- 4.2.1 前短暂用 "2.5" 标记 300 抽；仅当非旧版三球员补偿时视为已领
-    if state.compensationClaimedRound == "2.5" and state.compensationClaimed ~= true then
-        return true
-    end
-    return false
+    return state.compensationClaimedRound == Constants.LEGEND_GACHA_COMPENSATION_ROUND
 end
 
 --- 全部叙事标签池定义

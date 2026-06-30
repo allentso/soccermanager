@@ -1476,6 +1476,7 @@ function Settings._claimCompensationLegend()
 
     gachaState.pulls = (gachaState.pulls or 0) + Constants.LEGEND_GACHA_COMPENSATION_PULLS
     gachaState.compensationClaimedRound = Constants.LEGEND_GACHA_COMPENSATION_ROUND
+    gachaState.compensation300PullClaimed = true
 
     LegendGachaCloud.markDirty(gameState)
     SaveManager.save(gameState, "auto")
