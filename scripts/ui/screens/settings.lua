@@ -569,7 +569,7 @@ function Settings._showCheatMenu()
                 end,
             },
             UI.Button {
-                text = "开启传奇云存档灰度（全清）",
+                text = "开启传奇云存档灰度（复制名单上云）",
                 width = "100%", height = 44,
                 backgroundColor = "#154360",
                 color = "#FFFFFF",
@@ -1608,7 +1608,7 @@ function Settings._claimCompensationLegend()
 
     -- 标记已领取（存储在 _legendGacha 中，确保持久化到存档）
     gachaState.compensationClaimedRound = "2.5"
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
     SaveManager.save(gameState, "auto")
 
     -- 显示获得提示
@@ -1763,35 +1763,61 @@ function Settings._saveSettings()
 end
 
 ------------------------------------------------------
--- 作弊：开启传奇云存档灰度（全清）
+-- 作弊：开启传奇云存档灰度（复制当前存档名单上云，一次性）
 ------------------------------------------------------
 function Settings._cheatEnableLegendCloudSave()
     local gameState = _G.gameState
     if not gameState then return end
 
+    local canSeed, reason = LegendGachaCloud.canSeedFromCurrentSave()
+    if not canSeed then
+        if reason == "already_used" then
+            UI.Toast.Show({ message = "该功能只能使用一次，已完成名单上云", variant = "info" })
+        elseif reason == "already_enabled" then
+            UI.Toast.Show({ message = "传奇云存档已开启", variant = "info" })
+        else
+            UI.Toast.Show({ message = "当前无法执行该操作", variant = "warning" })
+        end
+        return
+    end
+
     ConfirmDialog.show({
         title = "开启传奇云存档灰度",
-        message = "该操作会清空当前本地传奇抽卡状态、删除当前存档内所有传奇球员实体，并用一份全新的账号级云存档状态覆盖云端。仅用于开发者测试，无法撤销。确认继续？",
-        confirmText = "确认全清并开启",
+        message = "将把当前存档的传奇抽卡状态与已拥有传奇名单复制到账号级云存档，并开启云同步。\n\n为保证云存档的安全与干净，该功能只能使用一次，请慎重考虑后再确认。",
+        confirmText = "确认复制并开启",
         confirmColor = Theme.COLORS.DANGER,
         onConfirm = function()
-            local purge = LegendGachaCloud.purgeLegendEntitiesForDeveloperTest(gameState)
-            LegendGachaCloud.enableAndResetForDeveloper(gameState, {
+            local ok, err = LegendGachaCloud.enableAndSeedFromCurrentSave(gameState, {
                 ok = function()
-                    UI.Toast.Show({ message = "传奇云存档已开启并同步云端", variant = "success" })
+                    UI.Toast.Show({ message = "传奇名单已复制上云并开启同步", variant = "success" })
                 end,
-                error = function(_, reason)
-                    UI.Toast.Show({ message = "云同步失败，已写入本地缓存: " .. tostring(reason), variant = "warning" })
+                error = function(_, syncErr)
+                    UI.Toast.Show({
+                        message = "云同步失败，已写入本地缓存: " .. tostring(syncErr),
+                        variant = "warning",
+                    })
                 end,
                 timeout = function()
                     UI.Toast.Show({ message = "云同步超时，已写入本地缓存", variant = "warning" })
                 end,
             })
+            if not ok then
+                UI.Toast.Show({ message = "开启失败: " .. tostring(err), variant = "error" })
+                return
+            end
+
             SaveManager.save(gameState, "auto")
+            local cloudState = LegendGachaCloud.tryGetState()
+            local legendCount = 0
+            if cloudState then
+                legendCount = #(cloudState.pulledLegendIds or {}) + #(cloudState.pulledLegends or {})
+            end
             gameState:sendMessage({
                 category = "youth",
                 title = "传奇云存档灰度已开启",
-                body = string.format("开发者工具：已清空传奇抽卡状态，删除传奇球员 %d 名、候选 %d 名。后续传奇抽卡状态走账号级云存档。", purge.players or 0, purge.candidates or 0),
+                body = string.format(
+                    "开发者工具：已将当前存档传奇名单（%d 条记录）复制上云。后续传奇抽卡状态走账号级云存档。",
+                    legendCount),
                 priority = "high",
             })
             Router.replaceWith("dashboard")
@@ -1818,7 +1844,7 @@ function Settings._cheatUnlockLegendPool()
     state.adsWatched = YouthManager.getUnlockAdsRequired()
     -- 赠送30次抽取
     state.pulls = math.max(state.pulls, 30)
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({
@@ -1852,7 +1878,7 @@ function Settings._cheatAddPulls()
     end
 
     state.pulls = (state.pulls or 0) + 100
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({
@@ -1892,7 +1918,7 @@ function Settings._cheatForceLegend()
     if (state.pulls or 0) < 10 then
         state.pulls = 10
     end
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({
@@ -1925,7 +1951,7 @@ function Settings._cheatResetLegendPool()
     state.pityCounter = 0
     state.firstTenPull = true
     state.singlePullCounter = 0
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({

@@ -155,8 +155,62 @@ local function normalizeCache(raw)
     raw.enabled = raw.enabled == true
     raw.dirty = raw.dirty == true
     raw.lastSyncAt = raw.lastSyncAt or 0
+    raw.seedFromSaveUsed = raw.seedFromSaveUsed == true
     raw.state = normalizeState(raw.state)
     return raw
+end
+
+local GACHA_SCALAR_KEYS = {
+    "unlocked", "adsWatched", "pulls", "tenPullCount", "pityCounter",
+    "firstTenPull", "singlePullCounter", "pullAdProgress", "selectedPoolId",
+    "compensationClaimedRound", "compensationClaimed",
+}
+
+local function addUniqueValue(arr, seen, value)
+    if value == nil or value == "" or seen[value] then return end
+    seen[value] = true
+    arr[#arr + 1] = value
+end
+
+local function buildStateFromSaveGacha(localGacha)
+    local seed = cleanState()
+    if type(localGacha) ~= "table" then return seed end
+    for _, key in ipairs(GACHA_SCALAR_KEYS) do
+        if localGacha[key] ~= nil then seed[key] = localGacha[key] end
+    end
+    seed.pulledLegendIds = copyArray(localGacha.pulledLegendIds)
+    seed.pulledLegends = copyArray(localGacha.pulledLegends)
+    return seed
+end
+
+local function mergeLegendRosterFromSave(gameState, state)
+    if not gameState or type(state) ~= "table" then return end
+
+    local idSeen, nameSeen = {}, {}
+    local ids, names = {}, {}
+
+    local function addId(id) addUniqueValue(ids, idSeen, id) end
+    local function addName(name) addUniqueValue(names, nameSeen, name) end
+
+    for _, id in ipairs(state.pulledLegendIds or {}) do addId(id) end
+    for _, name in ipairs(state.pulledLegends or {}) do addName(name) end
+
+    for _, p in pairs(gameState.players or {}) do
+        if type(p) == "table" and p.isLegend then
+            if type(p.legendData) == "table" and p.legendData.id then addId(p.legendData.id) end
+            if p.legendName then addName(p.legendName) end
+        end
+    end
+
+    for _, c in ipairs(gameState._youthCandidates or {}) do
+        if type(c) == "table" and c.isLegend then
+            if type(c.legendData) == "table" and c.legendData.id then addId(c.legendData.id) end
+            if c.legendName then addName(c.legendName) end
+        end
+    end
+
+    state.pulledLegendIds = ids
+    state.pulledLegends = names
 end
 
 local function ensureLoaded()
@@ -189,6 +243,12 @@ local function markReady()
     bootstrapping_ = false
 end
 
+local function resetBootstrapAfterReadFailure()
+    ready_ = false
+    bootstrapped_ = false
+    bootstrapping_ = false
+end
+
 local function scheduleSyncIfNeeded()
     if pendingSync_ and not syncInFlight_ then
         LegendGachaCloud.syncToCloud()
@@ -212,7 +272,25 @@ end
 function LegendGachaCloud.canMutate()
     local cache = ensureLoaded()
     if not cache.enabled then return true end
-    return ready_ and not bootstrapping_
+    if ready_ and not bootstrapping_ then return true end
+    -- 云同步未完成时，允许写入本地存档镜像作为离线兜底
+    local gs = _G and _G.gameState
+    if gs and type(gs._legendGacha) == "table" then return true end
+    return false
+end
+
+--- 将云/权威状态镜像到当前存档（随 save 持久化，云失效时可恢复）
+function LegendGachaCloud.syncMirrorToSave(gameState, sourceState)
+    if not gameState or type(sourceState) ~= "table" then return end
+    gameState._legendGacha = gameState._legendGacha or {}
+    applyStateInPlace(gameState._legendGacha, sourceState)
+end
+
+--- 读取并补全当前存档内的传奇抽卡镜像
+function LegendGachaCloud.getSaveMirror(gameState)
+    if not gameState then return cleanState() end
+    gameState._legendGacha = gameState._legendGacha or {}
+    return normalizeState(gameState._legendGacha)
 end
 
 function LegendGachaCloud.getStatus()
@@ -328,8 +406,12 @@ function LegendGachaCloud.syncFromCloud(events)
             syncInFlight_ = false
             local remote = values and values[CLOUD_KEY]
             if type(remote) == "table" then
-                applyStateInPlace(cache.state, remote)
-                if not cache.dirty then
+                if cache.dirty then
+                    -- 本地在 Get 飞行期间发生了写入，不能用旧远端覆盖。
+                    normalizeState(cache.state)
+                    cache.state.updatedAt = nowSeconds()
+                else
+                    applyStateInPlace(cache.state, remote)
                     cache.dirty = false
                 end
                 cache.lastSyncAt = nowSeconds()
@@ -345,15 +427,21 @@ function LegendGachaCloud.syncFromCloud(events)
                 markReady()
                 LegendGachaCloud.syncToCloud()
             end
+            local gs = _G and _G.gameState
+            if gs then
+                LegendGachaCloud.syncMirrorToSave(gs, cache.state)
+            end
             if events and events.ok then events.ok(cache.state) end
         end,
         error = function(code, reason)
             syncInFlight_ = false
+            resetBootstrapAfterReadFailure()
             logWarn("云端读取失败: " .. tostring(code) .. " " .. tostring(reason))
             if events and events.error then events.error(code, reason) end
         end,
         timeout = function()
             syncInFlight_ = false
+            resetBootstrapAfterReadFailure()
             logWarn("云端读取超时")
             if events and events.timeout then events.timeout() end
         end,
@@ -369,7 +457,11 @@ function LegendGachaCloud.bootstrap()
     bootstrapping_ = true
     ready_ = false
     -- 云端权威：始终先 Get，再根据远端是否存在决定是否 Set
-    return LegendGachaCloud.syncFromCloud()
+    local ok, err = LegendGachaCloud.syncFromCloud()
+    if not ok then
+        resetBootstrapAfterReadFailure()
+    end
+    return ok, err
 end
 
 function LegendGachaCloud.tryGetState()
@@ -382,16 +474,40 @@ function LegendGachaCloud.tryGetState()
     return cache.state
 end
 
-function LegendGachaCloud.markDirty()
+function LegendGachaCloud.markDirty(gameState)
     local cache = ensureLoaded()
     if not cache.enabled then return false end
     if not LegendGachaCloud.canMutate() then
         return false, "legend_cloud_syncing"
     end
-    normalizeState(cache.state)
-    cache.state.updatedAt = nowSeconds()
-    cache.dirty = true
+
+    gameState = gameState or (_G and _G.gameState)
+    local cloudReady = ready_ and not bootstrapping_
+
+    if cloudReady then
+        normalizeState(cache.state)
+        cache.state.updatedAt = nowSeconds()
+        cache.dirty = true
+        if gameState then
+            LegendGachaCloud.syncMirrorToSave(gameState, cache.state)
+        end
+    elseif gameState and gameState._legendGacha then
+        applyStateInPlace(cache.state, gameState._legendGacha)
+        normalizeState(cache.state)
+        cache.state.updatedAt = nowSeconds()
+        cache.dirty = true
+        LegendGachaCloud.syncMirrorToSave(gameState, cache.state)
+    else
+        normalizeState(cache.state)
+        cache.state.updatedAt = nowSeconds()
+        cache.dirty = true
+    end
+
     LegendGachaCloud.saveLocal()
+    if not cloudReady then
+        return true
+    end
+
     local ok, err = LegendGachaCloud.syncToCloud()
     if not ok then
         pendingSync_ = true
@@ -467,6 +583,41 @@ local function purgeFromAllTeams(gameState, removeSet)
     return removedRefs
 end
 
+--- 是否仍可使用「复制当前存档名单上云」的一次性入口
+---@return boolean ok
+---@return string|nil reason already_used|already_enabled
+function LegendGachaCloud.canSeedFromCurrentSave()
+    local cache = ensureLoaded()
+    if cache.seedFromSaveUsed then return false, "already_used" end
+    if cache.enabled then return false, "already_enabled" end
+    return true
+end
+
+--- 开启云存档，并将当前存档的传奇抽卡状态与名单复制上云（一次性）
+function LegendGachaCloud.enableAndSeedFromCurrentSave(gameState, events)
+    local canSeed, reason = LegendGachaCloud.canSeedFromCurrentSave()
+    if not canSeed then return false, reason end
+
+    local seedState = buildStateFromSaveGacha(gameState and gameState._legendGacha)
+    mergeLegendRosterFromSave(gameState, seedState)
+    seedState.updatedAt = nowSeconds()
+
+    local cache = ensureLoaded()
+    cache.enabled = true
+    cache.dirty = true
+    cache.lastSyncAt = 0
+    cache.seedFromSaveUsed = true
+    applyStateInPlace(cache.state, seedState)
+    bootstrapped_ = true
+    bootstrapping_ = false
+    ready_ = true
+    if gameState then
+        LegendGachaCloud.syncMirrorToSave(gameState, cache.state)
+    end
+    LegendGachaCloud.saveLocal()
+    return LegendGachaCloud.syncToCloud(events)
+end
+
 function LegendGachaCloud.purgeLegendEntitiesForDeveloperTest(gameState)
     if not gameState then return { players = 0, candidates = 0, refs = 0 } end
 
@@ -509,7 +660,7 @@ function LegendGachaCloud.enableAndResetForDeveloper(gameState, events)
     bootstrapping_ = false
     ready_ = true
     if gameState then
-        gameState._legendGacha = nil
+        LegendGachaCloud.syncMirrorToSave(gameState, cache.state)
     end
     LegendGachaCloud.saveLocal()
     return LegendGachaCloud.syncToCloud(events)
@@ -518,9 +669,9 @@ end
 function LegendGachaCloud.getDebugSummary()
     local cache = ensureLoaded()
     local state = normalizeState(cache.state)
-    return string.format("enabled=%s ready=%s dirty=%s pulls=%d legends=%d lastSync=%s",
-        tostring(cache.enabled), tostring(ready_), tostring(cache.dirty), tonumber(state.pulls) or 0,
-        #(state.pulledLegendIds or {}), tostring(cache.lastSyncAt or 0))
+    return string.format("enabled=%s ready=%s dirty=%s seedUsed=%s pulls=%d legends=%d lastSync=%s",
+        tostring(cache.enabled), tostring(ready_), tostring(cache.dirty), tostring(cache.seedFromSaveUsed),
+        tonumber(state.pulls) or 0, #(state.pulledLegendIds or {}), tostring(cache.lastSyncAt or 0))
 end
 
 --- 测试专用：重置模块内存状态

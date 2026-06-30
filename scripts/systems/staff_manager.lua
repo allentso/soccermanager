@@ -15,6 +15,7 @@ StaffManager.MAX_STAFF_PER_TEAM = 6
 local MAX_STAFF_PER_TEAM = StaffManager.MAX_STAFF_PER_TEAM
 local HIRE_FEE_MULTIPLIER = 4  -- 签约费 = 周薪 × 4
 local ROLE_STACK_MULTS = { 1.0, 0.6, 0.25, 0.10 }
+local FREE_STAFF_MAX = Constants.FREE_STAFF_MAX or 20
 
 -- 名字池（用于生成随机职员）
 local FIRST_NAMES = {
@@ -528,6 +529,86 @@ function StaffManager.getFreeStaff(gameState, roleFilter)
     return result
 end
 
+local function _staffPoolScore(s)
+    local attrs = s.attributes or {}
+    return (attrs.training or 0)
+        + (attrs.scouting or 0)
+        + (attrs.physiotherapy or 0)
+        + (attrs.youthDev or 0)
+        + (attrs.tactical or 0)
+end
+
+function StaffManager._pruneFreePool(gameState, maxCount)
+    maxCount = maxCount or FREE_STAFF_MAX
+    gameState._freeStaffIds = gameState._freeStaffIds or {}
+    if not gameState.staff then
+        gameState._freeStaffIds = {}
+        return
+    end
+
+    local entries = {}
+    local seen = {}
+    for _, sid in ipairs(gameState._freeStaffIds) do
+        local s = gameState.staff[sid]
+        local seenKey = tostring(sid)
+        if s and not s.teamId and not seen[seenKey] then
+            table.insert(entries, {
+                id = sid,
+                staff = s,
+                score = _staffPoolScore(s),
+                sortId = tonumber(sid) or tonumber(s.id) or 0,
+            })
+            seen[seenKey] = true
+        end
+    end
+
+    table.sort(entries, function(a, b)
+        if a.score ~= b.score then return a.score > b.score end
+        return a.sortId < b.sortId
+    end)
+
+    local keep = {}
+    local keptById = {}
+
+    local function keepEntry(entry)
+        local key = tostring(entry.id)
+        if #keep < maxCount and not keptById[key] then
+            table.insert(keep, entry)
+            keptById[key] = true
+        end
+    end
+
+    -- 保留每个岗位中最好的候选，避免裁剪后破坏岗位覆盖。
+    for _, role in ipairs(ALL_ROLES) do
+        for _, entry in ipairs(entries) do
+            if entry.staff.role == role then
+                keepEntry(entry)
+                break
+            end
+        end
+    end
+
+    for _, entry in ipairs(entries) do
+        keepEntry(entry)
+    end
+
+    local nextIds = {}
+    for _, entry in ipairs(keep) do
+        table.insert(nextIds, entry.id)
+    end
+
+    for _, entry in ipairs(entries) do
+        if not keptById[tostring(entry.id)] then
+            gameState.staff[entry.id] = nil
+            if entry.staff.id and entry.staff.id ~= entry.id then
+                gameState.staff[entry.staff.id] = nil
+            end
+        end
+    end
+
+    gameState._freeStaffIds = nextIds
+end
+
 function StaffManager.generateFreeStaff(gameState, count, opts)
     opts = opts or {}
     count = count or Constants.FREE_STAFF_COUNT or 8
@@ -546,6 +627,7 @@ function StaffManager.generateFreeStaff(gameState, count, opts)
         local staff = gameState:addStaff(staffData)
         table.insert(gameState._freeStaffIds, staff.id)
     end
+    StaffManager._pruneFreePool(gameState)
 end
 
 function StaffManager.ensureFreePoolOnLoad(gameState)
@@ -578,6 +660,7 @@ function StaffManager.ensureFreePoolOnLoad(gameState)
     if deficit > 0 then
         StaffManager.generateFreeStaff(gameState, deficit)
     end
+    StaffManager._pruneFreePool(gameState)
 end
 
 function StaffManager._ensurePoolRoleCoverage(gameState)
@@ -615,6 +698,7 @@ function StaffManager.refreshFreePool(gameState)
     if deficit > 0 then
         StaffManager.generateFreeStaff(gameState, deficit)
     end
+    StaffManager._pruneFreePool(gameState)
 end
 
 ------------------------------------------------------
@@ -685,6 +769,7 @@ end
 function StaffManager._addToFreePool(gameState, staffId)
     gameState._freeStaffIds = gameState._freeStaffIds or {}
     table.insert(gameState._freeStaffIds, staffId)
+    StaffManager._pruneFreePool(gameState)
 end
 
 function StaffManager.getTeamStaffDetails(gameState, teamId)

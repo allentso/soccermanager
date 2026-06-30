@@ -13,6 +13,7 @@ local DifficultySettings = require("scripts/systems/difficulty_settings")
 local FinanceManager = require("scripts/systems/finance_manager")
 local Nationality = require("scripts/domain/nationality")
 local LegendGachaCloud = require("scripts/persistence/legend_gacha_cloud")
+local TextUtil = require("scripts/app/text_util")
 
 local YouthManager = {}
 
@@ -24,6 +25,7 @@ local YOUTH_POOL_SIZE = 10         -- 每次刷新10名候选
 local MAX_YOUTH_SQUAD = 18         -- AI 球队青训上限
 local MAX_YOUTH_SQUAD_PLAYER = 30  -- 玩家球队青训上限
 local MAX_CUSTOM_YOUTH = 3         -- 玩家自建青训球员上限
+local MAX_CUSTOM_YOUTH_NAME_CHARS = 12  -- 自建球员姓名上限（按字符计，非字节）
 local INITIAL_YOUTH_COUNT = 10     -- 每队初始青训人数
 local AI_TIER2_YOUTH_COUNT = 7     -- 次级 AI 队青训目标，降低长档球员总量
 local YOUTH_MIN_AGE = 15
@@ -1005,6 +1007,16 @@ function YouthManager.getMaxCustomYouthSlots()
     return MAX_CUSTOM_YOUTH
 end
 
+--- 自建球员姓名最大字符数
+function YouthManager.getMaxCustomYouthNameChars()
+    return MAX_CUSTOM_YOUTH_NAME_CHARS
+end
+
+--- TextField maxLength：引擎对中文按 2 单位计长，12 字需 24
+function YouthManager.getCustomYouthNameInputLimit()
+    return MAX_CUSTOM_YOUTH_NAME_CHARS * 2
+end
+
 --- 创建自建青训球员
 ---@param gameState table
 ---@param opts table { displayName: string, position?: string, nationality?: string }
@@ -1029,8 +1041,8 @@ function YouthManager.createCustomYouthPlayer(gameState, opts)
     if displayName == "" then
         return false, "请输入球员姓名"
     end
-    if #displayName > 12 then
-        return false, "姓名不能超过12字"
+    if TextUtil.utf8Len(displayName) > MAX_CUSTOM_YOUTH_NAME_CHARS then
+        return false, string.format("姓名不能超过%d字", MAX_CUSTOM_YOUTH_NAME_CHARS)
     end
 
     local position = Constants.normalizePosition(opts.position) or "ST"
@@ -1708,28 +1720,16 @@ end
 ---@param gameState table
 ---@return table state
 function YouthManager.getLegendGachaState(gameState)
-    local cloudState = LegendGachaCloud.tryGetState(gameState)
-    if cloudState then
-        return cloudState
+    if LegendGachaCloud.isEnabled() then
+        local cloudState = LegendGachaCloud.tryGetState()
+        if LegendGachaCloud.isReady() then
+            LegendGachaCloud.syncMirrorToSave(gameState, cloudState)
+            return cloudState
+        end
+        return LegendGachaCloud.getSaveMirror(gameState)
     end
 
-    gameState._legendGacha = gameState._legendGacha or {}
-    local s = gameState._legendGacha
-    -- 逐项补全：兼容旧档/残缺档，避免 nil 参与运算
-    if s.adsWatched == nil then s.adsWatched = 0 end
-    if s.unlocked == nil then s.unlocked = false end
-    if s.pulls == nil then s.pulls = 0 end
-    if s.tenPullCount == nil then s.tenPullCount = 0 end
-    if s.pityCounter == nil then s.pityCounter = 0 end
-    if s.firstTenPull == nil then s.firstTenPull = true end
-    if s.singlePullCounter == nil then s.singlePullCounter = 0 end
-    if s.pullAdProgress == nil then s.pullAdProgress = 0 end
-    if not s.selectedPoolId or not LegendTagPools.isValidPoolId(s.selectedPoolId) then
-        s.selectedPoolId = LegendTagPools.getDefaultPoolId()
-    end
-    s.pulledLegends = s.pulledLegends or {}
-    s.pulledLegendIds = s.pulledLegendIds or {}
-    return s
+    return LegendGachaCloud.getSaveMirror(gameState)
 end
 
 --- 全部叙事标签池定义
@@ -1765,7 +1765,7 @@ function YouthManager.setSelectedLegendPool(gameState, poolId)
     end
     local state = YouthManager.getLegendGachaState(gameState)
     state.selectedPoolId = poolId
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
     return true
 end
 
@@ -1917,7 +1917,7 @@ function YouthManager.markLegendCollected(gameState, lData)
     if not okMutate then return false, err end
     local state = YouthManager.getLegendGachaState(gameState)
     _markLegendPulled(state, lData)
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
     return true
 end
 
@@ -2066,10 +2066,10 @@ function YouthManager.watchAdForUnlock(gameState)
         -- 解锁赠送30连抽
         state.pulls = state.pulls + 30
         log:Write(LOG_INFO, "YouthManager: 传奇池已解锁，赠送30次抽取")
-        LegendGachaCloud.markDirty()
+        LegendGachaCloud.markDirty(gameState)
         return true, state.adsWatched
     end
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
     return false, state.adsWatched
 end
 
@@ -2094,7 +2094,7 @@ function YouthManager.watchAdForPulls(gameState)
         added = added + bonus
         state.pullAdProgress = 0
     end
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
     return added
 end
 
@@ -2202,7 +2202,7 @@ function YouthManager.doSinglePull(gameState)
         state.selectedPoolId or "?",
         state.pulls, state.pityCounter))
 
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
     return candidate
 end
 
@@ -2298,7 +2298,7 @@ function YouthManager.doTenPull(gameState)
         "YouthManager: 十连抽完成，池=%s，出传奇%d名，累计十连%d次，保底计数%d",
         state.selectedPoolId or "?", legendCount, state.tenPullCount, state.pityCounter))
 
-    LegendGachaCloud.markDirty()
+    LegendGachaCloud.markDirty(gameState)
     return {
         candidates = candidates,
         legendCount = legendCount,

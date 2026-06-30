@@ -957,6 +957,25 @@ function TransferManager.confirmAllPendingSales(gameState, teamId)
     return okCount, failCount, lastErr
 end
 
+--- 批量同意挂牌球员的待处理收购报价（仅 status=pending）
+---@param playerIds string[] 限定球员 id 列表（如已挂牌名单）
+---@return number okCount
+---@return number failCount
+function TransferManager.acceptAllPendingIncomingBids(gameState, playerIds)
+    local okCount, failCount = 0, 0
+    for _, playerId in ipairs(playerIds or {}) do
+        local bid = TransferManager.pickPrimaryIncomingSaleBid(gameState, playerId)
+        if bid and bid.status == "pending" then
+            if TransferManager.acceptIncomingBid(gameState, bid.id) then
+                okCount = okCount + 1
+            else
+                failCount = failCount + 1
+            end
+        end
+    end
+    return okCount, failCount
+end
+
 --- 批量确认待签入自由球员
 ---@return number okCount
 ---@return number failCount

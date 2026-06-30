@@ -2002,14 +2002,63 @@ function Market._buildListedContent(gameState, listedSubTab)
         })
     end
 
+    local pendingAcceptCount = 0
+    local listedPlayerIdList = {}
+    for _, p in ipairs(listedPlayers) do
+        listedPlayerIdList[#listedPlayerIdList + 1] = p.id
+        local bid = TransferManager.pickPrimaryIncomingSaleBid(gameState, p.id)
+        if bid and bid.status == "pending" then
+            pendingAcceptCount = pendingAcceptCount + 1
+        end
+    end
+
+    local listedHeaderChildren = {
+        UI.Label {
+            text = string.format("已挂牌出售 (%d人)", #listedPlayers),
+            fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+        },
+    }
+    if pendingAcceptCount > 0 then
+        table.insert(listedHeaderChildren, UI.Button {
+            text = "一键同意",
+            height = 30,
+            paddingLeft = 12, paddingRight = 12,
+            backgroundColor = Theme.COLORS.ACCENT,
+            borderRadius = 15,
+            fontSize = 12,
+            color = {255, 255, 255, 255},
+            fontWeight = "bold",
+            onClick = function()
+                ConfirmDialog.show({
+                    title = "一键同意报价",
+                    message = string.format(
+                        "确认同意 %d 笔待处理报价？\n同意后球员将进入考虑期，随后可确认出售。",
+                        pendingAcceptCount),
+                    confirmText = "全部同意",
+                    onConfirm = function()
+                        local okCount, failCount = TransferManager.acceptAllPendingIncomingBids(
+                            gameState, listedPlayerIdList)
+                        if okCount > 0 then
+                            UI.Toast.Show({
+                                message = string.format("已同意 %d 笔报价", okCount),
+                                variant = failCount > 0 and "warning" or "success",
+                            })
+                        end
+                        if failCount > 0 then
+                            AudioManager.deny()
+                            UI.Toast.Show({ message = "部分报价无法同意", variant = "error" })
+                        end
+                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
+                    end,
+                })
+            end,
+        })
+    end
+
     table.insert(children, UI.Panel {
         width = "100%", paddingLeft = 12, paddingRight = 12, paddingTop = 10, paddingBottom = 6,
-        children = {
-            UI.Label {
-                text = string.format("已挂牌出售 (%d人)", #listedPlayers),
-                fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
-            },
-        }
+        flexDirection = "row", justifyContent = "space-between", alignItems = "center",
+        children = listedHeaderChildren,
     })
 
     if #listedPlayers == 0 then

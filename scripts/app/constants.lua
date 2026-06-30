@@ -25,6 +25,7 @@ Constants.MID_COUNT = 7
 Constants.FWD_COUNT = 6
 Constants.STAFF_PER_TEAM = 4
 Constants.FREE_STAFF_COUNT = 8
+Constants.FREE_STAFF_MAX = 20
 
 -- 球员属性范围
 Constants.ATTR_MIN = 1
