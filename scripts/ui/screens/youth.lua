@@ -97,6 +97,7 @@ local LEGEND_POOL_UI = {
     prince = { icon = "👑", short = "王子旗帜" },
     nation = { icon = "🏆", short = "国家英雄" },
     club = { icon = "🏟", short = "俱乐部" },
+    golden_era = { icon = "🏅", short = "冠军核心" },
     wanderer = { icon = "🌍", short = "流浪大师" },
     myth = { icon = "✨", short = "神话远方" },
 }
@@ -1493,17 +1494,6 @@ function Youth._buildLegendPoolSelector(gameState)
     end
 
     local selectedPool = YouthManager.getSelectedLegendPool(gameState)
-    local selectedProgress = YouthManager.getLegendPoolProgress(gameState, selectedId)
-    local statusText
-    if selectedProgress.exhausted then
-        statusText = "该标签池已全部收集，切换其他池继续抽传奇，或仍可抽普通青训。"
-    else
-        statusText = string.format(
-            "当前：%s · 还可抽 %d 名传奇",
-            selectedPool and selectedPool.name_cn or "",
-            selectedProgress.remaining
-        )
-    end
 
     return UI.Panel {
         width = "100%",
@@ -1548,12 +1538,6 @@ function Youth._buildLegendPoolSelector(gameState)
                 fontSize = 10,
                 color = Theme.COLORS.TEXT_MUTED,
                 marginTop = 4,
-                marginBottom = 4,
-            },
-            UI.Label {
-                text = statusText,
-                fontSize = 10,
-                color = selectedProgress.exhausted and Theme.COLORS.GOLD or Theme.COLORS.ACCENT,
             },
         },
     }

@@ -2253,7 +2253,7 @@
         "Stopper",
         "Leader",
         "AerialThreat",
-        "Brave"
+        "BallWinner"
       ],
       "ovr": 92,
       "potential": 92,
@@ -2343,7 +2343,7 @@
         "Dribbler",
         "Speedster",
         "Playmaker",
-        "BigGame"
+        "Trickster"
       ],
       "ovr": 92,
       "potential": 92,
@@ -2421,8 +2421,9 @@
       "squad_role": "Legend",
       "traits": [
         "Stopper",
-        "Aggressive",
-        "AerialThreat"
+        "BallWinner",
+        "AerialThreat",
+        "Leader"
       ],
       "ovr": 90,
       "potential": 90,
@@ -2508,7 +2509,8 @@
       "traits": [
         "Stopper",
         "AerialThreat",
-        "Powerful"
+        "Leader",
+        "BallWinner"
       ],
       "ovr": 90,
       "potential": 90,
@@ -2595,10 +2597,10 @@
       "retired": true,
       "squad_role": "Legend",
       "traits": [
-        "Versatile",
+        "Overlapper",
         "Crosser",
         "Engine",
-        "WorldChampion"
+        "Leader"
       ],
       "ovr": 90,
       "potential": 90,
@@ -2685,10 +2687,10 @@
       "retired": true,
       "squad_role": "Legend",
       "traits": [
-        "CutInside",
+        "Dribbler",
         "Speedster",
-        "LongShot",
-        "Dribbler"
+        "Finisher",
+        "DeadBall"
       ],
       "ovr": 92,
       "potential": 92,
@@ -2768,8 +2770,8 @@
       "squad_role": "Legend",
       "traits": [
         "Poacher",
-        "TeamPlayer",
-        "Aerial",
+        "Engine",
+        "AerialThreat",
         "Finisher"
       ],
       "ovr": 89,
@@ -2852,7 +2854,7 @@
         "Finisher",
         "Dribbler",
         "Leader",
-        "BigGame"
+        "Trickster"
       ],
       "ovr": 93,
       "potential": 93,
@@ -2931,9 +2933,10 @@
       "retired": true,
       "squad_role": "Legend",
       "traits": [
-        "Versatile",
-        "TeamPlayer",
-        "Tackler"
+        "Overlapper",
+        "Engine",
+        "BallWinner",
+        "Leader"
       ],
       "ovr": 86,
       "potential": 86,
@@ -3021,7 +3024,8 @@
       "traits": [
         "BallWinner",
         "Engine",
-        "TeamPlayer"
+        "BoxToBox",
+        "Leader"
       ],
       "ovr": 87,
       "potential": 87,
@@ -3109,7 +3113,7 @@
       "traits": [
         "Playmaker",
         "Visionary",
-        "DeepLying",
+        "Distributor",
         "Leader"
       ],
       "ovr": 91,
@@ -3198,8 +3202,8 @@
       "traits": [
         "Playmaker",
         "Visionary",
-        "PressResistant",
-        "Clutch"
+        "Distributor",
+        "Trickster"
       ],
       "ovr": 91,
       "potential": 91,
@@ -3285,9 +3289,9 @@
       "retired": true,
       "squad_role": "Legend",
       "traits": [
-        "DeepLying",
-        "LongPass",
+        "Distributor",
         "Visionary",
+        "Playmaker",
         "Leader"
       ],
       "ovr": 91,
@@ -3376,8 +3380,8 @@
       "traits": [
         "BallWinner",
         "Leader",
-        "Aggressive",
-        "Engine"
+        "Engine",
+        "BoxToBox"
       ],
       "ovr": 89,
       "potential": 89,
@@ -3464,9 +3468,9 @@
       "squad_role": "Legend",
       "traits": [
         "Playmaker",
-        "LongShot",
         "DeadBall",
-        "Visionary"
+        "Visionary",
+        "Finisher"
       ],
       "ovr": 91,
       "potential": 91,
@@ -3556,7 +3560,7 @@
         "Engine",
         "Leader",
         "BoxToBox",
-        "WorldChampion"
+        "Distributor"
       ],
       "ovr": 91,
       "potential": 91,
@@ -3645,7 +3649,7 @@
         "BoxToBox",
         "Leader",
         "AerialThreat",
-        "LongShot"
+        "DeadBall"
       ],
       "ovr": 91,
       "potential": 91,
@@ -3731,10 +3735,10 @@
       "retired": true,
       "squad_role": "Legend",
       "traits": [
-        "Fullback",
+        "Overlapper",
         "DeadBall",
-        "Consistent",
-        "TeamPlayer"
+        "Crosser",
+        "Engine"
       ],
       "ovr": 89,
       "potential": 89,
@@ -3820,8 +3824,8 @@
       "traits": [
         "Poacher",
         "Finisher",
-        "OffTheBall",
-        "ClubIcon"
+        "Speedster",
+        "Leader"
       ],
       "ovr": 90,
       "potential": 90,
@@ -3907,8 +3911,8 @@
       "traits": [
         "Stopper",
         "AerialThreat",
-        "Aggressive",
-        "WorldChampion"
+        "BallWinner",
+        "Leader"
       ],
       "ovr": 88,
       "potential": 88,

@@ -225,11 +225,32 @@ function Player:getAttrCap()
     return math.min(Constants.ATTR_MAX, math.ceil(pot / 5))
 end
 
---- 基于局内潜力估算的总评上限（非传奇）
+--- 基于局内潜力估算的总评上限
 ---@return number
 function Player:getPotentialOverallCap()
     if self.isLegend then
-        return Constants.LEGEND_OVERALL_MAX
+        local legendRating = 0
+        if type(self.legendData) == "table" then
+            legendRating = math.max(
+                legendRating,
+                self.legendData.potential or 0,
+                self.legendData.ovr or 0
+            )
+        end
+        legendRating = math.max(legendRating, self.potential or 0)
+        if legendRating <= 0 then
+            legendRating = self.overall or 0
+        end
+        if legendRating >= 96 then
+            return Constants.LEGEND_OVERALL_MAX
+        elseif legendRating >= 93 then
+            return math.min(Constants.LEGEND_OVERALL_MAX, 101)
+        elseif legendRating >= 90 then
+            return Constants.ABILITY_MAX
+        elseif legendRating >= 87 then
+            return 98
+        end
+        return 96
     end
     local pot = self.actualPotential or self.potential or 60
     if pot >= Constants.SUPERSTAR_POTENTIAL_THRESHOLD then
