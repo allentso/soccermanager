@@ -3978,6 +3978,48 @@ function TransferManager.rejectIncomingBid(gameState, bidId)
     return false
 end
 
+--- 拒绝某球员所有待处理的收到报价（仅 pending，避免误取消还价中/待确认交易）
+---@return table stats { rejected, skipped }
+function TransferManager.rejectAllPendingIncomingBids(gameState, playerId)
+    TransferManager._ensureData(gameState)
+    local stats = { rejected = 0, skipped = 0 }
+    local buyerNames = {}
+    local player = gameState.players[playerId]
+    local date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day }
+
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.playerId == playerId and bid.isIncomingBid then
+            if bid.status == "pending" then
+                bid.status = "rejected"
+                bid.rejectedDate = date
+                bid.responseDate = date
+                stats.rejected = stats.rejected + 1
+
+                local buyerTeam = gameState.teams[bid.buyerTeamId]
+                table.insert(buyerNames, buyerTeam and buyerTeam.name or "未知球队")
+            elseif bid.status == "counter_pending"
+                or bid.status == "awaiting_sale_confirmation"
+                or bid.status == "player_considering_sale" then
+                stats.skipped = stats.skipped + 1
+            end
+        end
+    end
+
+    if stats.rejected > 0 then
+        gameState:sendMessage({
+            category = "transfer",
+            title = "报价已批量拒绝",
+            body = string.format("你拒绝了 %d 笔对 %s 的报价（%s）。",
+                stats.rejected,
+                player and player.displayName or "未知球员",
+                table.concat(buyerNames, "、")),
+            priority = "normal",
+        })
+    end
+
+    return stats
+end
+
 --- 还价（玩家要求更高价格）→ 进入"还价待回复"状态，AI延迟1-3天回复
 function TransferManager.counterIncomingBid(gameState, bidId, askAmount)
     TransferManager._ensureData(gameState)

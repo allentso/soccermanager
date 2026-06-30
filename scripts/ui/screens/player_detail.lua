@@ -736,70 +736,8 @@ function PlayerDetail._buildContract(player, team, age, gameState)
     return UI.Panel {
         width = "100%",
         children = {
-            Theme.Card {
-                children = {
-                    Theme.Subtitle { text = "合同详情" },
-                    UI.Panel {
-                        marginTop = 8,
-                        children = {
-                            PlayerDetail._infoRow("合同状态", contractText, contractColor),
-                            PlayerDetail._infoRow("周薪", PlayerDetail._formatMoney(player.wage) .. "/周", Theme.COLORS.ACCENT),
-                            PlayerDetail._infoRow("年薪（估）", PlayerDetail._formatMoney(player.wage * 52), Theme.COLORS.TEXT_SECONDARY),
-                            PlayerDetail._infoRow("市场价值", PlayerDetail._formatMoney(player.value), Theme.COLORS.TEXT_PRIMARY),
-                            PlayerDetail._infoRow("所属球队", team and team.name or "自由球员", Theme.COLORS.TEXT_PRIMARY),
-                        }
-                    },
-                }
-            },
-
-            -- 转会状态
-            Theme.Card {
-                children = {
-                    Theme.Subtitle { text = "转会状态" },
-                    UI.Panel {
-                        marginTop = 6,
-                        children = {
-                            PlayerDetail._infoRow("挂牌出售", player.listedForSale and "是" or "否",
-                                player.listedForSale and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED),
-                            PlayerDetail._infoRow("挂牌外租", player.listedForLoan and "是" or "否",
-                                player.listedForLoan and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_MUTED),
-                            PlayerDetail._infoRow("租借状态", loanStatusText, loanStatusColor),
-                            loanRecord and PlayerDetail._infoRow("租期剩余",
-                                tostring(TransferManager.formatLoanRemainingWeeks(loanRecord)) .. " 周",
-                                Theme.COLORS.TEXT_SECONDARY) or UI.Panel { height = 0 },
-                        }
-                    },
-                }
-            },
-
-            -- 薪资占比
-            team and Theme.Card {
-                children = {
-                    Theme.Subtitle { text = "薪资在球队中的占比" },
-                    UI.Panel {
-                        marginTop = 8,
-                        children = {
-                            UI.Panel {
-                                width = "100%", height = 20,
-                                backgroundColor = {38, 46, 71, 255}, borderRadius = 10,
-                                overflow = "hidden",
-                                children = {
-                                    UI.Panel {
-                                        width = math.min(100, math.floor(player.wage / math.max(1, team.wageBudget) * 100)) .. "%",
-                                        height = "100%",
-                                        backgroundColor = Theme.COLORS.ACCENT,
-                                        borderRadius = 10,
-                                    },
-                                }
-                            },
-                            UI.Label {
-                                text = string.format("%.1f%% 的周薪预算", player.wage / math.max(1, team.wageBudget) * 100),
-                                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
-                            },
-                        }
-                    },
-                }
-            } or UI.Panel { height = 0 },
+            PlayerDetail._buildContractOverviewCard(player, team, contractText, contractColor),
+            PlayerDetail._buildTransferAndOffersCard(player, gameState, loanRecord, loanStatusText, loanStatusColor),
 
             -- 阵容角色设置（仅本队非租借球员）
             isOwnSquad and PlayerDetail._buildSquadRoleCard(player, gameState) or UI.Panel { height = 0 },
@@ -814,6 +752,323 @@ function PlayerDetail._buildContract(player, team, age, gameState)
             isLoanedIn and PlayerDetail._buildExtendLoanCard(player, gameState) or UI.Panel { height = 0 },
         }
     }
+end
+
+function PlayerDetail._buildContractOverviewCard(player, team, contractText, contractColor)
+    local wage = player.wage or 0
+    local wageBudget = team and math.max(1, team.wageBudget or 0) or 1
+    local wagePercent = team and (wage / wageBudget * 100) or 0
+    local barWidth = math.min(100, math.floor(wagePercent))
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "合同概览" },
+            UI.Panel {
+                marginTop = 8,
+                children = {
+                    PlayerDetail._infoRow("合同状态", contractText, contractColor),
+                    PlayerDetail._infoRow("周薪", PlayerDetail._formatMoney(wage) .. "/周", Theme.COLORS.ACCENT),
+                    PlayerDetail._infoRow("年薪（估）", PlayerDetail._formatMoney(wage * 52), Theme.COLORS.TEXT_SECONDARY),
+                    PlayerDetail._infoRow("市场价值", PlayerDetail._formatMoney(player.value or 0), Theme.COLORS.TEXT_PRIMARY),
+                    team and UI.Panel {
+                        width = "100%",
+                        marginTop = 10,
+                        children = {
+                            UI.Panel {
+                                width = "100%", height = 10,
+                                backgroundColor = {38, 46, 71, 255},
+                                borderRadius = 6,
+                                overflow = "hidden",
+                                children = {
+                                    UI.Panel {
+                                        width = barWidth .. "%",
+                                        height = "100%",
+                                        backgroundColor = Theme.COLORS.ACCENT,
+                                        borderRadius = 6,
+                                    },
+                                },
+                            },
+                            UI.Label {
+                                text = string.format("%.1f%% 的周薪预算", wagePercent),
+                                fontSize = 11,
+                                color = Theme.COLORS.TEXT_MUTED,
+                                marginTop = 5,
+                            },
+                        },
+                    } or UI.Panel { height = 0 },
+                }
+            },
+        }
+    }
+end
+
+function PlayerDetail._incomingSaleBidStatusMeta(bid)
+    if bid.status == "awaiting_sale_confirmation" then
+        return "待确认", Theme.COLORS.SECONDARY
+    elseif bid.status == "counter_pending" then
+        return "还价中", Theme.COLORS.WARNING
+    elseif bid.status == "player_considering_sale" then
+        return "球员考虑中", {255, 180, 60, 255}
+    end
+    return "待处理", Theme.COLORS.ACCENT
+end
+
+function PlayerDetail._incomingSaleBidDetailText(bid)
+    if bid.status == "counter_pending" then
+        return string.format("原报价 %s · 要价 %s",
+            FinanceManager.formatMoney(bid.amount or 0),
+            FinanceManager.formatMoney(bid.counterAskAmount or bid.amount or 0))
+    elseif bid.status == "awaiting_sale_confirmation" then
+        return "成交金额 " .. FinanceManager.formatMoney(bid.amount or 0)
+    elseif bid.status == "player_considering_sale" then
+        return "已接受报价 " .. FinanceManager.formatMoney(bid.amount or 0)
+    end
+    return "出价 " .. FinanceManager.formatMoney(bid.amount or 0)
+end
+
+function PlayerDetail._buildIncomingSaleBidRow(player, gameState, bid)
+    local buyerTeam = gameState.teams[bid.buyerTeamId]
+    local buyerName = buyerTeam and buyerTeam.name or "未知球队"
+    local statusText, statusColor = PlayerDetail._incomingSaleBidStatusMeta(bid)
+    local actionChildren = {}
+
+    if bid.status == "pending" then
+        table.insert(actionChildren, UI.Button {
+            text = "接受",
+            flexGrow = 1, height = 34,
+            backgroundColor = Theme.COLORS.SECONDARY,
+            borderRadius = 7,
+            fontSize = 12,
+            color = {255, 255, 255, 255},
+            marginRight = 6,
+            onClick = function()
+                local ok = TransferManager.acceptIncomingBid(gameState, bid.id)
+                if ok then
+                    UI.Toast.Show({ message = "已同意报价，等待球员考虑是否接受转会", variant = "success" })
+                else
+                    UI.Toast.Show({ message = "无法接受该报价，请刷新页面后重试", variant = "warning" })
+                end
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+            end,
+        })
+        table.insert(actionChildren, UI.Button {
+            text = "拒绝",
+            width = 62, height = 34,
+            backgroundColor = {60, 40, 40, 255},
+            borderRadius = 7,
+            fontSize = 12,
+            color = Theme.COLORS.DANGER,
+            onClick = function()
+                local ok = TransferManager.rejectIncomingBid(gameState, bid.id)
+                if ok then
+                    UI.Toast.Show({ message = "已拒绝报价", variant = "info" })
+                else
+                    UI.Toast.Show({ message = "无法拒绝该报价，请刷新页面后重试", variant = "warning" })
+                end
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+            end,
+        })
+    elseif bid.status == "awaiting_sale_confirmation" then
+        table.insert(actionChildren, UI.Button {
+            text = "确认出售",
+            flexGrow = 1, height = 34,
+            backgroundColor = Theme.COLORS.SECONDARY,
+            borderRadius = 7,
+            fontSize = 12,
+            color = {255, 255, 255, 255},
+            marginRight = 6,
+            onClick = function()
+                ConfirmDialog.show({
+                    title = "最终确认",
+                    message = string.format("确认以 %s 将 %s 出售给 %s？\n此操作不可撤销。",
+                        FinanceManager.formatMoney(bid.amount or 0), player.displayName, buyerName),
+                    confirmText = "确认出售",
+                    onConfirm = function()
+                        local ok = TransferManager.confirmSale(gameState, bid.id)
+                        if ok then
+                            UI.Toast.Show({ message = "交易完成！球员已出售", variant = "success" })
+                            Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
+                        else
+                            UI.Toast.Show({ message = "确认失败，请前往转会市场重试", variant = "warning" })
+                            Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                        end
+                    end,
+                })
+            end,
+        })
+        table.insert(actionChildren, UI.Button {
+            text = "取消",
+            width = 62, height = 34,
+            backgroundColor = {60, 40, 40, 255},
+            borderRadius = 7,
+            fontSize = 12,
+            color = Theme.COLORS.DANGER,
+            onClick = function()
+                local ok = TransferManager.cancelSale(gameState, bid.id)
+                UI.Toast.Show({ message = ok and "交易已取消" or "取消失败，请前往转会市场重试", variant = ok and "info" or "warning" })
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+            end,
+        })
+    else
+        table.insert(actionChildren, UI.Button {
+            text = "查看详情",
+            width = "100%", height = 34,
+            backgroundColor = Theme.COLORS.ACCENT,
+            borderRadius = 7,
+            fontSize = 12,
+            color = {255, 255, 255, 255},
+            onClick = function()
+                Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
+            end,
+        })
+    end
+
+    return UI.Panel {
+        width = "100%",
+        backgroundColor = {30, 38, 55, 255},
+        borderRadius = 10,
+        padding = 10,
+        marginTop = 8,
+        children = {
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = buyerName,
+                        fontSize = 13,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                        flexGrow = 1,
+                    },
+                    UI.Label {
+                        text = statusText,
+                        fontSize = 11,
+                        color = statusColor,
+                        fontWeight = "bold",
+                    },
+                },
+            },
+            UI.Label {
+                text = PlayerDetail._incomingSaleBidDetailText(bid),
+                fontSize = 11,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginTop = 4,
+                marginBottom = 8,
+            },
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                children = actionChildren,
+            },
+        },
+    }
+end
+
+function PlayerDetail._buildTransferAndOffersCard(player, gameState, loanRecord, loanStatusText, loanStatusColor)
+    local bids = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
+    local pendingCount = 0
+    local highestAmount = 0
+    local pendingBuyerNames = {}
+    for _, bid in ipairs(bids) do
+        highestAmount = math.max(highestAmount, bid.amount or 0)
+        if bid.status == "pending" then
+            pendingCount = pendingCount + 1
+            local buyerTeam = gameState.teams[bid.buyerTeamId]
+            table.insert(pendingBuyerNames, buyerTeam and buyerTeam.name or "未知球队")
+        end
+    end
+
+    local children = {
+        Theme.Subtitle { text = #bids > 0 and "转会与报价" or "转会状态" },
+        UI.Panel {
+            marginTop = 6,
+            children = {
+                PlayerDetail._infoRow("挂牌出售", player.listedForSale and "是" or "否",
+                    player.listedForSale and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED),
+                PlayerDetail._infoRow("挂牌外租", player.listedForLoan and "是" or "否",
+                    player.listedForLoan and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_MUTED),
+                PlayerDetail._infoRow("租借状态", loanStatusText, loanStatusColor),
+                loanRecord and PlayerDetail._infoRow("租期剩余",
+                    tostring(TransferManager.formatLoanRemainingWeeks(loanRecord)) .. " 周",
+                    Theme.COLORS.TEXT_SECONDARY) or UI.Panel { height = 0 },
+            },
+        },
+    }
+
+    if #bids > 0 then
+        table.insert(children, UI.Label {
+            text = string.format("收到 %d 份报价 · 最高 %s", #bids, FinanceManager.formatMoney(highestAmount)),
+            fontSize = 13,
+            color = Theme.COLORS.ACCENT,
+            fontWeight = "bold",
+            marginTop = 10,
+        })
+        for _, bid in ipairs(bids) do
+            table.insert(children, PlayerDetail._buildIncomingSaleBidRow(player, gameState, bid))
+        end
+        if #bids > 1 then
+            table.insert(children, UI.Button {
+                text = "查看全部报价",
+                width = "100%",
+                height = 36,
+                backgroundColor = {50, 58, 80, 255},
+                borderRadius = 8,
+                fontSize = 12,
+                color = Theme.COLORS.TEXT_SECONDARY,
+                marginTop = 8,
+                onClick = function()
+                    local primaryBid = TransferManager.pickPrimaryIncomingSaleBid(gameState, player.id)
+                    Router.replaceWith("market", {
+                        tab = "listed",
+                        listedSubTab = "status",
+                        highlightBidId = primaryBid and primaryBid.id or bids[1].id,
+                    })
+                end,
+            })
+        end
+        if pendingCount >= 2 then
+            table.insert(children, UI.Button {
+                text = string.format("拒绝所有报价 (%d)", pendingCount),
+                width = "100%",
+                height = 38,
+                backgroundColor = {60, 40, 40, 255},
+                borderRadius = 8,
+                fontSize = 13,
+                color = Theme.COLORS.DANGER,
+                marginTop = 8,
+                onClick = function()
+                    ConfirmDialog.show({
+                        title = "拒绝所有报价",
+                        message = string.format("确定拒绝 %s 对 %s 的 %d 笔待处理报价吗？\n还价中、球员考虑中和待确认交易不会被取消。",
+                            table.concat(pendingBuyerNames, "、"),
+                            player.displayName or "该球员",
+                            pendingCount),
+                        confirmText = "拒绝全部",
+                        confirmColor = Theme.COLORS.DANGER,
+                        onConfirm = function()
+                            local stats = TransferManager.rejectAllPendingIncomingBids(gameState, player.id)
+                            UI.Toast.Show({
+                                message = string.format("已拒绝 %d 笔报价", stats.rejected or 0),
+                                variant = (stats.rejected or 0) > 0 and "info" or "warning",
+                            })
+                            Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                        end,
+                    })
+                end,
+            })
+        end
+    end
+
+    if #bids > 0 then
+        return Theme.HeroCard {
+            accentColor = Theme.COLORS.ACCENT,
+            children = children,
+        }
+    end
+
+    return Theme.Card { children = children }
 end
 
 ------------------------------------------------------
@@ -957,19 +1212,37 @@ end
 function PlayerDetail._buildContractActions(player, team, gameState)
     local isSafe, safetyReason = FinanceManager.checkSquadSafety(gameState, player.id)
 
+    -- 赔偿金计算显示
+    local monthsLeft = 0
+    if player.contractEnd then
+        monthsLeft = (player.contractEnd.year - gameState.date.year) * 12
+            + (player.contractEnd.month - gameState.date.month)
+    end
+    local compensation = math.floor((player.wage or 0) * 4 * math.max(0, monthsLeft) * 0.5)
+
     -- 终止合同按钮
     local terminateBtn
     if isSafe then
         terminateBtn = UI.Button {
             text = "终止合同",
             width = "100%", height = 44,
-            backgroundColor = Theme.COLORS.DANGER,
+            backgroundColor = {60, 40, 40, 255},
             borderRadius = 8,
             fontSize = 14,
-            color = {255, 255, 255, 255},
+            color = Theme.COLORS.DANGER,
             onClick = function()
-                ContractManager.terminateContract(gameState, player.id)
-                Router.navigate("squad")
+                ConfirmDialog.show({
+                    title = "终止合同",
+                    message = string.format("确定终止 %s 的合同吗？\n需支付赔偿金：%s",
+                        player.displayName or "该球员",
+                        PlayerDetail._formatMoney(compensation)),
+                    confirmText = "终止合同",
+                    confirmColor = Theme.COLORS.DANGER,
+                    onConfirm = function()
+                        ContractManager.terminateContract(gameState, player.id)
+                        Router.navigate("squad")
+                    end,
+                })
             end,
         }
     else
@@ -992,14 +1265,6 @@ function PlayerDetail._buildContractActions(player, team, gameState)
             end,
         }
     end
-
-    -- 赔偿金计算显示
-    local monthsLeft = 0
-    if player.contractEnd then
-        monthsLeft = (player.contractEnd.year - gameState.date.year) * 12
-            + (player.contractEnd.month - gameState.date.month)
-    end
-    local compensation = math.floor(player.wage * 4 * math.max(0, monthsLeft) * 0.5)
 
     -- 续约按钮（租借球员不显示）
     local renewBtn
@@ -1128,235 +1393,76 @@ function PlayerDetail._buildContractActions(player, team, gameState)
         renewBtn = UI.Panel { height = 0 }
     end
 
+    local saleAction = PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameState, {
+        compact = not player.listedForSale,
+        marginRight = not player.listedForSale and 8 or 0,
+        marginBottom = 0,
+    })
+    local loanAction = PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameState, {
+        compact = not player.listedForLoan,
+        marginBottom = 0,
+    })
+
     return Theme.Card {
         children = {
             Theme.Subtitle { text = "合同操作" },
-            -- 续约按钮
-            renewBtn,
-            -- 赔偿金提示
-            compensation > 0 and UI.Label {
-                text = string.format("终止合同需支付赔偿金: %s", PlayerDetail._formatMoney(compensation)),
-                fontSize = 12,
-                color = Theme.COLORS.WARNING,
-                marginTop = 4,
-                marginBottom = 8,
-            } or UI.Label {
-                text = "合同即将到期，无需赔偿",
-                fontSize = 12,
+            UI.Label {
+                text = "合同",
+                fontSize = 11,
                 color = Theme.COLORS.TEXT_MUTED,
-                marginTop = 4,
-                marginBottom = 8,
+                marginTop = 8,
+                marginBottom = 6,
             },
-            -- 安全检查提示
+            renewBtn,
+            UI.Label {
+                text = "挂牌",
+                fontSize = 11,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginTop = 2,
+                marginBottom = 6,
+            },
             (not isSafe) and UI.Label {
                 text = safetyReason or "阵容深度不足",
                 fontSize = 11,
                 color = Theme.COLORS.DANGER,
                 marginBottom = 6,
             } or UI.Panel { height = 0 },
-            -- 挂牌出售 / 取消挂牌按钮
-            PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameState),
-            -- 挂牌外租 / 取消外租挂牌
-            PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameState),
-            -- 终止按钮
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                marginBottom = 10,
+                children = {
+                    saleAction,
+                    loanAction,
+                },
+            },
+            UI.Label {
+                text = compensation > 0
+                    and string.format("危险操作 · 终止合同需支付 %s", PlayerDetail._formatMoney(compensation))
+                    or "危险操作 · 合同即将到期，无需赔偿",
+                fontSize = 11,
+                color = compensation > 0 and Theme.COLORS.WARNING or Theme.COLORS.TEXT_MUTED,
+                marginTop = 2,
+                marginBottom = 6,
+            },
             terminateBtn,
         }
     }
 end
 
--- 挂牌出售 / 取消挂牌 / 收到报价处理
-function PlayerDetail._pickPrimaryIncomingSaleBid(gameState, playerId)
-    return TransferManager.pickPrimaryIncomingSaleBid(gameState, playerId)
-end
-
-function PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)
-    local buyerTeam = gameState.teams[bid.buyerTeamId]
-    local buyerName = buyerTeam and buyerTeam.name or "未知球队"
-    local amountText = FinanceManager.formatMoney(bid.amount)
-
-    if bid.status == "pending" then
-        return UI.Panel {
-            width = "100%", marginBottom = 10,
-            children = {
-                UI.Label {
-                    text = "收到报价：" .. buyerName .. " 出价 " .. amountText,
-                    fontSize = 13, color = Theme.COLORS.ACCENT,
-                    fontWeight = "bold", marginBottom = 8,
-                },
-                UI.Panel {
-                    width = "100%", flexDirection = "row",
-                    children = {
-                        UI.Button {
-                            text = "接受报价",
-                            flexGrow = 1, height = 40,
-                            backgroundColor = Theme.COLORS.SECONDARY,
-                            borderRadius = 8, fontSize = 14,
-                            color = {255, 255, 255, 255},
-                            marginRight = 6,
-                            onClick = function()
-                                local ok = TransferManager.acceptIncomingBid(gameState, bid.id)
-                                if ok then
-                                    UI.Toast.Show({ message = "已同意报价，等待球员考虑是否接受转会", variant = "success" })
-                                else
-                                    UI.Toast.Show({ message = "无法接受该报价，请刷新页面后重试", variant = "warning" })
-                                end
-                                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
-                            end,
-                        },
-                        UI.Button {
-                            text = "拒绝",
-                            width = 70, height = 40,
-                            backgroundColor = Theme.COLORS.DANGER,
-                            borderRadius = 8, fontSize = 14,
-                            color = {255, 255, 255, 255},
-                            onClick = function()
-                                local ok = TransferManager.rejectIncomingBid(gameState, bid.id)
-                                if ok then
-                                    UI.Toast.Show({ message = "已拒绝报价", variant = "info" })
-                                else
-                                    UI.Toast.Show({ message = "无法拒绝该报价，请刷新页面后重试", variant = "warning" })
-                                end
-                                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
-                            end,
-                        },
-                    },
-                },
-            },
-        }
+-- 挂牌出售 / 取消挂牌
+function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameState, opts)
+    opts = opts or {}
+    local buttonWidth = "100%"
+    local buttonFlexGrow = nil
+    if opts.compact then
+        buttonWidth = nil
+        buttonFlexGrow = 1
     end
+    local buttonMarginBottom = opts.marginBottom == nil and 10 or opts.marginBottom
 
-    if bid.status == "counter_pending" then
-        return UI.Panel {
-            width = "100%", marginBottom = 10,
-            children = {
-                UI.Label {
-                    text = "还价中：" .. buyerName .. " · 你的要价 " .. FinanceManager.formatMoney(bid.counterAskAmount or bid.amount),
-                    fontSize = 13, color = Theme.COLORS.WARNING,
-                    fontWeight = "bold", marginBottom = 6,
-                },
-                UI.Label {
-                    text = "对方正在考虑你的还价，请等待几天后查看结果。",
-                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
-                },
-                UI.Button {
-                    text = "查看还价进度",
-                    width = "100%", height = 40,
-                    backgroundColor = Theme.COLORS.ACCENT,
-                    borderRadius = 8, fontSize = 14,
-                    color = {255, 255, 255, 255},
-                    onClick = function()
-                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
-                    end,
-                },
-            },
-        }
-    end
-
-    if bid.status == "player_considering_sale" then
-        local daysLeft = bid.playerConsiderSaleDays or 2
-        if bid.playerConsiderSaleDate then
-            local daysPassed = TransferManager._daysBetween(bid.playerConsiderSaleDate, gameState.date)
-            daysLeft = math.max(0, (bid.playerConsiderSaleDays or 2) - daysPassed)
-        end
-        local progressText = daysLeft > 0
-            and string.format("预计 %d 天后给出答复", daysLeft)
-            or "即将给出答复"
-        return UI.Panel {
-            width = "100%", marginBottom = 10,
-            children = {
-                UI.Label {
-                    text = "球员考虑中：" .. buyerName .. " · " .. amountText,
-                    fontSize = 13, color = {255, 180, 60, 255},
-                    fontWeight = "bold", marginBottom = 6,
-                },
-                UI.Label {
-                    text = "你已同意报价，球员正在考虑是否接受转会。\n" .. progressText,
-                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
-                },
-                UI.Button {
-                    text = "查看详情",
-                    width = "100%", height = 40,
-                    backgroundColor = Theme.COLORS.ACCENT,
-                    borderRadius = 8, fontSize = 14,
-                    color = {255, 255, 255, 255},
-                    onClick = function()
-                        Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
-                    end,
-                },
-            },
-        }
-    end
-
-    if bid.status == "awaiting_sale_confirmation" then
-        return UI.Panel {
-            width = "100%", marginBottom = 10,
-            children = {
-                UI.Label {
-                    text = "待确认出售：" .. buyerName .. " · " .. amountText,
-                    fontSize = 13, color = Theme.COLORS.SECONDARY,
-                    fontWeight = "bold", marginBottom = 6,
-                },
-                UI.Label {
-                    text = "球员已同意加盟，请最终确认或取消此次交易。",
-                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
-                },
-                UI.Button {
-                    text = "确认出售",
-                    width = "100%", height = 40,
-                    backgroundColor = Theme.COLORS.SECONDARY,
-                    borderRadius = 8, fontSize = 14,
-                    color = {255, 255, 255, 255},
-                    marginBottom = 6,
-                    onClick = function()
-                        ConfirmDialog.show({
-                            title = "最终确认",
-                            message = string.format("确认以 %s 将 %s 出售给 %s？\n此操作不可撤销。",
-                                amountText, player.displayName, buyerName),
-                            confirmText = "确认出售",
-                            onConfirm = function()
-                                local ok = TransferManager.confirmSale(gameState, bid.id)
-                                if ok then
-                                    UI.Toast.Show({ message = "交易完成！球员已出售", variant = "success" })
-                                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status" })
-                                else
-                                    UI.Toast.Show({ message = "确认失败，请前往转会市场重试", variant = "warning" })
-                                    Router.replaceWith("market", { tab = "listed", listedSubTab = "status", highlightBidId = bid.id })
-                                end
-                            end,
-                        })
-                    end,
-                },
-                UI.Button {
-                    text = "取消交易",
-                    width = "100%", height = 40,
-                    backgroundColor = {60, 40, 40, 255},
-                    borderRadius = 8, fontSize = 14,
-                    color = Theme.COLORS.DANGER,
-                    onClick = function()
-                        local ok = TransferManager.cancelSale(gameState, bid.id)
-                        if ok then
-                            UI.Toast.Show({ message = "交易已取消", variant = "info" })
-                        else
-                            UI.Toast.Show({ message = "取消失败，请前往转会市场重试", variant = "warning" })
-                        end
-                        Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
-                    end,
-                },
-            },
-        }
-    end
-
-    return UI.Panel { height = 0 }
-end
-
-function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameState)
     if player.listedForLoan then
         return UI.Panel { height = 0 }
-    end
-
-    local bid = PlayerDetail._pickPrimaryIncomingSaleBid(gameState, player.id)
-    if bid then
-        return PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)
     end
 
     local inTransferWindow = TransferManager.isInTransferWindow(gameState)
@@ -1405,11 +1511,14 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
     if isSafe then
         return UI.Button {
             text = inTransferWindow and "挂牌出售" or "挂牌出售 (非窗期)",
-            width = "100%", height = 44,
+            width = buttonWidth,
+            flexGrow = buttonFlexGrow,
+            height = 44,
             backgroundColor = inTransferWindow and Theme.COLORS.ACCENT or {70, 75, 95, 255},
             borderRadius = 8, fontSize = 14,
             color = inTransferWindow and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
-            marginBottom = 10,
+            marginRight = opts.marginRight,
+            marginBottom = buttonMarginBottom,
             onClick = function()
                 SaleListingPriceSheet.show({
                     gameState = gameState,
@@ -1425,11 +1534,14 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
     -- 未挂牌 + 阵容不安全 → 灰色不可用
     return UI.Button {
         text = "挂牌出售 (阵容不足)",
-        width = "100%", height = 44,
+        width = buttonWidth,
+        flexGrow = buttonFlexGrow,
+        height = 44,
         backgroundColor = {50, 55, 75, 255},
         borderRadius = 8, fontSize = 14,
         color = Theme.COLORS.TEXT_MUTED,
-        marginBottom = 10,
+        marginRight = opts.marginRight,
+        marginBottom = buttonMarginBottom,
         disabled = true,
         onClick = function()
             gameState:sendMessage({
@@ -1455,7 +1567,16 @@ function PlayerDetail._buildYouthTransferCard(player, gameState)
     }
 end
 
-function PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameState)
+function PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameState, opts)
+    opts = opts or {}
+    local buttonWidth = "100%"
+    local buttonFlexGrow = nil
+    if opts.compact then
+        buttonWidth = nil
+        buttonFlexGrow = 1
+    end
+    local buttonMarginBottom = opts.marginBottom == nil and 10 or opts.marginBottom
+
     if player.squadRole == "loaned" or player.listedForSale then
         return UI.Panel { height = 0 }
     end
@@ -1479,11 +1600,14 @@ function PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameSta
     if isSafe then
         return UI.Button {
             text = inTransferWindow and "挂牌外租" or "挂牌外租 (非窗期)",
-            width = "100%", height = 44,
+            width = buttonWidth,
+            flexGrow = buttonFlexGrow,
+            height = 44,
             backgroundColor = inTransferWindow and Theme.COLORS.SECONDARY or {70, 75, 95, 255},
             borderRadius = 8, fontSize = 14,
             color = inTransferWindow and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
-            marginBottom = 10,
+            marginRight = opts.marginRight,
+            marginBottom = buttonMarginBottom,
             onClick = function()
                 local ok, err = TransferManager.listForLoan(gameState, player, 26)
                 if ok then
@@ -1504,11 +1628,14 @@ function PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameSta
 
     return UI.Button {
         text = "挂牌外租 (阵容不足)",
-        width = "100%", height = 44,
+        width = buttonWidth,
+        flexGrow = buttonFlexGrow,
+        height = 44,
         backgroundColor = {50, 55, 75, 255},
         borderRadius = 8, fontSize = 14,
         color = Theme.COLORS.TEXT_MUTED,
-        marginBottom = 10,
+        marginRight = opts.marginRight,
+        marginBottom = buttonMarginBottom,
         disabled = true,
         onClick = function()
             gameState:sendMessage({
