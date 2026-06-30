@@ -1409,9 +1409,9 @@ function Settings._buildCompensationSection()
     local gameState = _G.gameState
     if not gameState then return UI.Panel { height = 0 } end
 
-    -- 检查是否已领取过补偿（兼容旧存档的 compensationClaimed 布尔值）
+    -- 检查是否已领取过当前轮次补偿（旧版领3球员 compensationClaimed 不阻塞本活动）
     local gachaState = YouthManager.getLegendGachaState(gameState)
-    if gachaState.compensationClaimed or gachaState.compensationClaimedRound == "2.5" then
+    if YouthManager.hasClaimedLegendGachaCompensation(gachaState) then
         return UI.Panel { height = 0 }
     end
 
@@ -1469,14 +1469,13 @@ function Settings._claimCompensationLegend()
 
     -- 防止重复领取
     local gachaState = YouthManager.getLegendGachaState(gameState)
-    if gachaState.compensationClaimed or gachaState.compensationClaimedRound == "2.5" then
+    if YouthManager.hasClaimedLegendGachaCompensation(gachaState) then
         UI.Toast.Show({ message = "补偿已领取过", variant = "info" })
         return
     end
 
-    local COMPENSATION_PULLS = 300
-    gachaState.pulls = (gachaState.pulls or 0) + COMPENSATION_PULLS
-    gachaState.compensationClaimedRound = "2.5"
+    gachaState.pulls = (gachaState.pulls or 0) + Constants.LEGEND_GACHA_COMPENSATION_PULLS
+    gachaState.compensationClaimedRound = Constants.LEGEND_GACHA_COMPENSATION_ROUND
 
     LegendGachaCloud.markDirty(gameState)
     SaveManager.save(gameState, "auto")
