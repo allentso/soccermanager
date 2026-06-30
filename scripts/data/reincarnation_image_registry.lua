@@ -29,6 +29,7 @@ local _images = {
     ["Pepe"] = "image/pepe_reborn_card_v2_20260621070920.png",
     ["Heung-Min Son"] = "image/son_reborn_card_v3_20260621072950.png",
     ["Zheng Zhi"] = "image/zhengzhi_reborn_card_v3_20260621073137.png",
+    ["Wu Lei"] = "image/wulei_reborn_card_20260630121704.png",
     ["Harry Kane"] = "image/kane_reborn_card_20260627104018.png",
     ["Virgil van Dijk"] = "image/van_dijk_reborn_card_20260627111410.png",
 }
@@ -93,6 +94,7 @@ local _nameToMatch = {
     ["孙兴慜"] = "Heung-Min Son",
     ["孙兴民"] = "Heung-Min Son",
     ["郑智"] = "Zheng Zhi",
+    ["武磊"] = "Wu Lei",
     ["哈里·凯恩"] = "Harry Kane",
     ["凯恩"] = "Harry Kane",
     ["维吉尔·范戴克"] = "Virgil van Dijk",

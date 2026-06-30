@@ -196,6 +196,14 @@ ReincarnationManager.REINCARNATION_LIST = {
         traits = { "playmaker", "captain" },
     },
     {
+        matchName = "Wu Lei",
+        matchAltNames = { "W. Lei", "Lei Wu", "武磊" },
+        potential = 87,
+        allowFallbackFirstSeason = true,
+        attrBonus = { shooting = 3, positioning = 3, speed = 2, composure = 2 },
+        traits = { "poacher", "clinical", "pace_merchant" },
+    },
+    {
         matchName = "Harry Kane",
         matchAltNames = { "H. Kane", "Kane", "哈里·凯恩", "凯恩" },
         potential = 92,
@@ -298,6 +306,10 @@ local FALLBACK_SOURCE_BY_MATCH_NAME = {
         displayName = "郑智", shortName = "郑智", nationality = "CHN", position = "CM",
         naturalPositions = {"CM", "CDM"},
     },
+    ["Wu Lei"] = {
+        displayName = "武磊", shortName = "武磊", nationality = "CHN", position = "ST",
+        naturalPositions = {"ST", "RW"},
+    },
     ["Harry Kane"] = {
         displayName = "哈里·凯恩", shortName = "凯恩", nationality = "ENG", position = "ST",
         naturalPositions = {"ST"},
@@ -361,6 +373,19 @@ local FREE_AGENT_SOURCE_BY_MATCH_NAME = {
             reflexes = 4, aerial = 13,
         },
         traits = {"Playmaker", "Leader", "Teamwork"},
+    },
+    ["Wu Lei"] = {
+        displayName = "武磊", shortName = "武磊", nationality = "CHN", position = "ST",
+        naturalPositions = {"ST", "RW"}, birthYear = 1991, overall = 75, potential = 75,
+        wage = 35000, value = 1500000,
+        attributes = {
+            speed = 15, stamina = 14, strength = 13, agility = 14, passing = 13,
+            shooting = 15, tackling = 8, dribbling = 14, defending = 8,
+            positioning = 15, vision = 13, decisions = 14, composure = 14,
+            aggression = 13, teamwork = 14, leadership = 13, handling = 4,
+            reflexes = 4, aerial = 13,
+        },
+        traits = {"Poacher", "Finisher", "Speedster"},
     },
 }
 
