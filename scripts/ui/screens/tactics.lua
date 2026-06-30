@@ -1028,7 +1028,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
     table.sort(swapCandidates, function(a, b) return a.score > b.score end)
 
     if section ~= "position" and section ~= "bench" and section ~= "swap" then
-        section = #benchCandidates > 0 and "bench" or (#swapCandidates > 0 and "swap" or "position")
+        section = "position"
     end
 
     local maxH = math.floor(graphics:GetHeight() / graphics:GetDPR() * 0.85)
