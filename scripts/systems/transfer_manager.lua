@@ -308,6 +308,54 @@ function TransferManager.getSaleAskingPrice(player)
     return math.max(0, math.floor(player.value or 0))
 end
 
+function TransferManager.isPlayerRejectingAllOffers(player)
+    return player and player.rejectAllOffers == true
+end
+
+--- 设置球员报价勿扰：开启后不再生成新的出售/租借报价，并拒绝当前待处理报价
+---@return boolean success
+---@return string|nil error
+---@return table|nil stats { rejected, delistedSale, delistedLoan }
+function TransferManager.setPlayerRejectAllOffers(gameState, playerId, rejectAll)
+    if not gameState or not playerId then return false, "无效球员" end
+    TransferManager._ensureData(gameState)
+
+    local player = gameState.players and gameState.players[playerId]
+    if not player then return false, "球员不存在" end
+
+    player.rejectAllOffers = rejectAll and true or nil
+    local stats = { rejected = 0, delistedSale = false, delistedLoan = false }
+
+    if rejectAll then
+        local date = gameState.date and {
+            year = gameState.date.year, month = gameState.date.month, day = gameState.date.day,
+        } or nil
+
+        for _, bid in ipairs(gameState.transfers.bids) do
+            if bid.playerId == playerId
+                and bid.status == "pending"
+                and (bid.isIncomingBid or bid.isIncomingLoanBid) then
+                bid.status = "rejected"
+                bid.rejectedDate = date
+                bid.responseDate = date
+                stats.rejected = stats.rejected + 1
+            end
+        end
+
+        if player.listedForSale then
+            TransferManager.delistPlayer(gameState, player)
+            stats.delistedSale = true
+        end
+        if player.listedForLoan then
+            TransferManager.delistLoan(player)
+            stats.delistedLoan = true
+        end
+    end
+
+    TransferManager._invalidateListedPlayerCache(gameState)
+    return true, nil, stats
+end
+
 --- 调整已挂牌球员的出售挂牌价。
 function TransferManager.setSaleAskingPrice(gameState, player, askingPrice)
     if not gameState or not player then return false, "无效球员" end
@@ -1897,6 +1945,7 @@ function TransferManager._processPlayerListedLoanOffers(gameState, opts)
     local attractChance = opts.attractChance or 0.70
     for _, player in ipairs(TransferManager._getListedPlayers(gameState, "listedForLoan")) do
         if player.teamId ~= gameState.playerTeamId then goto skipLoanPlayer end  -- 只处理玩家球队的外租挂牌
+        if TransferManager.isPlayerRejectingAllOffers(player) then goto skipLoanPlayer end
         -- 检查已有的租借报价数量
         local existingLoanBids = TransferManager.getIncomingLoanBidsForPlayer(gameState, player.id)
         if #existingLoanBids >= MAX_INCOMING_LOAN_BIDS then goto skipLoanPlayer end
@@ -2014,6 +2063,9 @@ function TransferManager._processListedPlayerOffers(gameState, opts)
     for _, player in ipairs(marketIndex.flat or {}) do
         -- 便宜的随机吸引门槛优先，过滤掉绝大多数球员，避免无谓的报价扫描
         local isPlayerTeamPlayer = (player.teamId == gameState.playerTeamId)
+        if isPlayerTeamPlayer and TransferManager.isPlayerRejectingAllOffers(player) then
+            goto skipPlayer
+        end
         if not isPlayerTeamPlayer and TransferManager._isAIListedForSaleDormant(gameState, player) then
             goto skipPlayer
         end
@@ -3097,6 +3149,9 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
     local teamAvg = opts.teamAvg or TransferManager._getTeamAverageOverall(gameState, buyerTeam)
     local pOvr = player.overall or 50
     local isPlayerTeamTarget = player.teamId == gameState.playerTeamId
+    if isPlayerTeamTarget and TransferManager.isPlayerRejectingAllOffers(player) then
+        return false
+    end
     local isPlayerPoachBid = isPlayerTeamTarget and not player.listedForSale
     local isStarTarget = opts.upgradeMode
         and not player.listedForSale
@@ -3763,6 +3818,7 @@ end
 --- 创建 AI 对玩家外租挂牌球员的租借报价（让玩家决策）
 function TransferManager._createIncomingLoanBid(gameState, buyerTeam, player)
     TransferManager._ensureData(gameState)
+    if TransferManager.isPlayerRejectingAllOffers(player) then return nil end
 
     local duration = player.loanListDuration or 26
     local loanFee = TransferManager.getLoanFeeBenchmark(player, duration)
@@ -3843,6 +3899,7 @@ end
 --- 创建 AI 对玩家球员的收购报价（让玩家决策）
 function TransferManager._createIncomingBid(gameState, buyerTeam, player, offerAmount, opts)
     TransferManager._ensureData(gameState)
+    if TransferManager.isPlayerRejectingAllOffers(player) then return nil end
     opts = opts or {}
 
     local bid = {
@@ -3976,48 +4033,6 @@ function TransferManager.rejectIncomingBid(gameState, bidId)
         end
     end
     return false
-end
-
---- 拒绝某球员所有待处理的收到报价（仅 pending，避免误取消还价中/待确认交易）
----@return table stats { rejected, skipped }
-function TransferManager.rejectAllPendingIncomingBids(gameState, playerId)
-    TransferManager._ensureData(gameState)
-    local stats = { rejected = 0, skipped = 0 }
-    local buyerNames = {}
-    local player = gameState.players[playerId]
-    local date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day }
-
-    for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.playerId == playerId and bid.isIncomingBid then
-            if bid.status == "pending" then
-                bid.status = "rejected"
-                bid.rejectedDate = date
-                bid.responseDate = date
-                stats.rejected = stats.rejected + 1
-
-                local buyerTeam = gameState.teams[bid.buyerTeamId]
-                table.insert(buyerNames, buyerTeam and buyerTeam.name or "未知球队")
-            elseif bid.status == "counter_pending"
-                or bid.status == "awaiting_sale_confirmation"
-                or bid.status == "player_considering_sale" then
-                stats.skipped = stats.skipped + 1
-            end
-        end
-    end
-
-    if stats.rejected > 0 then
-        gameState:sendMessage({
-            category = "transfer",
-            title = "报价已批量拒绝",
-            body = string.format("你拒绝了 %d 笔对 %s 的报价（%s）。",
-                stats.rejected,
-                player and player.displayName or "未知球员",
-                table.concat(buyerNames, "、")),
-            priority = "normal",
-        })
-    end
-
-    return stats
 end
 
 --- 还价（玩家要求更高价格）→ 进入"还价待回复"状态，AI延迟1-3天回复
@@ -5453,6 +5468,7 @@ end
 function TransferManager.listForLoan(gameState, player, durationWeeks)
     if not player or not gameState then return false, "无效球员" end
     if player.teamId ~= gameState.playerTeamId then return false, "只能挂牌本队球员" end
+    if TransferManager.isPlayerRejectingAllOffers(player) then return false, "该球员已设置拒绝所有报价" end
     if player.squadRole == "loaned" then return false, "球员已在外租" end
     if player.listedForSale then return false, "请先取消出售挂牌" end
     if player.injured then
@@ -7323,6 +7339,7 @@ end
 ---@return string|nil error
 function TransferManager.listForSale(gameState, player, askingPrice)
     if not gameState or not player then return false, "无效球员" end
+    if TransferManager.isPlayerRejectingAllOffers(player) then return false, "该球员已设置拒绝所有报价" end
 
     local YouthManager = require("scripts/systems/youth_manager")
     local isYouthSquad = YouthManager.isYouthSquadPlayer(gameState, player)

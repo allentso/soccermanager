@@ -966,18 +966,103 @@ function PlayerDetail._buildIncomingSaleBidRow(player, gameState, bid)
     }
 end
 
+function PlayerDetail._buildOfferPreferencePanel(player, gameState)
+    local isOwnPlayer = player.teamId == gameState.playerTeamId
+        or YouthManager.isYouthSquadPlayer(gameState, player)
+    if not isOwnPlayer then return UI.Panel { height = 0 } end
+
+    local rejecting = TransferManager.isPlayerRejectingAllOffers(player)
+    local statusText = rejecting and "拒绝所有报价" or "允许接收报价"
+    local statusColor = rejecting and Theme.COLORS.DANGER or Theme.COLORS.SECONDARY
+
+    local function applyPreference(nextValue)
+        local ok, err, stats = TransferManager.setPlayerRejectAllOffers(gameState, player.id, nextValue)
+        if ok then
+            local message
+            if nextValue then
+                local rejected = stats and stats.rejected or 0
+                message = rejected > 0
+                    and string.format("已拒绝所有报价，并处理 %d 笔待处理报价", rejected)
+                    or "已拒绝所有报价"
+            else
+                message = "已允许接收报价"
+            end
+            UI.Toast.Show({ message = message, variant = nextValue and "info" or "success" })
+        else
+            UI.Toast.Show({ message = err or "设置失败", variant = "warning" })
+        end
+        Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+    end
+
+    return UI.Panel {
+        width = "100%",
+        marginTop = 10,
+        padding = 10,
+        borderRadius = 10,
+        backgroundColor = {30, 38, 55, 255},
+        children = {
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = "报价偏好",
+                        fontSize = 12,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        flexGrow = 1,
+                    },
+                    UI.Label {
+                        text = statusText,
+                        fontSize = 12,
+                        color = statusColor,
+                        fontWeight = "bold",
+                    },
+                },
+            },
+            UI.Label {
+                text = rejecting and "其他球队不会再为该球员发出出售或租借报价。"
+                    or "开启后会取消挂牌，并拒绝当前待处理报价。",
+                fontSize = 11,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginTop = 5,
+                marginBottom = 8,
+            },
+            UI.Button {
+                text = rejecting and "允许接收报价" or "拒绝所有报价",
+                width = "100%",
+                height = 36,
+                backgroundColor = rejecting and Theme.COLORS.SECONDARY or {60, 40, 40, 255},
+                borderRadius = 8,
+                fontSize = 13,
+                color = rejecting and {255, 255, 255, 255} or Theme.COLORS.DANGER,
+                onClick = function()
+                    if rejecting then
+                        applyPreference(false)
+                        return
+                    end
+                    ConfirmDialog.show({
+                        title = "拒绝所有报价",
+                        message = string.format(
+                            "开启后，%s 将不再收到出售或租借报价；当前出售/外租挂牌会被取消，待处理报价会被拒绝。",
+                            player.displayName or "该球员"),
+                        confirmText = "拒绝所有报价",
+                        confirmColor = Theme.COLORS.DANGER,
+                        onConfirm = function()
+                            applyPreference(true)
+                        end,
+                    })
+                end,
+            },
+        },
+    }
+end
+
 function PlayerDetail._buildTransferAndOffersCard(player, gameState, loanRecord, loanStatusText, loanStatusColor)
     local bids = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
-    local pendingCount = 0
     local highestAmount = 0
-    local pendingBuyerNames = {}
     for _, bid in ipairs(bids) do
         highestAmount = math.max(highestAmount, bid.amount or 0)
-        if bid.status == "pending" then
-            pendingCount = pendingCount + 1
-            local buyerTeam = gameState.teams[bid.buyerTeamId]
-            table.insert(pendingBuyerNames, buyerTeam and buyerTeam.name or "未知球队")
-        end
     end
 
     local children = {
@@ -995,6 +1080,7 @@ function PlayerDetail._buildTransferAndOffersCard(player, gameState, loanRecord,
                     Theme.COLORS.TEXT_SECONDARY) or UI.Panel { height = 0 },
             },
         },
+        PlayerDetail._buildOfferPreferencePanel(player, gameState),
     }
 
     if #bids > 0 then
@@ -1024,37 +1110,6 @@ function PlayerDetail._buildTransferAndOffersCard(player, gameState, loanRecord,
                         tab = "listed",
                         listedSubTab = "status",
                         highlightBidId = primaryBid and primaryBid.id or bids[1].id,
-                    })
-                end,
-            })
-        end
-        if pendingCount >= 2 then
-            table.insert(children, UI.Button {
-                text = string.format("拒绝所有报价 (%d)", pendingCount),
-                width = "100%",
-                height = 38,
-                backgroundColor = {60, 40, 40, 255},
-                borderRadius = 8,
-                fontSize = 13,
-                color = Theme.COLORS.DANGER,
-                marginTop = 8,
-                onClick = function()
-                    ConfirmDialog.show({
-                        title = "拒绝所有报价",
-                        message = string.format("确定拒绝 %s 对 %s 的 %d 笔待处理报价吗？\n还价中、球员考虑中和待确认交易不会被取消。",
-                            table.concat(pendingBuyerNames, "、"),
-                            player.displayName or "该球员",
-                            pendingCount),
-                        confirmText = "拒绝全部",
-                        confirmColor = Theme.COLORS.DANGER,
-                        onConfirm = function()
-                            local stats = TransferManager.rejectAllPendingIncomingBids(gameState, player.id)
-                            UI.Toast.Show({
-                                message = string.format("已拒绝 %d 笔报价", stats.rejected or 0),
-                                variant = (stats.rejected or 0) > 0 and "info" or "warning",
-                            })
-                            Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
-                        end,
                     })
                 end,
             })
@@ -1465,6 +1520,22 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
         return UI.Panel { height = 0 }
     end
 
+    if TransferManager.isPlayerRejectingAllOffers(player) then
+        return UI.Button {
+            text = "挂牌出售 (已拒绝报价)",
+            width = buttonWidth,
+            flexGrow = buttonFlexGrow,
+            height = 44,
+            backgroundColor = {50, 55, 75, 255},
+            borderRadius = 8,
+            fontSize = 14,
+            color = Theme.COLORS.TEXT_MUTED,
+            marginRight = opts.marginRight,
+            marginBottom = buttonMarginBottom,
+            disabled = true,
+        }
+    end
+
     local inTransferWindow = TransferManager.isInTransferWindow(gameState)
 
     -- 已挂牌 → 可调整挂牌价 / 取消挂牌
@@ -1579,6 +1650,22 @@ function PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameSta
 
     if player.squadRole == "loaned" or player.listedForSale then
         return UI.Panel { height = 0 }
+    end
+
+    if TransferManager.isPlayerRejectingAllOffers(player) then
+        return UI.Button {
+            text = "挂牌外租 (已拒绝报价)",
+            width = buttonWidth,
+            flexGrow = buttonFlexGrow,
+            height = 44,
+            backgroundColor = {50, 55, 75, 255},
+            borderRadius = 8,
+            fontSize = 14,
+            color = Theme.COLORS.TEXT_MUTED,
+            marginRight = opts.marginRight,
+            marginBottom = buttonMarginBottom,
+            disabled = true,
+        }
     end
 
     if player.listedForLoan then
