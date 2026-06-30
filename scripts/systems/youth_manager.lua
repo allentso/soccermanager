@@ -1791,6 +1791,32 @@ local function _isLegendPulled(set, lData)
     return key and set[key] or false
 end
 
+local function _markLegendKeys(set, legendData, legendName)
+    if type(legendData) == "table" and legendData.id then set[legendData.id] = true end
+    if legendName then set[legendName] = true end
+end
+
+--- 云账本 + 当前存档已有传奇实体/候选。仅用于本地互斥，不写回云端。
+---@param gameState table
+---@param state table
+---@return table set
+local function _getEffectiveLegendSet(gameState, state)
+    local set = _getPulledLegendSet(state)
+    if not gameState then return set end
+
+    for _, p in pairs(gameState.players or {}) do
+        if type(p) == "table" and p.isLegend then
+            _markLegendKeys(set, p.legendData, p.legendName)
+        end
+    end
+    for _, c in ipairs(gameState._youthCandidates or {}) do
+        if type(c) == "table" and c.isLegend then
+            _markLegendKeys(set, c.legendData, c.legendName)
+        end
+    end
+    return set
+end
+
 ---@param state table
 ---@param lData table
 local function _markLegendPulled(state, lData)
@@ -1820,7 +1846,7 @@ end
 function YouthManager.getLegendPoolProgress(gameState, poolId)
     poolId = poolId or YouthManager.getSelectedLegendPoolId(gameState)
     local state = YouthManager.getLegendGachaState(gameState)
-    local pulledSet = _getPulledLegendSet(state)
+    local pulledSet = _getEffectiveLegendSet(gameState, state)
     local members = LegendTagPools.getPoolPlayers(poolId)
     local remaining = 0
     for _, p in ipairs(members) do
@@ -1844,7 +1870,7 @@ end
 function YouthManager.getLegendPoolMembers(gameState, poolId)
     poolId = poolId or YouthManager.getSelectedLegendPoolId(gameState)
     local state = YouthManager.getLegendGachaState(gameState)
-    local pulledSet = _getPulledLegendSet(state)
+    local pulledSet = _getEffectiveLegendSet(gameState, state)
     local out = {}
     for _, p in ipairs(LegendTagPools.getPoolPlayers(poolId)) do
         table.insert(out, {
@@ -1862,7 +1888,7 @@ end
 local function _buildLegendPoolForPull(gameState)
     local state = YouthManager.getLegendGachaState(gameState)
     local poolId = state.selectedPoolId
-    local pulledSet = _getPulledLegendSet(state)
+    local pulledSet = _getEffectiveLegendSet(gameState, state)
     local legendPool = {}
     for _, p in ipairs(LegendTagPools.getPoolPlayers(poolId)) do
         if not _isLegendPulled(pulledSet, p) then
@@ -1906,7 +1932,7 @@ end
 ---@return boolean
 function YouthManager.isLegendCollected(gameState, lData)
     local state = YouthManager.getLegendGachaState(gameState)
-    return _isLegendPulled(_getPulledLegendSet(state), lData)
+    return _isLegendPulled(_getEffectiveLegendSet(gameState, state), lData)
 end
 
 --- 标记传奇已收集（签入/补偿/抽卡后调用）
