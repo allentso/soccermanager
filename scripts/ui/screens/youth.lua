@@ -51,6 +51,10 @@ local function buildLegendCloudSyncBanner()
     }
 end
 
+local function refreshLegendTab()
+    Router.replaceWith("youth", { tab = "legend", _softRefresh = true })
+end
+
 --- 子目录标签（在路由切换间保留）：recruit=招募 / legend=传奇 / custom=自建 / squad=青训球员
 local _activeTab = "recruit"
 
@@ -2179,6 +2183,7 @@ function Youth._watchAdForUnlock(gameState)
             end
             -- 实时存档，防止闪退丢失广告进度
             SaveManager.save(gameState, "auto")
+            refreshLegendTab()
             -- 广告视频释放后强制 GC，防止连续观看时内存峰值过高
             collectgarbage("collect")
             if unlocked then
@@ -2359,6 +2364,7 @@ function Youth._doWatchAdInModal(gameState)
             end
             -- 实时存档，防止闪退丢失广告进度
             SaveManager.save(gameState, "auto")
+            refreshLegendTab()
             -- 广告视频释放后强制 GC，防止连续观看时内存峰值过高
             collectgarbage("collect")
             -- 显示奖励反馈弹窗
@@ -2471,6 +2477,7 @@ function Youth._doSinglePull(gameState)
     end
     if not candidate then return end
     SaveManager.save(gameState, "auto")
+    refreshLegendTab()
 
     if candidate.isLegend then
         -- 单抽出传奇：弹出专属揭示弹窗
@@ -2494,6 +2501,7 @@ function Youth._doTenPull(gameState)
     end
     if not results then return end
     SaveManager.save(gameState, "auto")
+    refreshLegendTab()
 
     local legendCount = results.legendCount
     if legendCount > 0 then

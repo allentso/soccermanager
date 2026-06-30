@@ -1133,6 +1133,9 @@ function YouthManager.createCustomYouthPlayer(gameState, opts)
     if TextUtil.utf8Len(displayName) > MAX_CUSTOM_YOUTH_NAME_CHARS then
         return false, string.format("姓名不能超过%d字", MAX_CUSTOM_YOUTH_NAME_CHARS)
     end
+    if TextUtil.containsSensitiveNameWord(displayName) then
+        return false, "姓名包含敏感词，请更换后再试"
+    end
 
     local position = Constants.normalizePosition(opts.position) or "ST"
     if not opts.nationality or tostring(opts.nationality) == "" then
