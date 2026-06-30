@@ -324,6 +324,113 @@
       ]
     },
     {
+      "id": "golden_era",
+      "name_cn": "黄金时代新星",
+      "desc": "曼联92班、巴萨梦一梦二与欧洲黄金年代的新增传奇球员",
+      "players": [
+        {
+          "id": "legend-misc-026",
+          "full_name_cn": "维迪奇",
+          "match_name": "Vidić"
+        },
+        {
+          "id": "legend-misc-027",
+          "full_name_cn": "里贝里",
+          "match_name": "Ribéry"
+        },
+        {
+          "id": "legend-misc-028",
+          "full_name_cn": "萨穆埃尔",
+          "match_name": "Samuel"
+        },
+        {
+          "id": "legend-misc-029",
+          "full_name_cn": "坎贝尔",
+          "match_name": "Campbell"
+        },
+        {
+          "id": "legend-misc-030",
+          "full_name_cn": "赞布罗塔",
+          "match_name": "Zambrotta"
+        },
+        {
+          "id": "legend-misc-031",
+          "full_name_cn": "罗本",
+          "match_name": "Robben"
+        },
+        {
+          "id": "legend-misc-032",
+          "full_name_cn": "约克",
+          "match_name": "Yorke"
+        },
+        {
+          "id": "legend-misc-033",
+          "full_name_cn": "李惠堂",
+          "match_name": "Lee Wai Tong"
+        },
+        {
+          "id": "legend-misc-034",
+          "full_name_cn": "菲尔·内维尔",
+          "match_name": "P. Neville"
+        },
+        {
+          "id": "legend-misc-035",
+          "full_name_cn": "尼基·巴特",
+          "match_name": "N. Butt"
+        },
+        {
+          "id": "legend-misc-036",
+          "full_name_cn": "瓜迪奥拉",
+          "match_name": "Guardiola"
+        },
+        {
+          "id": "legend-misc-037",
+          "full_name_cn": "德科",
+          "match_name": "Deco"
+        },
+        {
+          "id": "legend-misc-038",
+          "full_name_cn": "哈维·阿隆索",
+          "match_name": "Xabi Alonso"
+        },
+        {
+          "id": "legend-misc-039",
+          "full_name_cn": "范博梅尔",
+          "match_name": "Van Bommel"
+        },
+        {
+          "id": "legend-misc-040",
+          "full_name_cn": "斯内德",
+          "match_name": "Sneijder"
+        },
+        {
+          "id": "legend-misc-041",
+          "full_name_cn": "施魏因施泰格",
+          "match_name": "Schweinsteiger"
+        },
+        {
+          "id": "legend-misc-042",
+          "full_name_cn": "巴拉克",
+          "match_name": "Ballack"
+        },
+        {
+          "id": "legend-misc-043",
+          "full_name_cn": "丹尼斯·埃尔文",
+          "match_name": "Irwin"
+        },
+        {
+          "id": "legend-misc-044",
+          "full_name_cn": "安迪·科尔",
+          "match_name": "Andy Cole"
+        },
+        {
+          "id": "legend-misc-045",
+          "full_name_cn": "马特拉齐",
+          "match_name": "Materazzi"
+        }
+      ]
+    },
+    {
       "id": "wanderer",
       "name_cn": "流浪大师",
       "desc": "跨联赛、跨国度封神，在多处留下传奇足迹",

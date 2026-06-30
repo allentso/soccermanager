@@ -1,5 +1,5 @@
 -- data/legend_tag_pools.lua
--- 传奇球员叙事标签分池（5×20），供青训抽卡选池使用
+-- 传奇球员叙事标签分池，供青训抽卡选池使用
 
 local JsonLoader = require("scripts/data/json_loader")
 local LegendsLoader = require("scripts/data/legends_loader")

@@ -10,7 +10,6 @@ local SettingsManager = require("scripts/persistence/settings_manager")
 local EventBus = require("scripts/app/event_bus")
 local League = require("scripts/domain/league")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
-local Player = require("scripts/domain/player")
 local YouthManager = require("scripts/systems/youth_manager")
 local RealDataLoader = require("scripts/data/real_data_loader")
 local LayoutAdapter = require("scripts/ui/layout_adapter")
@@ -1404,7 +1403,7 @@ function Settings._supplementRebirthPlayers()
 end
 
 ------------------------------------------------------
--- 补偿领取：随机传奇球员进入青训队
+-- 补偿领取：发放传奇抽卡机会
 ------------------------------------------------------
 function Settings._buildCompensationSection()
     local gameState = _G.gameState
@@ -1435,7 +1434,7 @@ function Settings._buildCompensationSection()
                         marginBottom = 4,
                     },
                     UI.Label {
-                        text = "赠送三位随机传奇球员加入青训队",
+                        text = "赠送300次传奇抽卡机会",
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                         marginBottom = 10,
@@ -1475,157 +1474,17 @@ function Settings._claimCompensationLegend()
         return
     end
 
-    local team = gameState:getPlayerTeam()
-    if not team then
-        UI.Toast.Show({ message = "无玩家球队", variant = "error" })
-        return
-    end
-
-    -- 收集已拥有的传奇球员名称（包括阵容+青训+gacha记录）
-    local ownedLegends = {}
-
-    -- 从 gacha 记录获取（id + 中文名）
-    for _, id in ipairs(gachaState.pulledLegendIds or {}) do
-        ownedLegends[id] = true
-    end
-    for _, name in ipairs(gachaState.pulledLegends or {}) do
-        ownedLegends[name] = true
-    end
-
-    -- 从球队阵容获取
-    for _, pid in ipairs(team.playerIds or {}) do
-        local p = gameState.players[pid]
-        if p and p.isLegend and p.legendName then
-            ownedLegends[p.legendName] = true
-        end
-    end
-
-    -- 从青训队获取
-    for _, pid in ipairs(team._youthPlayerIds or {}) do
-        local p = gameState.players[pid]
-        if p and p.isLegend and p.legendName then
-            ownedLegends[p.legendName] = true
-        end
-    end
-
-    -- 加载传奇池
-    local LegendsLoader = require("scripts/data/legends_loader")
-    local allLegends = LegendsLoader.loadAllPlayers()
-
-    -- 筛选未拥有的传奇
-    local availablePool = {}
-    for _, lData in ipairs(allLegends) do
-        if not YouthManager.isLegendCollected(gameState, lData) then
-            local key = lData.full_name_cn or lData.match_name or ""
-            if key ~= "" and not ownedLegends[key] then
-                table.insert(availablePool, lData)
-            end
-        end
-    end
-
-    if #availablePool == 0 then
-        UI.Toast.Show({ message = "已拥有所有传奇球员", variant = "info" })
-        gachaState.compensationClaimedRound = "2.5"
-        SaveManager.save(gameState, "auto")
-        Router.replaceWith("settings")
-        return
-    end
-
-    -- 映射位置：JSON全称 → 游戏缩写
-    local posMap = {
-        Goalkeeper = "GK",
-        CentreBack = "CB", CenterBack = "CB",
-        LeftBack = "LB", RightBack = "RB",
-        LeftWingBack = "LB", RightWingBack = "RB",
-        DefensiveMidfielder = "CDM",
-        CentralMidfielder = "CM",
-        AttackingMidfielder = "CAM",
-        LeftMidfielder = "LM", RightMidfielder = "RM",
-        LeftWinger = "LW", RightWinger = "RW",
-        LeftWing = "LW", RightWing = "RW",
-        Striker = "ST", CentreForward = "ST", CenterForward = "ST",
-    }
-
-    -- 赠送3位传奇球员
-    local COMPENSATION_COUNT = 3
-    local signedLegends = {}
-
-    for _ = 1, COMPENSATION_COUNT do
-        if #availablePool == 0 then break end
-
-        -- 随机选取一位传奇
-        local idx = randInt(1, #availablePool)
-        local chosen = availablePool[idx]
-        local legendKey = chosen.full_name_cn or chosen.match_name or "传奇"
-        local mappedPos = posMap[chosen.position] or "ST"
-
-        -- 生成球员属性（传奇级别）
-        local legendAge = randInt(16, 18)
-        local legendOverall = randInt(62, 70)
-        local legendAttrs = YouthManager._generateLegendAttributes(mappedPos, legendOverall, chosen)
-        local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
-
-        -- 构造候选数据并签入
-        local candidateData = {
-            firstName = legendKey,
-            lastName = legendKey,
-            displayName = legendKey,
-            nationality = chosen.football_nation or chosen.nationality or "BRA",
-            birthYear = math.floor(gameState.date.year - legendAge),
-            position = mappedPos,
-            attributes = legendAttrs,
-            potential = chosen.potential or 95,
-            overall = preCalcOverall,
-            age = legendAge,
-            isLegend = true,
-            legendName = legendKey,
-            legendData = chosen,
-        }
-
-        -- 直接添加到候选池并签入
-        gameState._youthCandidates = gameState._youthCandidates or {}
-        table.insert(gameState._youthCandidates, candidateData)
-        local candidateIdx = #gameState._youthCandidates
-
-        local success, err = YouthManager.signCandidate(gameState, candidateIdx)
-        if not success then
-            table.remove(gameState._youthCandidates, candidateIdx)
-            if #signedLegends == 0 then
-                UI.Toast.Show({ message = err or "签入失败（青训已满）", variant = "error" })
-                return
-            end
-            break
-        end
-
-        -- 记录到 gacha 已抽列表（防止后续 gacha 再抽到）
-        YouthManager.markLegendCollected(gameState, chosen)
-
-        table.insert(signedLegends, { name = legendKey, pos = mappedPos, potential = chosen.potential or 95, age = legendAge })
-
-        -- 从可用池中移除，避免重复
-        table.remove(availablePool, idx)
-    end
-
-    -- 标记已领取（存储在 _legendGacha 中，确保持久化到存档）
+    local COMPENSATION_PULLS = 300
+    gachaState.pulls = (gachaState.pulls or 0) + COMPENSATION_PULLS
     gachaState.compensationClaimedRound = "2.5"
+
     LegendGachaCloud.markDirty(gameState)
     SaveManager.save(gameState, "auto")
-
-    -- 显示获得提示
-    local legendNames = {}
-    for _, l in ipairs(signedLegends) do
-        table.insert(legendNames, l.name)
-    end
-
-    local detailLines = {}
-    for _, l in ipairs(signedLegends) do
-        table.insert(detailLines, string.format("%s（%s | 潜力%d | %d岁）", l.name, l.pos, l.potential, l.age))
-    end
 
     local BottomSheet = require("scripts/ui/components/bottom_sheet")
     BottomSheet.showCustom({
         title = "补偿领取成功",
-        height = 320,
+        height = 260,
         children = {
             UI.Panel {
                 width = "100%",
@@ -1633,31 +1492,19 @@ function Settings._claimCompensationLegend()
                 paddingTop = 10,
                 children = {
                     UI.Label {
-                        text = "恭喜获得 " .. #signedLegends .. " 位传奇球员",
-                        fontSize = 14,
-                        color = Theme.COLORS.TEXT_SECONDARY,
-                        marginBottom = 12,
-                    },
-                    UI.Label {
-                        text = table.concat(legendNames, "\n"),
-                        fontSize = 20,
+                        text = "恭喜获得300次传奇抽卡机会",
+                        fontSize = 16,
                         color = Theme.COLORS.GOLD,
                         fontWeight = "bold",
-                        marginBottom = 8,
+                        marginBottom = 12,
                         textAlign = "center",
                     },
                     UI.Label {
-                        text = table.concat(detailLines, "\n"),
-                        fontSize = 12,
-                        color = Theme.COLORS.TEXT_MUTED,
-                        marginBottom = 16,
-                        textAlign = "center",
-                    },
-                    UI.Label {
-                        text = "已加入青训队",
+                        text = "抽卡机会已发放，传奇球星池需按原规则解锁后使用。",
                         fontSize = 13,
-                        color = Theme.COLORS.SUCCESS,
-                        marginBottom = 16,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                        marginBottom = 18,
+                        textAlign = "center",
                     },
                     UI.Button {
                         text = "确定",
