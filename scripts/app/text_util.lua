@@ -22,17 +22,13 @@ end
 
 local function normalizeForModeration(text)
     text = tostring(text or ""):lower()
+    -- 去掉空白/标点/控制符；数字保留，不做 0→o 等混淆映射
     text = text:gsub("[%s%p%c]", "")
     local punctuation = {"　", "·", "•", "・", "。", "，", "“", "”", "‘", "’", "、", "；", "：", "？", "！", "《", "》", "（", "）", "【", "】", "『", "』", "—", "…", "￥"}
     for _, token in ipairs(punctuation) do
         text = text:gsub(escapeLuaPattern(token), "")
     end
-    text = text:gsub("0", "o"):gsub("1", "i"):gsub("3", "e"):gsub("4", "a"):gsub("5", "s"):gsub("7", "t")
     return text
-end
-
-local function normalizeSensitiveWord(word)
-    return normalizeForModeration(word)
 end
 
 --- 统计 UTF-8 字符串的 Unicode 字符数（非字节数）
@@ -61,7 +57,7 @@ function TextUtil.containsSensitiveNameWord(text)
     local normalized = normalizeForModeration(text)
     if normalized == "" then return false, nil end
     for _, word in ipairs(SENSITIVE_NAME_WORDS) do
-        local normalizedWord = normalizeSensitiveWord(word)
+        local normalizedWord = normalizeForModeration(word)
         if normalizedWord ~= "" and normalized:find(normalizedWord, 1, true) then
             return true, word
         end
