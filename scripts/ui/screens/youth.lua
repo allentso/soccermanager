@@ -676,11 +676,61 @@ function Youth._buildSquadSection(youthSquad, gameState)
 end
 
 ------------------------------------------------------
+-- 自建球员广告奖励
+------------------------------------------------------
+function Youth._watchAdForCustomCreate(gameState, defaultNat)
+    if not sdk then
+        UI.Toast.Show({ message = "广告暂不可用", variant = "warning" })
+        return
+    end
+    sdk:ShowRewardVideoAd(function(result)
+        if result.success then
+            YouthManager.unlockNextCustomYouthCreate(gameState)
+            SaveManager.save(gameState, "auto")
+            collectgarbage("collect")
+            UI.Toast.Show({ message = "已解锁下一名自建球员创建资格", variant = "success" })
+            _customCreatePos = "ST"
+            _customCreateNat = Nationality.normalize(defaultNat or "ENG")
+            Youth._showCreateCustomModal(gameState, defaultNat)
+        else
+            UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
+        end
+    end)
+end
+
+function Youth._watchAdForCustomPaBoost(player, gameState)
+    if not sdk then
+        UI.Toast.Show({ message = "广告暂不可用", variant = "warning" })
+        return
+    end
+    sdk:ShowRewardVideoAd(function(result)
+        if result.success then
+            local ok, boost = YouthManager.boostCustomYouthPa(gameState, player)
+            if ok then
+                SaveManager.save(gameState, "auto")
+                collectgarbage("collect")
+                UI.Toast.Show({
+                    message = string.format("PA %.1f → %.1f", boost.oldRating, boost.newRating),
+                    variant = "success",
+                })
+                Router.replaceWith("youth", { tab = "custom" })
+            else
+                UI.Toast.Show({ message = boost or "提升失败", variant = "warning" })
+            end
+        else
+            UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
+        end
+    end)
+end
+
+------------------------------------------------------
 -- 自建球员
 ------------------------------------------------------
 function Youth._buildCustomSection(customSquad, gameState)
     local maxCustom = YouthManager.getMaxCustomYouthSlots()
-    local canCreate = #customSquad < maxCustom
+    local canCreate, createReason = YouthManager.canCreateCustomYouthPlayer(gameState)
+    local isFull = #customSquad >= maxCustom
+    local needsAd = (not canCreate) and (not isFull)
     local playerTeam = gameState:getPlayerTeam()
     local defaultNat = playerTeam and playerTeam.country or "ENG"
 
@@ -697,21 +747,25 @@ function Youth._buildCustomSection(customSquad, gameState)
                 marginBottom = 0,
             },
             UI.Button {
-                text = canCreate and "创建球员" or "名额已满",
+                text = isFull and "名额已满" or (needsAd and "看广告创建" or "创建球员"),
                 height = 30,
                 paddingLeft = 12,
                 paddingRight = 12,
-                backgroundColor = canCreate and Theme.COLORS.SECONDARY or Theme.COLORS.BG_SURFACE,
+                backgroundColor = isFull and Theme.COLORS.BG_SURFACE or (needsAd and Theme.COLORS.ACCENT or Theme.COLORS.SECONDARY),
                 borderRadius = 15,
                 fontSize = 12,
-                color = canCreate and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+                color = isFull and Theme.COLORS.TEXT_MUTED or Theme.COLORS.TEXT_PRIMARY,
                 fontWeight = "bold",
-                disabled = not canCreate,
+                disabled = isFull,
                 onClick = function()
                     if canCreate then
                         _customCreatePos = "ST"
                         _customCreateNat = Nationality.normalize(defaultNat)
                         Youth._showCreateCustomModal(gameState, defaultNat)
+                    elseif needsAd then
+                        Youth._watchAdForCustomCreate(gameState, defaultNat)
+                    else
+                        UI.Toast.Show({ message = createReason or "暂时无法创建", variant = "warning" })
                     end
                 end,
             },
@@ -719,7 +773,7 @@ function Youth._buildCustomSection(customSquad, gameState)
     })
     table.insert(rows, UI.Label {
         text = string.format(
-            "可创建 %d 名专属青训；年龄/潜力/能力按俱乐部青训系统随机生成",
+            "最多创建 %d 名专属青训；首名免费，之后每次创建前需观看 1 次广告；自建球员可通过广告提升 PA（每次 +0.5）",
             maxCustom
         ),
         fontSize = 10,
@@ -1116,6 +1170,21 @@ function Youth._showYouthActions(player, gameState)
             Router.navigate("player_detail", { playerId = player.id, tab = "contract" })
         end,
     })
+
+    if player.isCustomYouth then
+        local paRating = player.paRating or PotentialSystem.rawToRating(player.potential or player.actualPotential or 60)
+        table.insert(actions, {
+            label = paRating >= 10.0 and "PA已达上限" or string.format("看广告提升PA %.1f→%.1f", paRating, math.min(10.0, paRating + 0.5)),
+            color = paRating >= 10.0 and Theme.COLORS.TEXT_MUTED or Theme.COLORS.ACCENT,
+            action = function()
+                if paRating >= 10.0 then
+                    UI.Toast.Show({ message = "该球员潜力已达到上限", variant = "info" })
+                else
+                    Youth._watchAdForCustomPaBoost(player, gameState)
+                end
+            end,
+        })
+    end
 
     -- 挂牌出售 / 取消挂牌
     if player.listedForSale then

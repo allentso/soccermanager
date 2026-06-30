@@ -4,7 +4,7 @@
 local Constants = {}
 
 -- 游戏版本
-Constants.VERSION = "3.1.5"
+Constants.VERSION = "4.1.2"
 Constants.VERSION_MAJOR = "v" .. Constants.VERSION:match("^(%d+)")
 Constants.SAVE_VERSION = 15
 

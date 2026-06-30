@@ -1017,6 +1017,95 @@ function YouthManager.getCustomYouthNameInputLimit()
     return MAX_CUSTOM_YOUTH_NAME_CHARS * 2
 end
 
+local function _getCustomYouthAdState(gameState)
+    gameState.customYouthAdState = gameState.customYouthAdState or {
+        createUnlocks = 0,
+        paBoosts = {},
+    }
+    gameState.customYouthAdState.paBoosts = gameState.customYouthAdState.paBoosts or {}
+    gameState.customYouthAdState.createUnlocks = gameState.customYouthAdState.createUnlocks or 0
+    return gameState.customYouthAdState
+end
+
+--- 是否可创建自建青训球员：第一名免费，之后每创建一名都需要先看一次广告
+---@param gameState table
+---@return boolean canCreate
+---@return string|nil reason
+function YouthManager.canCreateCustomYouthPlayer(gameState)
+    local team = gameState:getPlayerTeam()
+    if not team then return false, "没有球队" end
+
+    local customCount = #YouthManager.getCustomYouthSquad(gameState)
+    if customCount >= MAX_CUSTOM_YOUTH then
+        return false, string.format("自建球员名额已满(%d人)", MAX_CUSTOM_YOUTH)
+    end
+
+    if customCount == 0 then
+        return true
+    end
+
+    local state = _getCustomYouthAdState(gameState)
+    if state.createUnlocks >= customCount then
+        return true
+    end
+    return false, "观看广告后可继续创建下一名自建球员"
+end
+
+--- 观看广告后解锁下一次自建球员创建资格
+---@param gameState table
+---@return boolean success
+function YouthManager.unlockNextCustomYouthCreate(gameState)
+    local state = _getCustomYouthAdState(gameState)
+    local customCount = #YouthManager.getCustomYouthSquad(gameState)
+    state.createUnlocks = math.max(state.createUnlocks, customCount)
+    return true
+end
+
+local function _ratingToRawPotential(paRating)
+    local raw = 99
+    for p = 30, 99 do
+        if math.abs(PotentialSystem.rawToRating(p) - paRating) < 0.01 then
+            raw = p
+            break
+        end
+    end
+    return raw
+end
+
+--- 观看广告提升自建球员 PA：PA Rating +0.5，最高 10.0
+---@param gameState table
+---@param player table
+---@return boolean success
+---@return table|string resultOrError
+function YouthManager.boostCustomYouthPa(gameState, player)
+    if not YouthManager.isCustomYouthPlayer(player) then
+        return false, "只有自建球员可以通过广告提升潜力"
+    end
+    local currentRating = player.paRating or PotentialSystem.rawToRating(player.potential or player.actualPotential or 60)
+    if currentRating >= 10.0 then
+        return false, "该球员潜力已达到上限"
+    end
+
+    local oldRating = currentRating
+    local newRating = math.min(10.0, currentRating + 0.5)
+    local oldActual = player.actualPotential or player.potential or 60
+    player.paRating = newRating
+    player.potential = math.max(player.potential or 0, _ratingToRawPotential(newRating))
+
+    local state = _getCustomYouthAdState(gameState)
+    state.paBoosts[tostring(player.id)] = (state.paBoosts[tostring(player.id)] or 0) + 1
+    local seed = (gameState.potentialSeed or 0) + player.id * 7919 + state.paBoosts[tostring(player.id)] * 104729
+    local newActual = PotentialSystem.generateActualPotential(newRating, seed)
+    player.actualPotential = math.max(oldActual, newActual)
+
+    return true, {
+        oldRating = oldRating,
+        newRating = newRating,
+        oldActual = oldActual,
+        newActual = player.actualPotential,
+    }
+end
+
 --- 创建自建青训球员
 ---@param gameState table
 ---@param opts table { displayName: string, position?: string, nationality?: string }
@@ -1026,9 +1115,9 @@ function YouthManager.createCustomYouthPlayer(gameState, opts)
     local team = gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 
-    local customSquad = YouthManager.getCustomYouthSquad(gameState)
-    if #customSquad >= MAX_CUSTOM_YOUTH then
-        return false, string.format("自建球员名额已满(%d人)", MAX_CUSTOM_YOUTH)
+    local canCreate, reason = YouthManager.canCreateCustomYouthPlayer(gameState)
+    if not canCreate then
+        return false, reason or string.format("自建球员名额已满(%d人)", MAX_CUSTOM_YOUTH)
     end
 
     team._youthPlayerIds = team._youthPlayerIds or {}
