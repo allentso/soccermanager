@@ -95,17 +95,15 @@ end
 local _legendCloudPrompted = false
 
 local function maybePromptLegendCloudOnce(gameState)
-    if _legendCloudPrompted then return end
     if YouthManager.getLegendGachaPendingConflict() then
-        _legendCloudPrompted = true
         showLegendConflictDialog(gameState)
         return
     end
     if YouthManager.getLegendGachaPendingAccountAttach() then
-        _legendCloudPrompted = true
         showLegendAccountAttachDialog(gameState)
         return
     end
+    if _legendCloudPrompted then return end
     if not LegendGachaCloud.isEnabled() then
         YouthManager.probeLegendGachaAccountLedger({
             ok = function()

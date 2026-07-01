@@ -126,9 +126,10 @@ function Tab._buildYouthPlayerRow(player, gameState)
                         fontWeight = "bold",
                     },
                     UI.Label {
-                        text = string.format("%d岁 | 能力%d | 潜力%s%s%s",
+                        text = string.format("%d岁 | 能力%d | 潜力%s%s%s%s",
                             age, math.min(Constants.ABILITY_MAX, player.overall or 0), potStarText,
                             player.isCustomYouth and " | 自建" or "",
+                            player.isCustomYouth and not player.isYouth and " | 一线队" or "",
                             player.listedForSale and " | 挂牌中" or ""),
                         fontSize = 11,
                         color = player.listedForSale and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED,
@@ -172,14 +173,16 @@ function Tab._showYouthActions(player, gameState)
     local age = player.birthYear and math.floor(gameState.date.year - player.birthYear) or 0
     local actions = {}
 
-    -- 提拔
-    table.insert(actions, {
-        label = "提拔至一线队",
-        color = Theme.COLORS.SECONDARY,
-        action = function()
-            Tab._confirmPromote(player, gameState)
-        end,
-    })
+    -- 提拔（已在一线队的自建球员不显示）
+    if player.isYouth then
+        table.insert(actions, {
+            label = "提拔至一线队",
+            color = Theme.COLORS.SECONDARY,
+            action = function()
+                Tab._confirmPromote(player, gameState)
+            end,
+        })
+    end
 
     -- 查看详情
     table.insert(actions, {

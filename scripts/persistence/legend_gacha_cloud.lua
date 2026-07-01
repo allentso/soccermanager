@@ -249,6 +249,7 @@ local GACHA_SCALAR_KEYS = {
     "unlocked", "adsWatched", "pulls", "tenPullCount", "pityCounter",
     "firstTenPull", "singlePullCounter", "pullAdProgress", "selectedPoolId",
     "compensationClaimedRound", "compensationClaimed", "compensation300PullClaimed",
+    "rulesTapBonusClaimed",
 }
 
 local function addUniqueValue(arr, seen, value)

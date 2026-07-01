@@ -554,16 +554,25 @@ function YouthManager.isCustomYouthPlayer(player)
     return player ~= nil and player.isCustomYouth == true
 end
 
---- 获取自建青训球员列表
+--- 获取本队全部自建球员（含已提拔至一线队；名额按全队占用计，不因提拔释放）
 ---@param gameState table
 ---@return table[]
 function YouthManager.getCustomYouthSquad(gameState)
+    local team = gameState:getPlayerTeam()
+    if not team then return {} end
+
     local result = {}
-    for _, p in ipairs(YouthManager.getYouthSquad(gameState)) do
-        if YouthManager.isCustomYouthPlayer(p) then
+    for _, p in pairs(gameState.players or {}) do
+        if p.teamId == team.id and YouthManager.isCustomYouthPlayer(p) then
             table.insert(result, p)
         end
     end
+    table.sort(result, function(a, b)
+        if a.isYouth ~= b.isYouth then
+            return a.isYouth == true
+        end
+        return (a.id or 0) < (b.id or 0)
+    end)
     return result
 end
 
