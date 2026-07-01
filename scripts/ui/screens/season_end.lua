@@ -10,6 +10,9 @@ local COLORS = Theme.COLORS
 
 local SeasonEnd = {}
 
+-- 模块级状态：Tab 切换（"summary"=本队总结, "others"=其他联赛）
+local _activeTab = "summary"
+
 ------------------------------------------------------------
 -- 辅助
 ------------------------------------------------------------
@@ -41,6 +44,21 @@ local function findPlayerLeaguePosition(record, teamId)
     return nil
 end
 
+--- 反查玩家球队在该历史赛季实际参赛的联赛 key。
+--- 不能直接用 gameState.playerLeagueId：赛季结束时若发生升降级，
+--- 该字段已经指向"新赛季"的联赛，与本 record（刚结束的赛季）对不上。
+local function findPlayerLeagueKey(record, teamId)
+    if not record or not teamId then return nil end
+    for leagueKey, leagueRecord in pairs(record.leagues or {}) do
+        for _, entry in ipairs(leagueRecord.standings or {}) do
+            if entry.teamId == teamId then
+                return leagueKey
+            end
+        end
+    end
+    return nil
+end
+
 local function calcSeasonPrize(position)
     if not position then return 0 end
     local prizes = Constants.SEASON_END_PRIZE or {}
@@ -49,6 +67,368 @@ local function calcSeasonPrize(position)
         prize = prize + CHAMPION_BONUS
     end
     return prize
+end
+
+------------------------------------------------------------
+-- 奖项行（支持点击跳转球员详情）
+------------------------------------------------------------
+
+function SeasonEnd._awardRow(awardName, playerName, detail, playerId)
+    return UI.Panel {
+        width = "100%", height = 38, flexDirection = "row", alignItems = "center",
+        paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+        onClick = playerId and function()
+            Router.navigate("player_detail", { playerId = playerId })
+        end or nil,
+        children = {
+            UI.Label { text = awardName, width = 70, fontSize = 11, color = COLORS.WARNING, fontWeight = "bold" },
+            UI.Label { text = playerName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+            UI.Label { text = detail, fontSize = 10, color = COLORS.TEXT_SECONDARY },
+        }
+    }
+end
+
+--- 单个联赛的奖项行（用于"本队总结"/"其他联赛"分组展示）
+local function buildLeagueAwardRows(la)
+    local rows = {}
+    if la.goldenBoot then
+        table.insert(rows, SeasonEnd._awardRow("金靴奖", la.goldenBoot.playerName, tostring(la.goldenBoot.goals or 0) .. " 球", la.goldenBoot.playerId))
+    end
+    if la.bestPlayer then
+        table.insert(rows, SeasonEnd._awardRow("最佳球员", la.bestPlayer.playerName, "OVR " .. tostring(la.bestPlayer.overall or 0), la.bestPlayer.playerId))
+    end
+    if la.bestYoungPlayer then
+        table.insert(rows, SeasonEnd._awardRow("最佳新秀", la.bestYoungPlayer.playerName, tostring(la.bestYoungPlayer.age or 0) .. " 岁", la.bestYoungPlayer.playerId))
+    end
+    if la.topAssists then
+        table.insert(rows, SeasonEnd._awardRow("助攻王", la.topAssists.playerName, tostring(la.topAssists.assists or 0) .. " 助攻", la.topAssists.playerId))
+    end
+    local goldenGlove = la.goldenGlove or la.bestGoalkeeper -- bestGoalkeeper 仅兼容旧存档
+    if goldenGlove then
+        table.insert(rows, SeasonEnd._awardRow("金手套", goldenGlove.playerName, tostring(goldenGlove.cleanSheets or 0) .. " 零封", goldenGlove.playerId))
+    end
+    return rows
+end
+
+--- 单个联赛的排名卡 + 评价卡（完整 Top5 + 玩家所在行）
+local function buildLeagueStandingsCards(gameState, leagueKey, leagueRecord, teamId)
+    local cards = {}
+    local standingRows = {}
+    local playerPosition = nil
+
+    for i, entry in ipairs(leagueRecord.standings or {}) do
+        if i > 5 and entry.teamId ~= teamId then goto continue end
+
+        local isPlayer = (entry.teamId == teamId)
+        if isPlayer then playerPosition = entry.position or i end
+        local bgColor = isPlayer and {33, 150, 243, 40} or COLORS.TRANSPARENT
+
+        table.insert(standingRows, UI.Panel {
+            width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, backgroundColor = bgColor,
+            borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            onClick = function()
+                Router.navigate("team_detail", { teamId = entry.teamId })
+            end,
+            children = {
+                UI.Label { text = medal(entry.position), width = 30, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                UI.Label { text = entry.teamName or "?", flex = 1, fontSize = 12,
+                    color = isPlayer and COLORS.PRIMARY or COLORS.TEXT_PRIMARY,
+                    fontWeight = isPlayer and "bold" or "normal" },
+                UI.Label { text = tostring(entry.points) .. "分", width = 40, fontSize = 11, color = COLORS.TEXT_SECONDARY, textAlign = "right" },
+                UI.Label { text = tostring(entry.wins or 0) .. "W", width = 28, fontSize = 10, color = COLORS.SECONDARY, textAlign = "right" },
+            }
+        })
+        ::continue::
+    end
+
+    local champText = leagueRecord.champion and ("冠军: " .. leagueRecord.champion.teamName) or ""
+    table.insert(cards, Theme.Card { children = {
+        Theme.Subtitle { text = (leagueRecord.name or leagueKey) .. " 最终排名" },
+        UI.Label { text = champText, fontSize = 12, fontWeight = "bold", color = COLORS.WARNING, marginTop = 2, marginBottom = 6 },
+        table.unpack(standingRows)
+    }})
+
+    if playerPosition then
+        local posText
+        if playerPosition == 1 then posText = "恭喜！你获得了联赛冠军！🏆"
+        elseif playerPosition <= 3 then posText = "出色！球队获得第" .. tostring(playerPosition) .. "名，进入欧冠区域。"
+        elseif playerPosition <= 6 then posText = "中规中矩，第" .. tostring(playerPosition) .. "名。"
+        elseif playerPosition <= 10 then posText = "赛季排名第" .. tostring(playerPosition) .. "，还有提升空间。"
+        else posText = "第" .. tostring(playerPosition) .. "名，下赛季需要努力了。" end
+
+        table.insert(cards, Theme.Card { children = {
+            UI.Label { text = posText, fontSize = 13, color = playerPosition <= 3 and COLORS.WARNING or COLORS.TEXT_PRIMARY },
+        }})
+    end
+
+    return cards
+end
+
+------------------------------------------------------------
+-- "本队总结" Tab：只展示玩家所在联赛相关内容
+------------------------------------------------------------
+
+local function buildSummaryLeagueSection(gameState, record, teamId, playerLeagueKey)
+    local content = {}
+
+    -- 1. 玩家所在联赛：完整排名 + 评价
+    local leagueRecord = playerLeagueKey and record.leagues[playerLeagueKey]
+    if leagueRecord then
+        for _, card in ipairs(buildLeagueStandingsCards(gameState, playerLeagueKey, leagueRecord, teamId)) do
+            table.insert(content, card)
+        end
+    end
+
+    -- 1.5 升降级信息卡（只看玩家所在联赛这一组）
+    local proRelData = record.promotionRelegation or gameState.lastPromotionRelegation
+    if proRelData and #proRelData > 0 and playerLeagueKey then
+        local proRelRows = {}
+        for _, info in ipairs(proRelData) do
+            if info.leagueKey == playerLeagueKey then
+                local isPlayer = (info.teamId == teamId)
+                local icon = info.type == "promoted" and "⬆️" or "⬇️"
+                local label = info.type == "promoted" and "升级" or "降级"
+                local labelColor = info.type == "promoted" and COLORS.SECONDARY or COLORS.DANGER
+                table.insert(proRelRows, UI.Panel {
+                    width = "100%", height = 34, flexDirection = "row", alignItems = "center",
+                    paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                    backgroundColor = isPlayer and {33, 150, 243, 40} or COLORS.TRANSPARENT,
+                    children = {
+                        UI.Label { text = icon, width = 24, fontSize = 12 },
+                        UI.Label { text = info.teamName or "?", flex = 1, fontSize = 12,
+                            color = isPlayer and COLORS.PRIMARY or COLORS.TEXT_PRIMARY,
+                            fontWeight = isPlayer and "bold" or "normal" },
+                        UI.Label { text = label, width = 40, fontSize = 11, fontWeight = "bold", color = labelColor, textAlign = "right" },
+                    }
+                })
+            end
+        end
+        if #proRelRows > 0 then
+            table.insert(content, Theme.Card { children = {
+                Theme.Subtitle { text = "升降级变动" },
+                table.unpack(proRelRows)
+            }})
+        end
+    end
+
+    -- 1.8 杯赛结果卡（只看玩家所在联赛/国家的杯赛）
+    if record.domesticCups and playerLeagueKey then
+        local cupData = record.domesticCups[playerLeagueKey]
+        if cupData then
+            local isPlayer = (cupData.winnerId == teamId)
+            table.insert(content, Theme.Card { children = {
+                Theme.Subtitle { text = "杯赛冠军 🏅" },
+                UI.Panel {
+                    width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+                    paddingHorizontal = 8,
+                    backgroundColor = isPlayer and {180, 80, 200, 30} or COLORS.TRANSPARENT,
+                    children = {
+                        UI.Label { text = "🏅", width = 28, fontSize = 14 },
+                        UI.Label { text = cupData.name or "杯赛", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                        UI.Label { text = cupData.winnerName or "?", fontSize = 12,
+                            fontWeight = isPlayer and "bold" or "normal",
+                            color = isPlayer and {180, 80, 200, 255} or COLORS.TEXT_PRIMARY },
+                    }
+                }
+            }})
+        end
+    end
+
+    -- 2. 赛季奖项卡（金球奖/最佳经理为全局奖项 + 玩家所在联赛的奖项）
+    local awards = record.awards
+    if awards and awards.leagues then
+        local awardRows = {}
+        if awards.ballonDor and awards.ballonDor[1] then
+            local bd = awards.ballonDor[1]
+            table.insert(awardRows, SeasonEnd._awardRow("金球奖", bd.playerName, (bd.teamName or "?") .. " · " .. string.format("%.1f分", bd.score or 0), bd.playerId))
+        end
+        local ownLeagueAwards = playerLeagueKey and awards.leagues[playerLeagueKey]
+        if ownLeagueAwards then
+            for _, row in ipairs(buildLeagueAwardRows(ownLeagueAwards)) do
+                table.insert(awardRows, row)
+            end
+        end
+        if awards.bestManager then
+            local managerDetail = awards.bestManager.teamName and (awards.bestManager.teamName .. " · 第" .. tostring(awards.bestManager.actualPosition or "?") .. "名") or ""
+            table.insert(awardRows, SeasonEnd._awardRow("最佳经理", awards.bestManager.name or awards.bestManager.managerName or awards.bestManager.teamName or "?", managerDetail, nil))
+        end
+        if #awardRows > 0 then
+            table.insert(content, Theme.Card { children = {
+                Theme.Subtitle { text = "赛季奖项 🏅" },
+                table.unpack(awardRows)
+            }})
+        end
+    end
+
+    -- 3. 关键转会卡
+    local transfers = record.topTransfers
+    if transfers and #transfers > 0 then
+        local transferRows = {}
+        for i = 1, math.min(5, #transfers) do
+            local t = transfers[i]
+            table.insert(transferRows, UI.Panel {
+                width = "100%", height = 40, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                onClick = function()
+                    if t.playerId then Router.navigate("player_detail", { playerId = t.playerId }) end
+                end,
+                children = {
+                    UI.Label { text = t.playerName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                    UI.Label { text = (t.fromTeamName or "?") .. " → " .. (t.toTeamName or "?"), flex = 1, fontSize = 10, color = COLORS.TEXT_SECONDARY },
+                    UI.Label { text = formatMoney(t.amount), width = 50, fontSize = 11, fontWeight = "bold", color = COLORS.ACCENT, textAlign = "right" },
+                }
+            })
+        end
+        table.insert(content, Theme.Card { children = {
+            Theme.Subtitle { text = "赛季重磅转会 Top5" },
+            table.unpack(transferRows)
+        }})
+    end
+
+    return content
+end
+
+------------------------------------------------------------
+-- "其他联赛" Tab：精简冠军行 + 按联赛分组的升降级/杯赛/奖项
+------------------------------------------------------------
+
+local function buildOtherLeaguesSection(gameState, record, teamId, playerLeagueKey)
+    local content = {}
+
+    -- 排序：让展示顺序稳定（按联赛 key 字母序），而不是 pairs() 的随机顺序
+    local otherLeagueKeys = {}
+    for leagueKey in pairs(record.leagues or {}) do
+        if leagueKey ~= playerLeagueKey then
+            table.insert(otherLeagueKeys, leagueKey)
+        end
+    end
+    table.sort(otherLeagueKeys)
+
+    if #otherLeagueKeys == 0 then
+        table.insert(content, Theme.Card { children = {
+            UI.Label { text = "暂无其他联赛数据", fontSize = 13, color = COLORS.TEXT_MUTED }
+        }})
+        return content
+    end
+
+    -- 冠军/亚军精简卡（一个联赛一行，避免铺开完整排名）
+    local champRows = {}
+    for _, leagueKey in ipairs(otherLeagueKeys) do
+        local leagueRecord = record.leagues[leagueKey]
+        local champion = leagueRecord.champion
+        local runnerUp = leagueRecord.runnerUp
+        table.insert(champRows, UI.Panel {
+            width = "100%", height = 40, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            onClick = champion and champion.teamId and function()
+                Router.navigate("team_detail", { teamId = champion.teamId })
+            end or nil,
+            children = {
+                UI.Label { text = leagueRecord.name or leagueKey, width = 70, fontSize = 11, color = COLORS.TEXT_SECONDARY },
+                UI.Label { text = champion and ("🏆 " .. (champion.teamName or "?")) or "-", flex = 1, fontSize = 12, fontWeight = "bold", color = COLORS.WARNING },
+                UI.Label { text = runnerUp and ("亚军 " .. (runnerUp.teamName or "?")) or "", fontSize = 10, color = COLORS.TEXT_MUTED },
+            }
+        })
+    end
+    table.insert(content, Theme.Card { children = {
+        Theme.Subtitle { text = "各联赛冠军" },
+        table.unpack(champRows)
+    }})
+
+    -- 升降级变动（按联赛分组）
+    local proRelData = record.promotionRelegation or gameState.lastPromotionRelegation
+    if proRelData and #proRelData > 0 then
+        local grouped = {}
+        for _, info in ipairs(proRelData) do
+            if info.leagueKey and info.leagueKey ~= playerLeagueKey then
+                grouped[info.leagueKey] = grouped[info.leagueKey] or {}
+                table.insert(grouped[info.leagueKey], info)
+            end
+        end
+        local rows = {}
+        for _, leagueKey in ipairs(otherLeagueKeys) do
+            local infos = grouped[leagueKey]
+            if infos and #infos > 0 then
+                local leagueRecord = record.leagues[leagueKey]
+                table.insert(rows, UI.Label { text = leagueRecord and leagueRecord.name or leagueKey,
+                    fontSize = 12, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, marginTop = 6, marginBottom = 2 })
+                for _, info in ipairs(infos) do
+                    local icon = info.type == "promoted" and "⬆️" or "⬇️"
+                    local label = info.type == "promoted" and "升级" or "降级"
+                    local labelColor = info.type == "promoted" and COLORS.SECONDARY or COLORS.DANGER
+                    table.insert(rows, UI.Panel {
+                        width = "100%", height = 30, flexDirection = "row", alignItems = "center",
+                        paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                        children = {
+                            UI.Label { text = icon, width = 24, fontSize = 11 },
+                            UI.Label { text = info.teamName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                            UI.Label { text = label, width = 40, fontSize = 10, fontWeight = "bold", color = labelColor, textAlign = "right" },
+                        }
+                    })
+                end
+            end
+        end
+        if #rows > 0 then
+            table.insert(content, Theme.Card { children = {
+                Theme.Subtitle { text = "其他联赛升降级" },
+                table.unpack(rows)
+            }})
+        end
+    end
+
+    -- 杯赛冠军（其他联赛/国家）
+    if record.domesticCups then
+        local cupRows = {}
+        for _, leagueKey in ipairs(otherLeagueKeys) do
+            local cupData = record.domesticCups[leagueKey]
+            if cupData then
+                table.insert(cupRows, UI.Panel {
+                    width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+                    paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                    children = {
+                        UI.Label { text = "🏅", width = 28, fontSize = 14 },
+                        UI.Label { text = cupData.name or "杯赛", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                        UI.Label { text = cupData.winnerName or "?", fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                    }
+                })
+            end
+        end
+        if #cupRows > 0 then
+            table.insert(content, Theme.Card { children = {
+                Theme.Subtitle { text = "其他联赛杯赛冠军" },
+                table.unpack(cupRows)
+            }})
+        end
+    end
+
+    -- 奖项（按联赛分组，带联赛标题）
+    local awards = record.awards
+    if awards and awards.leagues then
+        local rows = {}
+        for _, leagueKey in ipairs(otherLeagueKeys) do
+            local la = awards.leagues[leagueKey]
+            if la then
+                local leagueAwardRows = buildLeagueAwardRows(la)
+                if #leagueAwardRows > 0 then
+                    local leagueRecord = record.leagues[leagueKey]
+                    table.insert(rows, UI.Label { text = leagueRecord and leagueRecord.name or leagueKey,
+                        fontSize = 12, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, marginTop = 6, marginBottom = 2 })
+                    for _, row in ipairs(leagueAwardRows) do
+                        table.insert(rows, row)
+                    end
+                end
+            end
+        end
+        if #rows > 0 then
+            table.insert(content, Theme.Card { children = {
+                Theme.Subtitle { text = "其他联赛奖项 🏅" },
+                table.unpack(rows)
+            }})
+        end
+    end
+
+    return content
 end
 
 ------------------------------------------------------------
@@ -67,6 +447,7 @@ function SeasonEnd.create(params)
 
     local team = gameState:getPlayerTeam()
     local teamId = gameState.playerTeamId
+    local playerLeagueKey = record and findPlayerLeagueKey(record, teamId)
 
     local content = {}
 
@@ -85,175 +466,51 @@ function SeasonEnd.create(params)
             UI.Label { text = "暂无此赛季的历史数据", fontSize = 13, color = COLORS.TEXT_MUTED }
         }})
     else
-        -- ====== 1. 联赛排名卡 ======
-        for leagueKey, leagueRecord in pairs(record.leagues or {}) do
-            local standingRows = {}
-            local playerPosition = nil
-
-            for i, entry in ipairs(leagueRecord.standings or {}) do
-                if i > 5 and entry.teamId ~= teamId then goto continue end
-
-                local isPlayer = (entry.teamId == teamId)
-                if isPlayer then playerPosition = entry.position or i end
-                local bgColor = isPlayer and {33, 150, 243, 40} or COLORS.TRANSPARENT
-
-                table.insert(standingRows, UI.Panel {
-                    width = "100%", height = 36, flexDirection = "row", alignItems = "center",
-                    paddingHorizontal = 8, backgroundColor = bgColor,
-                    borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                    onClick = function()
-                        Router.navigate("team_detail", { teamId = entry.teamId })
-                    end,
-                    children = {
-                        UI.Label { text = medal(entry.position), width = 30, fontSize = 12, color = COLORS.TEXT_PRIMARY },
-                        UI.Label { text = entry.teamName or "?", flex = 1, fontSize = 12,
-                            color = isPlayer and COLORS.PRIMARY or COLORS.TEXT_PRIMARY,
-                            fontWeight = isPlayer and "bold" or "normal" },
-                        UI.Label { text = tostring(entry.points) .. "分", width = 40, fontSize = 11, color = COLORS.TEXT_SECONDARY, textAlign = "right" },
-                        UI.Label { text = tostring(entry.wins or 0) .. "W", width = 28, fontSize = 10, color = COLORS.SECONDARY, textAlign = "right" },
+        -- ====== Tab 栏：本队总结 / 其他联赛 ======
+        local tabs = {
+            { key = "summary", label = "本队总结" },
+            { key = "others",  label = "其他联赛" },
+        }
+        local tabButtons = {}
+        for _, t in ipairs(tabs) do
+            local isActive = (_activeTab == t.key)
+            table.insert(tabButtons, UI.Panel {
+                flex = 1, height = 36, justifyContent = "center", alignItems = "center",
+                borderBottomWidth = isActive and 2 or 0,
+                borderColor = isActive and COLORS.PRIMARY or COLORS.TRANSPARENT,
+                onClick = function()
+                    _activeTab = t.key
+                    Router.replaceWith("season_end", params)
+                end,
+                children = {
+                    UI.Label {
+                        text = t.label, fontSize = 13,
+                        fontWeight = isActive and "bold" or "normal",
+                        color = isActive and COLORS.PRIMARY or COLORS.TEXT_SECONDARY,
                     }
-                })
-                ::continue::
-            end
-
-            local champText = leagueRecord.champion and ("冠军: " .. leagueRecord.champion.teamName) or ""
-            table.insert(content, Theme.Card { children = {
-                Theme.Subtitle { text = (leagueRecord.name or leagueKey) .. " 最终排名" },
-                UI.Label { text = champText, fontSize = 12, fontWeight = "bold", color = COLORS.WARNING, marginTop = 2, marginBottom = 6 },
-                table.unpack(standingRows)
-            }})
-
-            -- 排名评价
-            if playerPosition then
-                local posText
-                if playerPosition == 1 then posText = "恭喜！你获得了联赛冠军！🏆"
-                elseif playerPosition <= 3 then posText = "出色！球队获得第" .. tostring(playerPosition) .. "名，进入欧冠区域。"
-                elseif playerPosition <= 6 then posText = "中规中矩，第" .. tostring(playerPosition) .. "名。"
-                elseif playerPosition <= 10 then posText = "赛季排名第" .. tostring(playerPosition) .. "，还有提升空间。"
-                else posText = "第" .. tostring(playerPosition) .. "名，下赛季需要努力了。" end
-
-                table.insert(content, Theme.Card { children = {
-                    UI.Label { text = posText, fontSize = 13, color = playerPosition <= 3 and COLORS.WARNING or COLORS.TEXT_PRIMARY },
-                }})
-            end
+                }
+            })
         end
+        table.insert(content, UI.Panel {
+            width = "100%", height = 36, flexDirection = "row", marginBottom = 8,
+            backgroundColor = COLORS.BG_HEADER, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            children = tabButtons,
+        })
 
-        -- ====== 1.5 升降级信息卡 ======
-        local proRelData = record.promotionRelegation or gameState.lastPromotionRelegation
-        if proRelData and #proRelData > 0 then
-            local proRelRows = {}
-            for _, info in ipairs(proRelData) do
-                local isPlayer = (info.teamId == teamId)
-                local icon = info.type == "promoted" and "⬆️" or "⬇️"
-                local label = info.type == "promoted" and "升级" or "降级"
-                local labelColor = info.type == "promoted" and COLORS.SECONDARY or COLORS.DANGER
-                table.insert(proRelRows, UI.Panel {
-                    width = "100%", height = 34, flexDirection = "row", alignItems = "center",
-                    paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                    backgroundColor = isPlayer and {33, 150, 243, 40} or COLORS.TRANSPARENT,
-                    children = {
-                        UI.Label { text = icon, width = 24, fontSize = 12 },
-                        UI.Label { text = info.teamName or "?", flex = 1, fontSize = 12,
-                            color = isPlayer and COLORS.PRIMARY or COLORS.TEXT_PRIMARY,
-                            fontWeight = isPlayer and "bold" or "normal" },
-                        UI.Label { text = label, width = 40, fontSize = 11, fontWeight = "bold", color = labelColor, textAlign = "right" },
-                    }
-                })
+        if _activeTab == "others" then
+            for _, card in ipairs(buildOtherLeaguesSection(gameState, record, teamId, playerLeagueKey)) do
+                table.insert(content, card)
             end
-            table.insert(content, Theme.Card { children = {
-                Theme.Subtitle { text = "升降级变动" },
-                table.unpack(proRelRows)
-            }})
-        end
-
-        -- ====== 1.8 杯赛结果卡 ======
-        if record.domesticCups then
-            local cupRows = {}
-            for _, cupData in pairs(record.domesticCups) do
-                local isPlayer = (cupData.winnerId == teamId)
-                table.insert(cupRows, UI.Panel {
-                    width = "100%", height = 36, flexDirection = "row", alignItems = "center",
-                    paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                    backgroundColor = isPlayer and {180, 80, 200, 30} or COLORS.TRANSPARENT,
-                    children = {
-                        UI.Label { text = "🏅", width = 28, fontSize = 14 },
-                        UI.Label { text = cupData.name or "杯赛", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
-                        UI.Label { text = cupData.winnerName or "?", fontSize = 12,
-                            fontWeight = isPlayer and "bold" or "normal",
-                            color = isPlayer and {180, 80, 200, 255} or COLORS.TEXT_PRIMARY },
-                    }
-                })
+        else
+            for _, card in ipairs(buildSummaryLeagueSection(gameState, record, teamId, playerLeagueKey)) do
+                table.insert(content, card)
             end
-            if #cupRows > 0 then
-                table.insert(content, Theme.Card { children = {
-                    Theme.Subtitle { text = "杯赛冠军 🏅" },
-                    table.unpack(cupRows)
-                }})
-            end
-        end
-
-        -- ====== 2. 赛季奖项卡 ======
-        local awards = record.awards
-        if awards and awards.leagues then
-            local awardRows = {}
-            if awards.ballonDor and awards.ballonDor[1] then
-                local bd = awards.ballonDor[1]
-                table.insert(awardRows, SeasonEnd._awardRow("金球奖", bd.playerName, (bd.teamName or "?") .. " · " .. string.format("%.1f分", bd.score or 0), bd.playerId))
-            end
-            for _, la in pairs(awards.leagues) do
-                if la.goldenBoot then
-                    table.insert(awardRows, SeasonEnd._awardRow("金靴奖", la.goldenBoot.playerName, tostring(la.goldenBoot.goals or 0) .. " 球", la.goldenBoot.playerId))
-                end
-                if la.bestPlayer then
-                    table.insert(awardRows, SeasonEnd._awardRow("最佳球员", la.bestPlayer.playerName, "OVR " .. tostring(la.bestPlayer.overall or 0), la.bestPlayer.playerId))
-                end
-                if la.bestYoungPlayer then
-                    table.insert(awardRows, SeasonEnd._awardRow("最佳新秀", la.bestYoungPlayer.playerName, tostring(la.bestYoungPlayer.age or 0) .. " 岁", la.bestYoungPlayer.playerId))
-                end
-                if la.topAssists then
-                    table.insert(awardRows, SeasonEnd._awardRow("助攻王", la.topAssists.playerName, tostring(la.topAssists.assists or 0) .. " 助攻", la.topAssists.playerId))
-                end
-                if la.bestGoalkeeper then
-                    table.insert(awardRows, SeasonEnd._awardRow("金手套", la.bestGoalkeeper.playerName, tostring(la.bestGoalkeeper.cleanSheets or 0) .. " 零封", la.bestGoalkeeper.playerId))
-                end
-            end
-            if awards.bestManager then
-                local managerDetail = awards.bestManager.teamName and (awards.bestManager.teamName .. " · 第" .. tostring(awards.bestManager.actualPosition or "?") .. "名") or ""
-                table.insert(awardRows, SeasonEnd._awardRow("最佳经理", awards.bestManager.name or awards.bestManager.managerName or awards.bestManager.teamName or "?", managerDetail, nil))
-            end
-            if #awardRows > 0 then
-                table.insert(content, Theme.Card { children = {
-                    Theme.Subtitle { text = "赛季奖项 🏅" },
-                    table.unpack(awardRows)
-                }})
-            end
-        end
-
-        -- ====== 3. 关键转会卡 ======
-        local transfers = record.topTransfers
-        if transfers and #transfers > 0 then
-            local transferRows = {}
-            for i = 1, math.min(5, #transfers) do
-                local t = transfers[i]
-                table.insert(transferRows, UI.Panel {
-                    width = "100%", height = 40, flexDirection = "row", alignItems = "center",
-                    paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                    onClick = function()
-                        if t.playerId then Router.navigate("player_detail", { playerId = t.playerId }) end
-                    end,
-                    children = {
-                        UI.Label { text = t.playerName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
-                        UI.Label { text = (t.fromTeamName or "?") .. " → " .. (t.toTeamName or "?"), flex = 1, fontSize = 10, color = COLORS.TEXT_SECONDARY },
-                        UI.Label { text = formatMoney(t.amount), width = 50, fontSize = 11, fontWeight = "bold", color = COLORS.ACCENT, textAlign = "right" },
-                    }
-                })
-            end
-            table.insert(content, Theme.Card { children = {
-                Theme.Subtitle { text = "赛季重磅转会 Top5" },
-                table.unpack(transferRows)
-            }})
         end
     end
+
+    -- 以下卡片（董事会评价/奖金/财务/球员变动/球队数据）只与玩家球队自身相关，
+    -- 与"多联赛铺开"问题无关，因此只在"本队总结" Tab 显示，避免"其他联赛" Tab 重复展示。
+    if _activeTab == "summary" or not record then
 
     -- ====== 4. 董事会评价卡 ======
     if team then
@@ -516,6 +773,8 @@ function SeasonEnd.create(params)
         end
     end
 
+    end -- if _activeTab == "summary" or not record
+
     -- ====== 继续按钮 ======
     table.insert(content, UI.Panel {
         width = "100%", marginTop = 16, marginBottom = 20,
@@ -545,25 +804,6 @@ function SeasonEnd.create(params)
                     UI.Panel { width = "100%", padding = 12, children = content }
                 }
             },
-        }
-    }
-end
-
-------------------------------------------------------------
--- 奖项行（支持点击跳转球员详情）
-------------------------------------------------------------
-
-function SeasonEnd._awardRow(awardName, playerName, detail, playerId)
-    return UI.Panel {
-        width = "100%", height = 38, flexDirection = "row", alignItems = "center",
-        paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-        onClick = playerId and function()
-            Router.navigate("player_detail", { playerId = playerId })
-        end or nil,
-        children = {
-            UI.Label { text = awardName, width = 70, fontSize = 11, color = COLORS.WARNING, fontWeight = "bold" },
-            UI.Label { text = playerName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
-            UI.Label { text = detail, fontSize = 10, color = COLORS.TEXT_SECONDARY },
         }
     }
 end

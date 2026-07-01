@@ -5,6 +5,7 @@
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
+local HistoryManager = require("scripts/systems/history_manager")
 
 local News = {}
 
@@ -16,6 +17,7 @@ local NEWS_CATEGORIES = {
     { key = "league",    label = "联赛" },
     { key = "injury",    label = "伤病" },
     { key = "personnel", label = "人事" },
+    { key = "followed",  label = "关注" },
 }
 
 -- 分类颜色（使用语义色系统）
@@ -25,6 +27,9 @@ local CAT_COLORS = {
     league_news   = Theme.COLORS.FINANCE_GREEN,
     weekly_report = {156, 39, 176, 255},
     season_news   = {0, 188, 212, 255},
+    cup_news      = {180, 80, 200, 255},
+    ucl_news      = Theme.COLORS.PRIMARY,
+    uel_news      = {80, 140, 220, 255},
     injury_news   = Theme.COLORS.DANGER,
     manager_news  = {121, 85, 72, 255},
     milestone     = Theme.COLORS.WARNING,
@@ -37,6 +42,9 @@ local CAT_ICONS = {
     league_news   = "🏆",
     weekly_report = "📊",
     season_news   = "📅",
+    cup_news      = "🏆",
+    ucl_news      = "🏆",
+    uel_news      = "🏆",
     injury_news   = "🏥",
     manager_news  = "👔",
     milestone     = "⭐",
@@ -49,6 +57,9 @@ local CAT_TAB_MAP = {
     league_news   = "league",
     weekly_report = "league",
     season_news   = "league",
+    cup_news      = "league",
+    ucl_news      = "league",
+    uel_news      = "league",
     injury_news   = "injury",
     manager_news  = "personnel",
     milestone     = "match",
@@ -61,6 +72,9 @@ local CAT_DISPLAY_NAMES = {
     league_news   = "联赛动态",
     weekly_report = "每周总结",
     season_news   = "赛季动态",
+    cup_news      = "杯赛动态",
+    ucl_news      = "欧冠动态",
+    uel_news      = "欧联动态",
     injury_news   = "伤病报告",
     manager_news  = "教练变动",
     milestone     = "里程碑",
@@ -69,14 +83,17 @@ local CAT_DISPLAY_NAMES = {
 ------------------------------------------------------
 -- 统计各 tab 的未读数
 ------------------------------------------------------
-local function countUnreadByTab(newsList)
-    local counts = { all = 0, match = 0, transfer = 0, league = 0, injury = 0, personnel = 0 }
+local function countUnreadByTab(newsList, gameState)
+    local counts = { all = 0, match = 0, transfer = 0, league = 0, injury = 0, personnel = 0, followed = 0 }
     for _, article in ipairs(newsList) do
         if not article.read then
             counts.all = counts.all + 1
             local tab = CAT_TAB_MAP[article.category] or "league"
             if counts[tab] then
                 counts[tab] = counts[tab] + 1
+            end
+            if HistoryManager.isFollowedNewsArticle(gameState, article) then
+                counts.followed = counts.followed + 1
             end
         end
     end
@@ -147,14 +164,20 @@ function News.create(params)
 
     local currentTab = (params and params.tab) or "all"
 
+    HistoryManager._ensureData(gameState)
+
     -- 统计未读数
-    local unreadCounts = countUnreadByTab(gameState.news or {})
+    local unreadCounts = countUnreadByTab(gameState.news or {}, gameState)
 
     -- 过滤新闻
     local filteredNews = {}
     for _, article in ipairs(gameState.news or {}) do
         local artTab = CAT_TAB_MAP[article.category] or "league"
-        if currentTab == "all" or artTab == currentTab then
+        if currentTab == "followed" then
+            if HistoryManager.isFollowedNewsArticle(gameState, article) then
+                table.insert(filteredNews, article)
+            end
+        elseif currentTab == "all" or artTab == currentTab then
             table.insert(filteredNews, article)
         end
     end
@@ -206,8 +229,9 @@ function News.create(params)
             dateStr = string.format("%d/%d/%d", article.date.year, article.date.month, article.date.day)
         end
 
-        -- 判断是否涉及玩家球队
+        -- 判断是否涉及玩家球队 / 关注球员
         local isRelevant = false
+        local isFollowed = HistoryManager.isFollowedNewsArticle(gameState, article)
         if article.relatedTeams and gameState.playerTeamId then
             for _, tid in ipairs(article.relatedTeams) do
                 if tid == gameState.playerTeamId then
@@ -219,7 +243,9 @@ function News.create(params)
 
         -- 行背景色：相关的更亮，未读次之，已读最暗
         local rowBg = Theme.COLORS.BG_CARD
-        if isRelevant then
+        if isFollowed then
+            rowBg = {32, 26, 48, 255}
+        elseif isRelevant then
             rowBg = Theme.COLORS.BG_CARD_ELEVATED
         elseif isUnread then
             rowBg = {20, 30, 50, 255}
@@ -270,6 +296,16 @@ function News.create(params)
                             marginRight = 6,
                             children = {
                                 UI.Label { text = "我的球队", fontSize = 9, color = Theme.COLORS.MATCH_ORANGE }
+                            }
+                        } or UI.Panel { width = 0, height = 0 },
+                        isFollowed and UI.Panel {
+                            backgroundColor = {180, 130, 255, 45},
+                            borderRadius = 4,
+                            paddingLeft = 4, paddingRight = 4,
+                            paddingTop = 1, paddingBottom = 1,
+                            marginRight = 6,
+                            children = {
+                                UI.Label { text = "关注", fontSize = 9, color = {220, 180, 255, 255} }
                             }
                         } or UI.Panel { width = 0, height = 0 },
                         -- 日期
@@ -325,8 +361,9 @@ function News.create(params)
         })
     end
 
-    -- 总未读提示
-    local totalUnread = unreadCounts.all or 0
+    -- 当前视图未读提示
+    local totalUnread = currentTab == "all" and (unreadCounts.all or 0)
+        or (unreadCounts[currentTab] or 0)
 
     return UI.Panel {
         width = "100%",
@@ -361,7 +398,11 @@ function News.create(params)
                                 onClick = function()
                                     for _, article in ipairs(gameState.news or {}) do
                                         local artTab = CAT_TAB_MAP[article.category] or "league"
-                                        if currentTab == "all" or artTab == currentTab then
+                                        if currentTab == "followed" then
+                                            if HistoryManager.isFollowedNewsArticle(gameState, article) then
+                                                article.read = true
+                                            end
+                                        elseif currentTab == "all" or artTab == currentTab then
                                             article.read = true
                                         end
                                     end

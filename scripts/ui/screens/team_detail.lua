@@ -268,92 +268,6 @@ local function buildSquadTab(team, gameState, teamId)
 end
 
 ------------------------------------------------------------
--- 历史标签
-------------------------------------------------------------
-
-local function buildHistoryTab(team, gameState, teamId)
-    local children = {}
-
-    -- 赛季历史记录
-    local history = team.history
-    if history and #history > 0 then
-        local histRows = {}
-        for i = #history, math.max(1, #history - 9), -1 do
-            local h = history[i]
-            if h then
-                table.insert(histRows, UI.Panel {
-                    width = "100%", flexDirection = "row", justifyContent = "space-between",
-                    paddingVertical = 6, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                    children = {
-                        UI.Label { text = h.season or ("第" .. tostring(i) .. "赛季"), fontSize = 12, color = COLORS.TEXT_PRIMARY },
-                        UI.Label { text = h.result or h.position or "", fontSize = 12, color = COLORS.TEXT_SECONDARY },
-                    }
-                })
-            end
-        end
-        if #histRows > 0 then
-            table.insert(children, Theme.Card { children = {
-                Theme.Subtitle { text = "赛季历史（近10季）" },
-                table.unpack(histRows)
-            }})
-        end
-    else
-        table.insert(children, Theme.Card { children = {
-            UI.Label { text = "暂无历史记录", fontSize = 13, color = COLORS.TEXT_MUTED }
-        }})
-    end
-
-    -- 本赛季已完成比赛
-    local league, _ = gameState:getTeamLeague(teamId)
-    if league and league.fixtures then
-        local finishedMatches = {}
-        for _, fixture in ipairs(league.fixtures) do
-            if fixture.status == "finished" and (fixture.homeTeamId == teamId or fixture.awayTeamId == teamId) then
-                table.insert(finishedMatches, fixture)
-            end
-        end
-        -- 取最近10场
-        local startIdx = math.max(1, #finishedMatches - 9)
-        local matchRows = {}
-        for i = #finishedMatches, startIdx, -1 do
-            local f = finishedMatches[i]
-            local isHome = (f.homeTeamId == teamId)
-            local oppId = isHome and f.awayTeamId or f.homeTeamId
-            local oppTeam = gameState.teams[oppId]
-            local oppName = oppTeam and oppTeam.name or "???"
-            local myGoals = isHome and f.homeGoals or f.awayGoals
-            local theirGoals = isHome and f.awayGoals or f.homeGoals
-            local score = tostring(myGoals) .. " - " .. tostring(theirGoals)
-            local venue = isHome and "主" or "客"
-
-            -- 结果颜色
-            local resultColor = COLORS.WARNING
-            if myGoals > theirGoals then resultColor = COLORS.SECONDARY
-            elseif myGoals < theirGoals then resultColor = COLORS.DANGER end
-
-            table.insert(matchRows, UI.Panel {
-                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
-                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                children = {
-                    UI.Label { text = "R" .. tostring(f.round or "?"), width = 30, fontSize = 10, color = COLORS.TEXT_MUTED },
-                    UI.Label { text = venue, width = 20, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center" },
-                    UI.Label { text = oppName, flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 6 },
-                    UI.Label { text = score, width = 50, fontSize = 12, fontWeight = "bold", color = resultColor, textAlign = "center" },
-                }
-            })
-        end
-        if #matchRows > 0 then
-            table.insert(children, Theme.Card { children = {
-                Theme.Subtitle { text = "本赛季比赛（近10场）" },
-                table.unpack(matchRows)
-            }})
-        end
-    end
-
-    return children
-end
-
-------------------------------------------------------------
 -- 权威历史标签（基于 worldHistory / HistoryManager）
 ------------------------------------------------------------
 
@@ -379,46 +293,15 @@ local function buildWorldHistoryTab(team, gameState, teamId)
         infoRow("历史赛季", tostring(#(teamHistory.positions or {})) .. " 季"),
     }})
 
-    local honors = {}
-    for _, record in ipairs(gameState.worldHistory or {}) do
-        for _, leagueRecord in pairs(record.leagues or {}) do
-            if leagueRecord.champion and leagueRecord.champion.teamId == teamId then
-                table.insert(honors, {
-                    season = record.season,
-                    title = leagueRecord.name or "联赛冠军",
-                    detail = tostring(leagueRecord.champion.points or 0) .. "分",
-                    color = COLORS.WARNING,
-                })
-            end
-        end
-        if record.uclChampion and record.uclChampion.teamId == teamId then
-            table.insert(honors, {
-                season = record.season,
-                title = "欧洲冠军联赛",
-                detail = "冠军",
-                color = COLORS.PRIMARY,
-            })
-        end
-        if record.uelChampion and record.uelChampion.teamId == teamId then
-            table.insert(honors, {
-                season = record.season,
-                title = "欧洲联赛",
-                detail = "冠军",
-                color = {80, 140, 220, 255},
-            })
-        end
-        for _, cupData in pairs(record.domesticCups or {}) do
-            if cupData.winnerId == teamId then
-                table.insert(honors, {
-                    season = record.season,
-                    title = cupData.name or "杯赛",
-                    detail = "冠军",
-                    color = {180, 80, 200, 255},
-                })
-            end
-        end
-    end
-    table.sort(honors, function(a, b) return (a.season or 0) > (b.season or 0) end)
+    -- 统一走 HistoryManager.getTeamHonors，避免在这里重复实现一遍聚合逻辑
+    -- （联赛/国内杯/欧冠/欧联的权威聚合口径见 history_manager.lua）
+    local HONOR_COLORS = {
+        league = COLORS.WARNING,
+        ucl = COLORS.PRIMARY,
+        uel = {80, 140, 220, 255},
+        cup = {180, 80, 200, 255},
+    }
+    local honors = HistoryManager.getTeamHonors(gameState, teamId)
 
     if #honors > 0 then
         local honorRows = {}
@@ -429,7 +312,7 @@ local function buildWorldHistoryTab(team, gameState, teamId)
                 paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
                 children = {
                     UI.Label { text = "第" .. tostring(h.season or "?") .. "季", width = 70, fontSize = 10, color = COLORS.TEXT_MUTED },
-                    UI.Label { text = tostring(h.title or "?"), flexGrow = 1, flexShrink = 1, fontSize = 12, color = COLORS.WARNING },
+                    UI.Label { text = tostring(h.title or "?"), flexGrow = 1, flexShrink = 1, fontSize = 12, color = HONOR_COLORS[h.competition] or COLORS.WARNING },
                     UI.Label { text = tostring(h.detail or ""), fontSize = 11, color = COLORS.TEXT_SECONDARY },
                 }
             })
@@ -584,6 +467,129 @@ local function buildWorldHistoryTab(team, gameState, teamId)
 end
 
 ------------------------------------------------------------
+-- 传奇殿堂标签（团队荣誉墙 + 队史球星 Top10）
+------------------------------------------------------------
+
+local function buildLegendsTab(team, gameState, teamId)
+    local children = {}
+
+    -- 荣誉墙：全部冠军荣誉，按赛季倒序（口径与"历史"Tab 一致，见 HistoryManager.getTeamHonors）
+    local HONOR_COLORS = {
+        league = COLORS.WARNING,
+        ucl = COLORS.PRIMARY,
+        uel = {80, 140, 220, 255},
+        cup = {180, 80, 200, 255},
+    }
+    local honors = HistoryManager.getTeamHonors(gameState, teamId)
+    if #honors > 0 then
+        local honorRows = {}
+        for i = 1, math.min(20, #honors) do
+            local h = honors[i]
+            table.insert(honorRows, UI.Panel {
+                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = "第" .. tostring(h.season or "?") .. "季", width = 70, fontSize = 10, color = COLORS.TEXT_MUTED },
+                    UI.Label { text = tostring(h.title or "?"), flexGrow = 1, flexShrink = 1, fontSize = 12, color = HONOR_COLORS[h.competition] or COLORS.WARNING },
+                    UI.Label { text = tostring(h.detail or ""), fontSize = 11, color = COLORS.TEXT_SECONDARY },
+                }
+            })
+        end
+        table.insert(children, Theme.Card { children = {
+            Theme.Subtitle { text = "荣誉墙（共 " .. tostring(#honors) .. " 项冠军）" },
+            table.unpack(honorRows)
+        }})
+    else
+        table.insert(children, Theme.Card { children = {
+            Theme.Subtitle { text = "荣誉墙" },
+            UI.Label { text = "球队暂未获得冠军荣誉，加油！", fontSize = 12, color = COLORS.TEXT_MUTED, marginTop = 6 },
+        }})
+    end
+
+    -- 队史球星 Top10：按总进球数降序，数据来自 HistoryManager._teamLegendStats
+    -- （赛季末增量累加，不受 careerHistory 5季裁剪和退役球员清理影响）
+    local legends = HistoryManager.getTeamLegendStats(gameState, teamId, 10)
+    if #legends == 0 then
+        table.insert(children, Theme.Card { children = {
+            Theme.Subtitle { text = "队史球星 Top10" },
+            UI.Label { text = "完成多个赛季后，这里会记录球队功勋球员。", fontSize = 12, color = COLORS.TEXT_MUTED, marginTop = 6 },
+        }})
+        return children
+    end
+
+    local legendRows = {}
+    for i, entry in ipairs(legends) do
+        local playerExists = gameState.players[entry.playerId] ~= nil
+        local rankColor = COLORS.TEXT_MUTED
+        if i == 1 then rankColor = COLORS.WARNING
+        elseif i <= 3 then rankColor = COLORS.PRIMARY end
+
+        local yearsLabel
+        if entry.firstSeason == entry.lastSeason then
+            yearsLabel = "第" .. tostring(entry.firstSeason) .. "季"
+        else
+            yearsLabel = "第" .. tostring(entry.firstSeason) .. "-" .. tostring(entry.lastSeason) .. "季"
+        end
+
+        local nameRowChildren = {
+            UI.Label {
+                text = entry.playerName or "?", fontSize = 13, fontWeight = "bold",
+                color = playerExists and COLORS.TEXT_PRIMARY or COLORS.TEXT_MUTED,
+            },
+        }
+        for _, meta in ipairs(HistoryManager.LEGEND_AWARD_META) do
+            local count = entry.individualAwards and entry.individualAwards[meta.key]
+            if count and count > 0 then
+                table.insert(nameRowChildren, UI.Label {
+                    text = meta.icon .. (count > 1 and ("x" .. tostring(count)) or ""),
+                    fontSize = 12, marginLeft = 5, color = COLORS.WARNING,
+                })
+            end
+        end
+
+        table.insert(legendRows, UI.Panel {
+            width = "100%", minHeight = 54, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, paddingVertical = 6, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            onClick = playerExists and function() Router.navigate("player_detail", { playerId = entry.playerId }) end or nil,
+            children = {
+                UI.Label { text = tostring(i), width = 22, fontSize = 13, fontWeight = "bold", color = rankColor },
+                UI.Panel {
+                    flexGrow = 1, flexShrink = 1, marginLeft = 6,
+                    children = {
+                        UI.Panel { width = "100%", flexDirection = "row", alignItems = "center", children = nameRowChildren },
+                        UI.Label {
+                            text = yearsLabel .. " · " .. (Constants.POSITION_NAMES[entry.position] or entry.position or "?"),
+                            fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 2,
+                        },
+                    }
+                },
+                UI.Panel {
+                    alignItems = "flex-end",
+                    children = {
+                        UI.Label {
+                            text = tostring(entry.goals or 0) .. "球 " .. tostring(entry.assists or 0) .. "助",
+                            fontSize = 12, fontWeight = "bold", color = COLORS.SECONDARY,
+                        },
+                        UI.Label {
+                            text = tostring(entry.appearances or 0) .. "场"
+                                .. ((entry.teamTitles or 0) > 0 and ("  🏆x" .. tostring(entry.teamTitles)) or ""),
+                            fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 2,
+                        },
+                    }
+                },
+            }
+        })
+    end
+
+    table.insert(children, Theme.Card { children = {
+        Theme.Subtitle { text = "队史球星 Top10（按总进球数排序）" },
+        table.unpack(legendRows)
+    }})
+
+    return children
+end
+
+------------------------------------------------------------
 -- 统计标签
 ------------------------------------------------------------
 
@@ -717,6 +723,7 @@ function TeamDetail.create(params)
         { key = "overview", label = "概览" },
         { key = "squad",    label = "阵容" },
         { key = "history",  label = "历史" },
+        { key = "legends",  label = "传奇" },
         { key = "stats",    label = "统计" },
     }
 
@@ -728,6 +735,8 @@ function TeamDetail.create(params)
         tabContent = buildSquadTab(team, gameState, teamId)
     elseif _activeTab == "history" then
         tabContent = buildWorldHistoryTab(team, gameState, teamId)
+    elseif _activeTab == "legends" then
+        tabContent = buildLegendsTab(team, gameState, teamId)
     elseif _activeTab == "stats" then
         tabContent = buildStatsTab(team, gameState, teamId)
     else

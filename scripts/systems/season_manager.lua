@@ -166,28 +166,9 @@ function SeasonManager.endSeason(gameState)
         local ReputationManager = require("scripts/systems/reputation_manager")
         ReputationManager.seasonEndUpdate(gameState)
 
-        -- 0.4 经理冠军统计更新（联赛冠军 +1 trophies）
-        if gameState.playerTeamId then
-            local playerLeague = nil
-            for _, lg in pairs(gameState.leagues or {}) do
-                for _, tid in ipairs(lg.teamIds or {}) do
-                    if tid == gameState.playerTeamId then
-                        playerLeague = lg
-                        break
-                    end
-                end
-                if playerLeague then break end
-            end
-            if playerLeague then
-                local pos = playerLeague:getTeamPosition(gameState.playerTeamId)
-                if pos == 1 then
-                    local mgr = gameState:getPlayerManager()
-                    if mgr and mgr.stats then
-                        mgr.stats.trophies = (mgr.stats.trophies or 0) + 1
-                    end
-                end
-            end
-        end
+        -- 0.4 经理冠军统计更新：已移除。联赛冠军的 manager.stats.trophies 更新
+        -- 统一由 RecordsManager._checkLeagueChampionship（RecordsManager.onSeasonEnd 中调用）
+        -- 负责，避免与此处重复 +1（历史 bug：曾导致经理页奖杯数虚高）。
 
         -- 0.5 董事会赛季末评估（所有球队，可能触发解雇）
         local BoardManager = require("scripts/systems/board_manager")
@@ -232,6 +213,10 @@ function SeasonManager.endSeason(gameState)
 
         -- 6.5. 记录球员职业历史（必须在重置统计之前）
         SeasonManager._recordPlayerCareerHistory(gameState)
+
+        -- 6.55. 队史传奇聚合（依赖刚写入的本赛季 careerHistory 和本赛季冠军归属，
+        -- 必须在 _recordPlayerCareerHistory 之后、_resetSeasonStats 之前）
+        HistoryManager.updateTeamLegendStats(gameState, awards)
 
         -- 6.6. 记录系统：赛季记录检查（必须在重置统计之前）
         RecordsManager.onSeasonEnd(gameState)
@@ -601,6 +586,9 @@ function SeasonManager._processRetirements(gameState)
                     })
                 end
 
+                -- 队史传奇聚合（HistoryManager.updateTeamLegendStats）需要知道退役
+                -- 赛季效力的球队；该字段只在本次 endSeason 调用内被消费，不需要存档。
+                player._retiredFromTeamId = player.teamId
                 player.teamId = nil
             end
         end

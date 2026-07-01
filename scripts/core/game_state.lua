@@ -56,6 +56,7 @@ function GameState.new()
     self.scoutReports = {}
     self.scoutDiscoveries = {}
     self.shortlist = {}  -- 候选名单：{playerId = true, ...}
+    self.followedPlayers = {}  -- 关注球员：{playerId = snapshot, ...}
 
     -- 下一个可用ID
     self.nextId = 1
@@ -293,6 +294,9 @@ function GameState:serialize()
         records = self.records,
         _transferHistory = self._transferHistory,
         _managerHistory = self._managerHistory,
+        _teamLegendStats = self._teamLegendStats,
+        _managerSaleHistory = self._managerSaleHistory,
+        _globalTopTransfers = self._globalTopTransfers,
         _worldCupHistory = self._worldCupHistory,
         _euroHistory = self._euroHistory,
         lastPromotionRelegation = self.lastPromotionRelegation,
@@ -300,6 +304,7 @@ function GameState:serialize()
         scoutReports = self.scoutReports,
         scoutDiscoveries = self.scoutDiscoveries,
         shortlist = self.shortlist,
+        followedPlayers = self.followedPlayers,
         nextId = self.nextId,
         turnState = self.turnState,
         currentRole = self.currentRole,
@@ -369,6 +374,9 @@ function GameState:deserialize(data)
     self.records = data.records
     self._transferHistory = data._transferHistory
     self._managerHistory = data._managerHistory
+    self._teamLegendStats = data._teamLegendStats
+    self._managerSaleHistory = data._managerSaleHistory
+    self._globalTopTransfers = data._globalTopTransfers
     self._worldCupHistory = data._worldCupHistory
     self._euroHistory = data._euroHistory
     self.lastPromotionRelegation = data.lastPromotionRelegation
@@ -385,6 +393,17 @@ function GameState:deserialize(data)
         end
     else
         self.shortlist = {}
+    end
+
+    -- 关注球员同样使用 playerId 做 key，读档后统一转回数字 key
+    if data.followedPlayers then
+        self.followedPlayers = {}
+        for k, v in pairs(data.followedPlayers) do
+            local numKey = tonumber(k)
+            self.followedPlayers[numKey or k] = v
+        end
+    else
+        self.followedPlayers = {}
     end
 
     -- 旧存档兼容：将 scoutReports 中混入的自动发现记录迁移到 scoutDiscoveries

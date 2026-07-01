@@ -76,6 +76,7 @@ end
 ------------------------------------------------------
 function Housekeeping.purgeExcessFreeAgents(gameState)
     local shortlist = gameState.shortlist or {}
+    local followed = gameState.followedPlayers or {}
 
     -- 活跃报价涉及的球员
     local biddedIds = {}
@@ -106,6 +107,7 @@ function Housekeeping.purgeExcessFreeAgents(gameState)
         if not p.teamId and not p.retired and not p._isVirtual
             and not p.isLegend
             and not shortlist[id] and not shortlist[tostring(id)]
+            and not followed[id] and not followed[tostring(id)]
             and not biddedIds[id] and not protectedNegoIds[id] then
             freeAgents[#freeAgents + 1] = { id = id, overall = p.overall or 0 }
         end

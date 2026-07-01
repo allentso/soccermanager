@@ -330,8 +330,9 @@ function Team.new(data)
         goalsFor = 0, goalsAgainst = 0,
     }
 
-    -- 历史
-    self.history = data.history or {}
+    -- 历史（注意：球队历史的权威来源是 HistoryManager/gameState.worldHistory，
+    -- 详见 scripts/systems/history_manager.lua 的 getTeamHistory/getTeamHonors；
+    -- 这里不再维护 Team 自身的 history 字段，避免出现从未写入的死字段）
     self.recentForm = data.recentForm or {}  -- "W","D","L"
     self.monthlyStats = data.monthlyStats or nil
     self._lastMonthlyStats = data._lastMonthlyStats or nil
@@ -532,7 +533,6 @@ function Team:serialize()
         trainingIntensity = self.trainingIntensity,
         trainingGroups = self.trainingGroups,
         seasonStats = self.seasonStats,
-        history = self.history,
         recentForm = self.recentForm,
         monthlyStats = self.monthlyStats,
         _lastMonthlyStats = self._lastMonthlyStats,

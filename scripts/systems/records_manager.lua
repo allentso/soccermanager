@@ -5,10 +5,14 @@ local EventBus = require("scripts/app/event_bus")
 
 local RecordsManager = {}
 
+-- 注意：这里不是"+1"，而是重新赋值为 records.trophies 的当前长度。
+-- 之所以这样设计，是为了让 manager.stats.trophies 永远是 records.trophies
+-- 的镜像值，不再维护独立的自增计数——避免未来任何调用点重复触发导致
+-- 该数字与真实奖杯数脱节（历史 bug：曾与 season_manager 的提前判断重复 +1）。
 local function _incrementManagerTrophyStat(gameState)
     local mgr = gameState:getPlayerManager()
     if mgr and mgr.stats then
-        mgr.stats.trophies = (mgr.stats.trophies or 0) + 1
+        mgr.stats.trophies = #gameState.records.trophies
     end
 end
 
@@ -41,7 +45,6 @@ function RecordsManager._ensureData(gameState)
             allTimeGoals = {},           -- Top10: { playerName, playerId, goals }
             allTimeAssists = {},
             allTimeAppearances = {},
-            uclSingleSeasonGoals = nil, -- { playerName, playerId, goals, season, teamName }
         }
     end
 
@@ -767,10 +770,9 @@ function RecordsManager.syncManagerProfile(gameState)
     if not mgr then return end
 
     mgr.stats = mgr.stats or {}
-    local trophyCount = #gameState.records.trophies
-    if trophyCount > (mgr.stats.trophies or 0) then
-        mgr.stats.trophies = trophyCount
-    end
+    -- 直接以 records.trophies 长度为权威值覆盖，而不是只"向上修正"：
+    -- manager.stats.trophies 不再是独立计数，是 records.trophies 的镜像。
+    mgr.stats.trophies = #gameState.records.trophies
 
     local mr = gameState.records.managerRecords
     if mr.totalMatches == 0 and (mgr.stats.wins or 0) > 0 then
@@ -879,11 +881,35 @@ function RecordsManager.migrateFromHistory(gameState)
         end
     end
 
-    -- 从世界杯历史回溯（玩家当时执教的国家队）
+    -- 从国家队执教历史回溯世界杯/欧洲杯冠军。
+    -- 关键：使用 _ntCoachHistory 中"夺冠时点"记录的 result，而不是 gameState.nationalTeamCoach.nation
+    -- （读档时的"当前"国家队身份）。这修复了旧档回填死角：如果玩家夺冠后已离任国家队教练，
+    -- 之前用"当前身份"比对会导致该冠军永远回填不出来，表现为"拿到过的冠军没有被记录"。
+    for _, coachRecord in ipairs(gameState._ntCoachHistory or {}) do
+        if coachRecord.result == "冠军" then
+            local competition = coachRecord.competition -- "worldcup" | "euro"
+            if competition == "worldcup" or competition == "euro" then
+                if not _hasTrophy(r, competition, coachRecord.season) then
+                    local team = playerTeamId and gameState.teams[playerTeamId]
+                    table.insert(r.trophies, {
+                        season = coachRecord.season,
+                        year = coachRecord.season,
+                        competition = competition,
+                        competitionName = competition == "worldcup" and "世界杯" or "欧洲杯",
+                        teamId = playerTeamId,
+                        teamName = team and team.name or coachRecord.nationName,
+                    })
+                end
+            end
+        end
+    end
+
+    -- 兼容早期存档：如果 _ntCoachHistory 缺失该赛季记录（比该字段更早的存档），
+    -- 退回用"当前"国家队教练身份与 _worldCupHistory/_euroHistory 对照，尽力回填。
     local coachNation = gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation
-    for _, wcRecord in ipairs(gameState._worldCupHistory or {}) do
-        if coachNation and wcRecord.championId == coachNation then
-            if not _hasTrophy(r, "worldcup", wcRecord.season) then
+    if coachNation then
+        for _, wcRecord in ipairs(gameState._worldCupHistory or {}) do
+            if wcRecord.championId == coachNation and not _hasTrophy(r, "worldcup", wcRecord.season) then
                 local team = playerTeamId and gameState.teams[playerTeamId]
                 table.insert(r.trophies, {
                     season = wcRecord.season,
@@ -895,12 +921,8 @@ function RecordsManager.migrateFromHistory(gameState)
                 })
             end
         end
-    end
-
-    -- 从欧洲杯历史回溯（玩家当时执教的国家队）
-    for _, euroRecord in ipairs(gameState._euroHistory or {}) do
-        if coachNation and euroRecord.championId == coachNation then
-            if not _hasTrophy(r, "euro", euroRecord.season) then
+        for _, euroRecord in ipairs(gameState._euroHistory or {}) do
+            if euroRecord.championId == coachNation and not _hasTrophy(r, "euro", euroRecord.season) then
                 local team = playerTeamId and gameState.teams[playerTeamId]
                 table.insert(r.trophies, {
                     season = euroRecord.season,

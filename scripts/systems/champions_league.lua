@@ -1036,6 +1036,7 @@ function ChampionsLeague._completeTournament(gameState, ucl)
             title = string.format("%s 赢得欧冠冠军!", champion and champion.name or "?"),
             body = string.format("%s 在 %d-%d 赛季欧洲冠军联赛中夺冠！",
                 champion and champion.name or "?", ucl.season, ucl.season + 1),
+            relatedTeams = { ucl.champion },
         })
 
         -- 冠军奖金

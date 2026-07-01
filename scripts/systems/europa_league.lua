@@ -557,6 +557,7 @@ function EuropaLeague._completeTournament(gameState, uel)
         title = string.format("%s 赢得欧联杯冠军!", champion and champion.name or "?"),
         body = string.format("%s 在 %d-%d 赛季欧洲联赛中夺冠！",
             champion and champion.name or "?", uel.season, uel.season + 1),
+        relatedTeams = { uel.champion },
     })
 
     if champion then

@@ -12,7 +12,7 @@ local FinanceManager = require("scripts/systems/finance_manager")
 local TransferHub = {}
 
 ---@type string
-local _activeTab = "recent" -- recent | top | free | rumours
+local _activeTab = "recent" -- recent | top | outgoing | free | rumours
 
 function TransferHub.create(params)
     local gameState = _G.gameState
@@ -31,6 +31,8 @@ function TransferHub.create(params)
     local content
     if _activeTab == "top" then
         content = TransferHub._buildTopDeals(gameState)
+    elseif _activeTab == "outgoing" then
+        content = TransferHub._buildMyOutgoingDeals(gameState)
     elseif _activeTab == "free" then
         content = TransferHub._buildFreeAgents(gameState)
     elseif _activeTab == "rumours" then
@@ -85,10 +87,11 @@ end
 
 function TransferHub._buildTabBar()
     local tabs = {
-        { key = "recent",  label = "最新动态" },
-        { key = "top",     label = "重磅交易" },
-        { key = "free",    label = "自由球员" },
-        { key = "rumours", label = "转会传闻" },
+        { key = "recent",   label = "最新动态" },
+        { key = "top",      label = "重磅交易" },
+        { key = "outgoing", label = "我的转出" },
+        { key = "free",     label = "自由球员" },
+        { key = "rumours",  label = "转会传闻" },
     }
     local children = {}
     for _, t in ipairs(tabs) do
@@ -167,24 +170,10 @@ function TransferHub._buildRecent(gameState)
     }
 end
 
----------------------------------------------------------------------------
--- 重磅交易（按金额排序 Top 15）
+-- 重磅交易（全球历史标王 Top 5，固定快照）
 ---------------------------------------------------------------------------
 function TransferHub._buildTopDeals(gameState)
-    local allHistory = HistoryManager.getTransferHistory(gameState)
-    -- 按金额排序
-    local sorted = {}
-    for _, t in ipairs(allHistory) do
-        if (t.amount or 0) > 0 then
-            table.insert(sorted, t)
-        end
-    end
-    table.sort(sorted, function(a, b) return (a.amount or 0) > (b.amount or 0) end)
-
-    local top = {}
-    for i = 1, math.min(15, #sorted) do
-        table.insert(top, sorted[i])
-    end
+    local top = HistoryManager.getGlobalTopTransfers(gameState, 5)
 
     if #top == 0 then
         return {
@@ -209,7 +198,50 @@ function TransferHub._buildTopDeals(gameState)
     return {
         Theme.Card {
             children = {
-                Theme.Subtitle { text = "历史最贵签约 Top " .. #top },
+                Theme.Subtitle { text = "全球历史标王 Top " .. #top },
+                UI.Panel { width = "100%", children = rows },
+            }
+        },
+    }
+end
+
+---------------------------------------------------------------------------
+-- 我的转出记录（玩家作为经理卖出的高额交易，Top 20）
+---------------------------------------------------------------------------
+function TransferHub._buildMyOutgoingDeals(gameState)
+    local top = HistoryManager.getManagerSaleHistory(gameState, 20)
+
+    if #top == 0 then
+        return {
+            Theme.Card {
+                children = {
+                    UI.Label {
+                        text = "你还没有把球员卖给其他球队。出售球员获得转会费后，这里会记录你的球星转出史。",
+                        fontSize = 13,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        textAlign = "center",
+                    },
+                }
+            }
+        }
+    end
+
+    local rows = {}
+    for idx, t in ipairs(top) do
+        table.insert(rows, TransferHub._myOutgoingRow(t, idx, gameState))
+    end
+
+    return {
+        Theme.Card {
+            children = {
+                Theme.Subtitle { text = "我的球星转出史 Top " .. #top },
+                UI.Label {
+                    text = "记录你作为经理卖给其他球队、转会费最高的交易（不含免签/租借）。",
+                    fontSize = 11,
+                    color = Theme.COLORS.TEXT_MUTED,
+                    marginTop = 4,
+                    marginBottom = 6,
+                },
                 UI.Panel { width = "100%", children = rows },
             }
         },
@@ -546,9 +578,84 @@ function TransferHub._topDealRow(t, rank, gameState)
                         color = Theme.COLORS.TEXT_PRIMARY,
                     },
                     UI.Label {
-                        text = (t.fromTeamName or "?") .. " → " .. (t.toTeamName or "?"),
+                        text = (t.fromTeamName or "?") .. " → " .. (t.toTeamName or "?")
+                            .. (t.season and (" · 第" .. tostring(t.season) .. "季") or ""),
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
+                    },
+                }
+            },
+            UI.Label {
+                text = TransferHub._formatAmount(t.amount or 0),
+                fontSize = 13,
+                color = Theme.COLORS.SECONDARY,
+                fontWeight = "bold",
+            },
+        }
+    }
+end
+
+function TransferHub._myOutgoingRow(t, rank, gameState)
+    local medalColor = Theme.COLORS.TEXT_MUTED
+    if rank == 1 then medalColor = {255, 215, 0, 255}
+    elseif rank == 2 then medalColor = {192, 192, 192, 255}
+    elseif rank == 3 then medalColor = {205, 127, 50, 255}
+    end
+
+    local playerExists = t.playerId and gameState.players[t.playerId] ~= nil
+
+    local nameRowChildren = {
+        UI.Label {
+            text = t.playerName or "?",
+            fontSize = 13,
+            fontWeight = "bold",
+            color = playerExists and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+        },
+    }
+    if t.overallAtSale then
+        table.insert(nameRowChildren, UI.Label {
+            text = "能力 " .. tostring(t.overallAtSale),
+            fontSize = 10,
+            color = Theme.COLORS.ACCENT,
+            marginLeft = 6,
+        })
+    end
+
+    local yearText = (t.date and t.date.year) and (tostring(t.date.year) .. "年") or nil
+    local seasonText = t.season and ("第" .. tostring(t.season) .. "季") or nil
+    local whenText = yearText and seasonText and (yearText .. " · " .. seasonText)
+        or (yearText or seasonText or "")
+
+    return UI.Panel {
+        width = "100%",
+        minHeight = 52,
+        flexDirection = "row",
+        alignItems = "center",
+        paddingTop = 6,
+        paddingBottom = 6,
+        paddingLeft = 6,
+        paddingRight = 8,
+        borderBottomWidth = 1,
+        borderColor = Theme.COLORS.BORDER,
+        onClick = playerExists and function() Router.navigate("player_detail", { playerId = t.playerId }) end or nil,
+        children = {
+            UI.Label {
+                text = "#" .. tostring(rank),
+                fontSize = 12,
+                color = medalColor,
+                width = 30,
+                fontWeight = "bold",
+            },
+            UI.Panel {
+                flexGrow = 1,
+                flexShrink = 1,
+                children = {
+                    UI.Panel { width = "100%", flexDirection = "row", alignItems = "center", children = nameRowChildren },
+                    UI.Label {
+                        text = "→ " .. (t.toTeamName or "?") .. (whenText ~= "" and ("  ·  " .. whenText) or ""),
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginTop = 2,
                     },
                 }
             },

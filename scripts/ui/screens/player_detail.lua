@@ -10,6 +10,7 @@ local FinanceManager = require("scripts/systems/finance_manager")
 local ContractManager = require("scripts/systems/contract_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local TransferManager = require("scripts/systems/transfer_manager")
+local HistoryManager = require("scripts/systems/history_manager")
 local SaveManager = require("scripts/persistence/save_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local StatsTab = require("scripts/ui/screens/player_detail/stats_tab")
@@ -422,8 +423,71 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
                 }
             } or UI.Panel { height = 0 },
 
+            -- 关注追踪
+            PlayerDetail._buildFollowAction(player, gameState),
+
             -- 转会操作（非己方球员）
             PlayerDetail._buildTransferAction(player, gameState),
+        }
+    }
+end
+
+-- 关注追踪：服务售出传奇/外队核心球员的长期叙事回看
+function PlayerDetail._buildFollowAction(player, gameState)
+    local isFollowed = HistoryManager.isPlayerFollowed(gameState, player.id)
+    local buttonText = isFollowed and "取消关注" or "关注动态"
+    local buttonColor = isFollowed and {60, 70, 90, 255} or {80, 58, 110, 255}
+    local buttonTextColor = isFollowed and Theme.COLORS.TEXT_MUTED or {220, 180, 255, 255}
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "关注追踪" },
+            UI.Label {
+                text = isFollowed
+                    and "已关注：他的转会、获奖、夺冠球队新闻会出现在新闻中心的“关注”页。"
+                    or "关注后，可在新闻中心单独查看这名球员相关的重要动态。",
+                fontSize = 12,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginTop = 4,
+                marginBottom = 10,
+            },
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                children = {
+                    UI.Button {
+                        text = buttonText,
+                        flexGrow = 1,
+                        height = 38,
+                        backgroundColor = buttonColor,
+                        borderRadius = 8,
+                        fontSize = 13,
+                        fontWeight = "bold",
+                        color = buttonTextColor,
+                        marginRight = 8,
+                        onClick = function()
+                            local nowFollowed = HistoryManager.toggleFollowPlayer(gameState, player)
+                            UI.Toast.Show({
+                                message = player.displayName .. (nowFollowed and " 已加入关注" or " 已取消关注"),
+                                variant = nowFollowed and "success" or "info",
+                            })
+                            Router.replaceWith("player_detail", { playerId = player.id, tab = "overview" })
+                        end,
+                    },
+                    UI.Button {
+                        text = "查看动态",
+                        width = 86,
+                        height = 38,
+                        backgroundColor = Theme.COLORS.BG_SURFACE,
+                        borderRadius = 8,
+                        fontSize = 12,
+                        color = Theme.COLORS.ACCENT,
+                        onClick = function()
+                            Router.navigate("news", { tab = "followed" })
+                        end,
+                    },
+                }
+            }
         }
     }
 end

@@ -1,5 +1,15 @@
 -- systems/awards_manager.lua
 -- 赛季奖项系统 - 金靴、金手套、最佳球员、最佳年轻球员、最佳助攻、最佳经理
+--
+-- 字段契约（新写入统一使用左列字段名，右列仅为兼容旧存档的只读别名，
+-- 新代码不应再写入右列字段）：
+--   result.topAssists    (旧别名 bestAssist，只在读取端做兼容，不再写入)
+--   result.goldenGlove    (旧别名 bestGoalkeeper，只在读取端做兼容，不再写入)
+--
+-- 持久化说明：本模块每赛季计算出的 awards 由调用方（SeasonManager）转交给
+-- HistoryManager.recordSeasonEnd() 存入 gameState.worldHistory[].awards，这是
+-- 奖项数据唯一的存档权威来源。本模块不再维护自己的历史列表（不再有
+-- gameState._seasonAwards），避免出现"运行时有、读档后没有"的数据源分裂。
 
 local EventBus = require("scripts/app/event_bus")
 local Constants = require("scripts/app/constants")
@@ -11,10 +21,6 @@ local AwardsManager = {}
 ------------------------------------------------------
 
 function AwardsManager.processSeasonAwards(gameState)
-    if not gameState._seasonAwards then
-        gameState._seasonAwards = {}
-    end
-
     local season = gameState.season
     local awards = {
         season = season,
@@ -35,9 +41,6 @@ function AwardsManager.processSeasonAwards(gameState)
 
     -- 全局金球奖前三名
     awards.ballonDor = AwardsManager._calculateBallonDor(gameState)
-
-    -- 保存到历史
-    table.insert(gameState._seasonAwards, awards)
 
     -- 如果涉及玩家球队的球员获奖，发送消息
     AwardsManager._notifyPlayerAwards(gameState, awards)
@@ -82,8 +85,6 @@ function AwardsManager._calculateLeagueAwards(gameState, league)
 
     -- 5. 金手套（门将零封场次最多）
     result.goldenGlove = AwardsManager._findGoldenGlove(leaguePlayers)
-    -- 兼容旧存档/UI：历史字段 bestGoalkeeper 继续保留
-    result.bestGoalkeeper = result.goldenGlove
 
     return result
 end
@@ -507,12 +508,19 @@ end
 
 function AwardsManager._announceAwards(gameState, leagueName, leagueAwards)
     local lines = {}
+    local relatedPlayers = {}
+    local function addRelatedPlayer(data)
+        if data and data.playerId then
+            table.insert(relatedPlayers, data.playerId)
+        end
+    end
 
     if leagueAwards.goldenBoot then
         local gb = leagueAwards.goldenBoot
         local team = gameState.teams[gb.teamId]
         table.insert(lines, string.format("金靴奖: %s（%s）- %d球",
             gb.playerName, team and team.name or "?", gb.goals))
+        addRelatedPlayer(gb)
     end
 
     if leagueAwards.bestPlayer then
@@ -520,6 +528,7 @@ function AwardsManager._announceAwards(gameState, leagueName, leagueAwards)
         local team = gameState.teams[bp.teamId]
         table.insert(lines, string.format("最佳球员: %s（%s）",
             bp.playerName, team and team.name or "?"))
+        addRelatedPlayer(bp)
     end
 
     if leagueAwards.bestYoungPlayer then
@@ -527,6 +536,7 @@ function AwardsManager._announceAwards(gameState, leagueName, leagueAwards)
         local team = gameState.teams[byp.teamId]
         table.insert(lines, string.format("最佳年轻球员: %s（%s，%d岁）",
             byp.playerName, team and team.name or "?", byp.age))
+        addRelatedPlayer(byp)
     end
 
     if leagueAwards.topAssists then
@@ -534,6 +544,7 @@ function AwardsManager._announceAwards(gameState, leagueName, leagueAwards)
         local team = gameState.teams[ta.teamId]
         table.insert(lines, string.format("最佳助攻: %s（%s）- %d次助攻",
             ta.playerName, team and team.name or "?", ta.assists))
+        addRelatedPlayer(ta)
     end
 
     local goldenGlove = leagueAwards.goldenGlove or leagueAwards.bestGoalkeeper
@@ -542,6 +553,7 @@ function AwardsManager._announceAwards(gameState, leagueName, leagueAwards)
         local team = gameState.teams[bgk.teamId]
         table.insert(lines, string.format("金手套奖: %s（%s）- %d次零封",
             bgk.playerName, team and team.name or "?", bgk.cleanSheets))
+        addRelatedPlayer(bgk)
     end
 
     if #lines > 0 then
@@ -549,6 +561,7 @@ function AwardsManager._announceAwards(gameState, leagueName, leagueAwards)
             category = "season_news",
             title = string.format("%s 赛季奖项揭晓", leagueName),
             body = table.concat(lines, "\n"),
+            relatedPlayers = relatedPlayers,
         })
     end
 end
@@ -601,32 +614,8 @@ function AwardsManager._notifyPlayerAwards(gameState, awards)
     end
 end
 
-------------------------------------------------------
--- 查询接口（供 UI 调用）
-------------------------------------------------------
-
---- 获取当前赛季的所有奖项
-function AwardsManager.getCurrentAwards(gameState)
-    if not gameState._seasonAwards or #gameState._seasonAwards == 0 then
-        return nil
-    end
-    return gameState._seasonAwards[#gameState._seasonAwards]
-end
-
---- 获取历史所有赛季奖项
-function AwardsManager.getAllAwards(gameState)
-    return gameState._seasonAwards or {}
-end
-
---- 获取某赛季的奖项
-function AwardsManager.getAwardsBySeason(gameState, season)
-    if not gameState._seasonAwards then return nil end
-    for _, awards in ipairs(gameState._seasonAwards) do
-        if awards.season == season then
-            return awards
-        end
-    end
-    return nil
-end
+-- 查询接口：奖项数据的权威来源是 gameState.worldHistory[].awards
+-- （见 HistoryManager.getSeasonHistory / getWorldHistory），本模块不再提供
+-- 基于 _seasonAwards 的查询 API，避免读档后返回空结果的陷阱。
 
 return AwardsManager
