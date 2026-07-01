@@ -723,7 +723,7 @@ function YouthManager.createCustomYouthPlayer(gameState, opts)
     local nationality = Nationality.normalize(opts.nationality)
 
     local facilityYouthBonus = YouthManager._getTeamYouthFacilityBonus(gameState, team.id)
-    local usedNames = _collectYouthUsedNames(gameState, team.id)
+    local usedNames = YouthManager._collectYouthUsedNames(gameState, team.id)
     local candidate = YouthManager._generateYouthPlayer(
         gameState,
         facilityYouthBonus,

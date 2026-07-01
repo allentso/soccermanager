@@ -363,6 +363,7 @@ local function buildOtherLeaguesSection(gameState, record, teamId, playerLeagueK
                         children = {
                             UI.Label { text = icon, width = 24, fontSize = 11 },
                             UI.Label { text = info.teamName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                            ---@diagnostic disable-next-line: param-type-mismatch
                             UI.Label { text = label, width = 40, fontSize = 10, fontWeight = "bold", color = labelColor, textAlign = "right" },
                         }
                     })

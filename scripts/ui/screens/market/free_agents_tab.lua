@@ -23,6 +23,10 @@ local function _market()
     return require("scripts/ui/screens/market")
 end
 
+local function _buildDeferFreeAgentButton(gameState, negoId, playerName, tabKey, opts, compact)
+    return _market()._buildDeferFreeAgentButton(gameState, negoId, playerName, tabKey, opts, compact)
+end
+
 function Tab.build(gameState, posFilter)
     local children = {}
 
@@ -343,7 +347,7 @@ function Tab.build(gameState, posFilter)
 
     -- 位置筛选条
     local filterBtns = {}
-    for _, f in ipairs(POSITION_FILTERS) do
+    for _, f in ipairs(_market().POSITION_FILTERS) do
         local isActive = f.key == posFilter
         table.insert(filterBtns, UI.Button {
             text = f.label, height = 28, paddingLeft = 8, paddingRight = 8,

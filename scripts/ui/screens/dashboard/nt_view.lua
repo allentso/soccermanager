@@ -23,6 +23,7 @@ local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local DayAdvanceOverlay = require("scripts/ui/components/day_advance_overlay")
 local MessageActionHandlers = require("scripts/ui/message_action_handlers")
 local Market = require("scripts/ui/screens/market")
+---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
 local function _dashboard() return require("scripts/ui/screens/dashboard") end
 
@@ -253,7 +254,7 @@ function Mod.buildMatchHero(gameState)
                     top = 10, left = 10,
                     zIndex = 10,
                     children = {
-                        Dashboard._buildTeamIconSwitcher(gameState, gameState:getPlayerTeam()),
+                        _dashboard()._buildTeamIconSwitcher(gameState, gameState:getPlayerTeam()),
                     },
                 },
                 UI.Panel {
@@ -261,7 +262,7 @@ function Mod.buildMatchHero(gameState)
                     top = 10, right = 10,
                     zIndex = 10,
                     children = {
-                        Dashboard._buildSettingsChip(),
+                        _dashboard()._buildSettingsChip(),
                     },
                 },
                 Theme.SectionHeader { text = "🏆 " .. compLabel .. " · " .. phaseName, color = {255, 215, 0, 255} },
@@ -310,7 +311,7 @@ function Mod.buildMatchHero(gameState)
                 top = 10, left = 10,
                 zIndex = 10,
                 children = {
-                    Dashboard._buildTeamIconSwitcher(gameState, gameState:getPlayerTeam()),
+                    _dashboard()._buildTeamIconSwitcher(gameState, gameState:getPlayerTeam()),
                 },
             },
             UI.Panel {
@@ -318,7 +319,7 @@ function Mod.buildMatchHero(gameState)
                 top = 10, right = 10,
                 zIndex = 10,
                 children = {
-                    Dashboard._buildSettingsChip(),
+                    _dashboard()._buildSettingsChip(),
                 },
             },
             -- 顶部：世界杯 + 阶段 + 倒计时

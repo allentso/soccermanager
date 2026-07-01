@@ -437,6 +437,8 @@ _buildDeferTransferButton = function(gameState, bidId, playerName, tabKey, opts,
     }
 end
 
+Market._buildDeferTransferButton = _buildDeferTransferButton
+
 local function _buildDeferFreeAgentButton(gameState, negoId, playerName, tabKey, opts, compact)
     if not TransferManager.canDeferFreeAgentSignConfirmation(gameState, negoId) then return nil end
     return UI.Button {
@@ -466,6 +468,10 @@ local function _buildDeferFreeAgentButton(gameState, negoId, playerName, tabKey,
         end,
     }
 end
+Market._buildDeferFreeAgentButton = _buildDeferFreeAgentButton
+
+Market.POSITION_FILTERS = POSITION_FILTERS
+Market._loanShareSelection = _loanShareSelection
 
 function Market._showBatchTransferSignConfirmSheet(gameState, pendingList, opts)
     opts = opts or {}

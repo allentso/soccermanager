@@ -12,6 +12,12 @@ local randInt = Helpers.randInt
 local fmtMoney = Helpers.fmtMoney
 local SIGN_CONFIRM_TIMEOUT_DAYS = Helpers.SIGN_CONFIRM_TIMEOUT_DAYS
 local SIGN_CONFIRM_DEFER_DAYS = Helpers.SIGN_CONFIRM_DEFER_DAYS
+local _ACTIVE_FREE_AGENT_NEGO_STATUSES = {
+    pending = true,
+    negotiating = true,
+    awaiting_confirmation = true,
+}
+local ACTIVE_FREE_AGENT_NEGO_STATUSES = _ACTIVE_FREE_AGENT_NEGO_STATUSES
 
 return function(TransferManager)
     ------------------------------------------------------

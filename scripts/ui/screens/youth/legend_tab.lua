@@ -17,6 +17,7 @@ local DifficultySettings = require("scripts/systems/difficulty_settings")
 local LegendImageRegistry = require("scripts/data/legend_image_registry")
 local SaveManager = require("scripts/persistence/save_manager")
 local SaleListingPriceSheet = require("scripts/ui/components/sale_listing_price_sheet")
+---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
 local function _youth() return require("scripts/ui/screens/youth") end
 
@@ -107,7 +108,7 @@ function Tab._buildLegendPoolSelector(gameState)
                         fontSize = 10,
                         color = Theme.COLORS.GOLD,
                         onClick = function()
-                            Youth._showLegendPoolListModal(gameState, selectedId)
+                            _youth()._showLegendPoolListModal(gameState, selectedId)
                         end,
                     },
                 },
@@ -351,7 +352,7 @@ function Tab._buildOrphanReclaimBanner(gameState)
                         fontWeight = "bold",
                         color = "#000000",
                         onClick = function()
-                            Youth._showOrphanReclaimModal(gameState)
+                            _youth()._showOrphanReclaimModal(gameState)
                         end,
                     },
                 },
@@ -574,7 +575,7 @@ function Tab.build(gameState)
                     _youth()._showLegendCloudSyncingToast()
                     return
                 end
-                Youth._watchAdForUnlock(gameState)
+                _youth()._watchAdForUnlock(gameState)
             end,
         })
         return Theme.Card { children = children }
@@ -625,7 +626,7 @@ function Tab.build(gameState)
             },
         },
     })
-    table.insert(unlockedChildren, Youth._buildLegendPoolSelector(gameState))
+    table.insert(unlockedChildren, _youth()._buildLegendPoolSelector(gameState))
     table.insert(unlockedChildren, UI.Panel {
         width = "100%",
         flexDirection = "row",
@@ -681,7 +682,7 @@ function Tab.build(gameState)
                 _youth()._showLegendCloudSyncingToast()
                 return
             end
-            Youth._showAdForPullsModal(gameState)
+            _youth()._showAdForPullsModal(gameState)
         end,
     })
     table.insert(unlockedChildren, UI.Panel {
@@ -704,7 +705,7 @@ function Tab.build(gameState)
                         return
                     end
                     if canSingle then
-                        Youth._doSinglePull(gameState)
+                        _youth()._doSinglePull(gameState)
                     end
                 end,
             },
@@ -724,7 +725,7 @@ function Tab.build(gameState)
                         return
                     end
                     if canTen then
-                        Youth._doTenPull(gameState)
+                        _youth()._doTenPull(gameState)
                     end
                 end,
             },
@@ -892,7 +893,7 @@ function Tab._showAdForPullsModal(gameState)
                         marginBottom = 10,
                         onClick = function()
                             UI.CloseOverlay()
-                            Youth._doWatchAdInModal(gameState)
+                            _youth()._doWatchAdInModal(gameState)
                         end,
                     },
                     -- 关闭按钮
@@ -937,7 +938,7 @@ function Tab._doWatchAdInModal(gameState)
             -- 广告视频释放后强制 GC，防止连续观看时内存峰值过高
             collectgarbage("collect")
             -- 显示奖励反馈弹窗
-            Youth._showAdRewardPopup(gameState, newPulls)
+            _youth()._showAdRewardPopup(gameState, newPulls)
         else
             UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
         end
@@ -1011,7 +1012,7 @@ function Tab._showAdRewardPopup(gameState, newPulls)
                         marginBottom = 8,
                         onClick = function()
                             UI.CloseOverlay()
-                            Youth._showAdForPullsModal(gameState)
+                            _youth()._showAdForPullsModal(gameState)
                         end,
                     },
                     UI.Button {
@@ -1050,7 +1051,7 @@ function Tab._doSinglePull(gameState)
 
     if candidate.isLegend then
         -- 单抽出传奇：弹出专属揭示弹窗
-        Youth._showLegendReveal(candidate, false)
+        _youth()._showLegendReveal(candidate, false)
     else
         UI.Toast.Show({ message = string.format("获得 %s（%s）", candidate.displayName, candidate.position), variant = "success" })
         Router.replaceWith("youth", { tab = "recruit" })
@@ -1082,7 +1083,7 @@ function Tab._doTenPull(gameState)
                 break
             end
         end
-        Youth._showLegendReveal(legendPlayer, results.isFirstTenPull)
+        _youth()._showLegendReveal(legendPlayer, results.isFirstTenPull)
     else
         ConfirmDialog.show({
             title = "十连抽结果",

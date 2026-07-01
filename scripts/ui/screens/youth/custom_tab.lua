@@ -17,6 +17,7 @@ local DifficultySettings = require("scripts/systems/difficulty_settings")
 local LegendImageRegistry = require("scripts/data/legend_image_registry")
 local SaveManager = require("scripts/persistence/save_manager")
 local SaleListingPriceSheet = require("scripts/ui/components/sale_listing_price_sheet")
+---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
 local function _youth() return require("scripts/ui/screens/youth") end
 
@@ -247,7 +248,7 @@ function Tab._showCreateCustomModal(gameState, defaultNat)
                                 color = Theme.COLORS.TEXT_PRIMARY,
                                 marginRight = 12,
                                 onClick = function()
-                                    cycleCustomNation(-1)
+                                    _youth()._cycleCustomNation(-1)
                                     reopenModal()
                                 end,
                             },
@@ -279,7 +280,7 @@ function Tab._showCreateCustomModal(gameState, defaultNat)
                                 color = Theme.COLORS.TEXT_PRIMARY,
                                 marginLeft = 12,
                                 onClick = function()
-                                    cycleCustomNation(1)
+                                    _youth()._cycleCustomNation(1)
                                     reopenModal()
                                 end,
                             },

@@ -52,7 +52,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
 
     -- ?????
     local filterBtns = {}
-    for _, f in ipairs(POSITION_FILTERS) do
+    for _, f in ipairs(_market().POSITION_FILTERS) do
         local isActive = f.key == posFilter
         table.insert(filterBtns, UI.Button {
             text = f.label,

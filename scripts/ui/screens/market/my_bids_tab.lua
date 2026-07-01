@@ -23,6 +23,8 @@ local function _market()
     return require("scripts/ui/screens/market")
 end
 
+local _loanShareSelection = {}
+
 function Tab.build(gameState)
     local children = {}
     local bids = TransferManager.getPlayerBids(gameState)
@@ -386,7 +388,7 @@ function Tab.build(gameState)
                     end,
                 },
             }
-            local deferBtn = _buildDeferTransferButton(gameState, bidId, playerName, "my_bids", nil, true)
+            local deferBtn = _market()._buildDeferTransferButton(gameState, bidId, playerName, "my_bids", nil, true)
             if deferBtn then
                 table.insert(actionRow, 1, deferBtn)
             end

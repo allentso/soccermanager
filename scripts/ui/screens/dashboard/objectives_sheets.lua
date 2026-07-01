@@ -23,6 +23,7 @@ local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local DayAdvanceOverlay = require("scripts/ui/components/day_advance_overlay")
 local MessageActionHandlers = require("scripts/ui/message_action_handlers")
 local Market = require("scripts/ui/screens/market")
+---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
 local function _dashboard() return require("scripts/ui/screens/dashboard") end
 
@@ -33,7 +34,7 @@ function Mod.showDetail(gameState)
 
     -- 未设定目标 → 弹出选择界面
     if not summary.hasObjectives then
-        Dashboard._showObjectiveSelection(gameState)
+        _dashboard()._showObjectiveSelection(gameState)
         return
     end
 
