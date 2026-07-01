@@ -115,15 +115,56 @@ function ScoutManager.playerNameMatchesSearch(player, lowerQuery)
     return textMatchesSearch(combined, lowerQuery)
 end
 
+--- 转会市场搜索上下文：国籍命中集 + 租借索引（循环外构建一次）
+---@param gameState table
+---@param lowerQuery string
+---@return table|nil
+function ScoutManager.buildMarketSearchContext(gameState, lowerQuery)
+    if not lowerQuery or lowerQuery == "" then return nil end
+
+    local matchingNationNorms = {}
+    for code, name in pairs(NATION_NAMES) do
+        if name:lower():find(lowerQuery, 1, true)
+            or code:lower():find(lowerQuery, 1, true) then
+            matchingNationNorms[Nationality.normalize(code)] = true
+        end
+    end
+
+    local loanByPlayer = {}
+    for _, loan in ipairs(gameState._activeLoans or {}) do
+        loanByPlayer[loan.playerId] = loan
+    end
+
+    return {
+        matchingNationNorms = matchingNationNorms,
+        loanByPlayer = loanByPlayer,
+    }
+end
+
+local function nationalityMatchesSearchWithContext(natCode, lowerQuery, ctx)
+    if not natCode or lowerQuery == "" then return false end
+    if natCode:lower():find(lowerQuery, 1, true) then return true end
+    local norm = Nationality.normalize(natCode)
+    if norm:lower():find(lowerQuery, 1, true) then return true end
+    if ctx and ctx.matchingNationNorms then
+        return ctx.matchingNationNorms[norm] == true
+    end
+    return ScoutManager.nationalityMatchesSearch(natCode, lowerQuery)
+end
+
 --- 转会市场浏览：球员名/所属队/租借队/国籍综合匹配
-function ScoutManager.playerMatchesMarketSearch(gameState, player, lowerQuery)
+---@param ctx table|nil ScoutManager.buildMarketSearchContext 的返回值
+function ScoutManager.playerMatchesMarketSearch(gameState, player, lowerQuery, ctx)
     if lowerQuery == "" then return true end
     if ScoutManager.playerNameMatchesSearch(player, lowerQuery) then return true end
-    if ScoutManager.nationalityMatchesSearch(player.nationality, lowerQuery) then return true end
     local team = player.teamId and gameState.teams[player.teamId]
     if team and ScoutManager.teamMatchesSearch(team, lowerQuery) then return true end
-    local TransferManager = require("scripts/systems/transfer_manager")
-    local loan = TransferManager.getLoanForPlayer(gameState, player.id)
+    if nationalityMatchesSearchWithContext(player.nationality, lowerQuery, ctx) then return true end
+    local loan = ctx and ctx.loanByPlayer and ctx.loanByPlayer[player.id]
+    if not loan and not ctx then
+        local TransferManager = require("scripts/systems/transfer_manager")
+        loan = TransferManager.getLoanForPlayer(gameState, player.id)
+    end
     if loan then
         local loanTeam = gameState.teams[loan.loanTeamId]
         if loanTeam and ScoutManager.teamMatchesSearch(loanTeam, lowerQuery) then

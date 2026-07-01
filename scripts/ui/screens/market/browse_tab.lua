@@ -1,5 +1,5 @@
 -- ui/screens/market/browse_tab.lua
--- 搜索/浏览标签页，从 market.lua 拆分。
+-- ??/??????? market.lua ???
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
@@ -19,6 +19,47 @@ local SaleListingPriceSheet = require("scripts/ui/components/sale_listing_price_
 
 local Tab = {}
 
+local SEARCH_DEBOUNCE_SEC = 0.35
+local _searchDebounceJob = nil
+local _searchDebounceTick = nil
+
+local function commitBrowseSearch(posFilter, text, ovrRange, ageRange)
+    local trimmed = (text or ""):match("^%s*(.-)%s*$") or ""
+    Router.replaceWith("market", {
+        tab = "browse",
+        posFilter = posFilter,
+        searchQuery = trimmed,
+        ovrRange = ovrRange,
+        ageRange = ageRange,
+        _softRefresh = true,
+    })
+end
+
+local function queueBrowseSearch(posFilter, text, ovrRange, ageRange)
+    _searchDebounceJob = {
+        posFilter = posFilter,
+        text = text,
+        ovrRange = ovrRange,
+        ageRange = ageRange,
+        due = os.clock() + SEARCH_DEBOUNCE_SEC,
+    }
+    if _searchDebounceTick then return end
+    _searchDebounceTick = function()
+        local job = _searchDebounceJob
+        if not job then
+            UnsubscribeFromEvent("PostUpdate")
+            _searchDebounceTick = nil
+            return
+        end
+        if os.clock() < job.due then return end
+        _searchDebounceJob = nil
+        UnsubscribeFromEvent("PostUpdate")
+        _searchDebounceTick = nil
+        commitBrowseSearch(job.posFilter, job.text, job.ovrRange, job.ageRange)
+    end
+    SubscribeToEvent("PostUpdate", _searchDebounceTick)
+end
+
 local MarketHelpers = require("scripts/ui/screens/market/market_helpers")
 local getPositionGroup = MarketHelpers.getPositionGroup
 local _getPotentialStars = MarketHelpers.getPotentialStars
@@ -27,30 +68,30 @@ local function _market()
 end
 
 local OVR_RANGES = {
-    { key = "all",  label = "全部", min = 0,  max = 99 },
+    { key = "all",  label = "??", min = 0,  max = 99 },
     { key = "80+",  label = "80+",  min = 80, max = 99 },
     { key = "70-79", label = "70-79", min = 70, max = 79 },
     { key = "60-69", label = "60-69", min = 60, max = 69 },
     { key = "<60",  label = "<60",  min = 0,  max = 59 },
 }
 
--- 年龄范围
+-- ????
 local AGE_RANGES = {
-    { key = "all", label = "全部", min = 0, max = 99 },
+    { key = "all", label = "??", min = 0, max = 99 },
     { key = "u21", label = "U21", min = 0, max = 21 },
     { key = "22-25", label = "22-25", min = 22, max = 25 },
     { key = "26-29", label = "26-29", min = 26, max = 29 },
     { key = "30+", label = "30+", min = 30, max = 99 },
 }
 
--- 构建浏览列表
+-- ??????
 function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
     searchQuery = (searchQuery or ""):match("^%s*(.-)%s*$") or ""
     ovrRange = ovrRange or "all"
     ageRange = ageRange or "all"
     local children = {}
 
-    -- 位置筛选条
+    -- ?????
     local filterBtns = {}
     for _, f in ipairs(_market().POSITION_FILTERS) do
         local isActive = f.key == posFilter
@@ -81,24 +122,37 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         children = filterBtns,
     })
 
-    -- 搜索框
+    -- 搜索框（输入防抖提交，避免中文输入法逐字触发全量重建）
+    local searchField
+    searchField = UI.TextField {
+        flexGrow = 1, height = 34,
+        placeholder = "搜索球员/球队/国籍...",
+        value = searchQuery,
+        fontSize = 12,
+        borderRadius = 8,
+        onSubmit = function(self, text)
+            queueBrowseSearch(posFilter, text, ovrRange, ageRange)
+        end,
+    }
     table.insert(children, UI.Panel {
         width = "100%", paddingLeft = 12, paddingRight = 12, paddingBottom = 6,
+        flexDirection = "row", alignItems = "center",
         children = {
-            UI.TextField {
-                width = "100%", height = 34,
-                placeholder = "搜索球员/球队/国籍...",
-                value = searchQuery,
-                fontSize = 12,
-                borderRadius = 8,
-                onSubmit = function(self, text)
-                    Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = text, ovrRange = ovrRange, ageRange = ageRange })
+            searchField,
+            UI.Button {
+                text = "搜索",
+                width = 52, height = 34, marginLeft = 6,
+                backgroundColor = Theme.COLORS.GOLD,
+                borderRadius = 8, fontSize = 12,
+                color = "#1A1A1A", fontWeight = "bold",
+                onClick = function()
+                    commitBrowseSearch(posFilter, searchField:GetValue(), ovrRange, ageRange)
                 end,
             },
         },
     })
 
-    -- OVR 范围筛选
+    -- OVR ????
     local ovrBtns = {}
     for _, r in ipairs(OVR_RANGES) do
         local isActive = r.key == ovrRange
@@ -117,11 +171,11 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
             end,
         })
     end
-    -- 右侧追加列标注（与球员行的 星星/OVR/报价按钮 对齐）
+    -- ????????????? ??/OVR/???? ???
     table.insert(ovrBtns, UI.Panel { flexGrow = 1 })
-    table.insert(ovrBtns, UI.Label { text = "潜力★", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 6 })
-    table.insert(ovrBtns, UI.Label { text = "能力", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, width = 26, textAlign = "right", marginRight = 10 })
-    table.insert(ovrBtns, UI.Panel { width = 50 })  -- 对齐报价按钮列
+    table.insert(ovrBtns, UI.Label { text = "???", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 6 })
+    table.insert(ovrBtns, UI.Label { text = "??", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, width = 26, textAlign = "right", marginRight = 10 })
+    table.insert(ovrBtns, UI.Panel { width = 50 })  -- ???????
 
     table.insert(children, UI.Panel {
         width = "100%", height = 36, flexDirection = "row", alignItems = "center",
@@ -129,7 +183,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         children = ovrBtns,
     })
 
-    -- 年龄范围筛选
+    -- ??????
     local ageBtns = {}
     for _, r in ipairs(AGE_RANGES) do
         local isActive = r.key == ageRange
@@ -155,21 +209,22 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         children = ageBtns,
     })
 
-    -- 查找 OVR 范围
+    -- ?? OVR ??
     local ovrMin, ovrMax = 0, 99
     for _, r in ipairs(OVR_RANGES) do
         if r.key == ovrRange then ovrMin, ovrMax = r.min, r.max break end
     end
 
-    -- 查找年龄范围
+    -- ??????
     local ageMin, ageMax = 0, 99
     for _, r in ipairs(AGE_RANGES) do
         if r.key == ageRange then ageMin, ageMax = r.min, r.max break end
     end
 
--- 收集可转会球员（搜索模式下含自由球员；平时排除无队球员，走专门的"自由球员"标签）
+-- 搜索框（输入防抖提交，避免中文输入法逐字触发全量重建）?????"????"???
     local lowerQuery = searchQuery:lower()
     local isSearching = lowerQuery ~= ""
+    local searchCtx = isSearching and ScoutManager.buildMarketSearchContext(gameState, lowerQuery) or nil
     local availablePlayers = {}
     for _, p in pairs(gameState.players) do
         if p.retired then goto continue end
@@ -180,7 +235,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         local eligible = onOtherTeam or onOwnTeamWithSearch or (isSearching and isFreeAgent)
         if not eligible then goto continue end
 
-        -- 位置过滤（候选名单模式只显示在候选名单中的球员）
+        -- ????????????????????????
         local posMatch = false
         if posFilter == "SHORTLIST" then
             posMatch = gameState.shortlist and gameState.shortlist[p.id] == true
@@ -191,15 +246,15 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         end
         if not posMatch then goto continue end
 
-        -- OVR 和年龄范围过滤
+        -- OVR ???????
         local playerAge = p:getAge(gameState.date.year)
         if p.overall < ovrMin or p.overall > ovrMax
             or playerAge < ageMin or playerAge > ageMax then
             goto continue
         end
 
-        -- 搜索过滤（球员名、球队名、国籍）
-        if isSearching and not ScoutManager.playerMatchesMarketSearch(gameState, p, lowerQuery) then
+        -- ????????????????
+        if isSearching and not ScoutManager.playerMatchesMarketSearch(gameState, p, lowerQuery, searchCtx) then
             goto continue
         end
 
@@ -207,7 +262,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         ::continue::
     end
 
-    -- 搜索时按相关度排序，否则按能力排序
+    -- ?????????????????
     if isSearching then
         table.sort(availablePlayers, function(a, b)
             local rankA = ScoutManager.getPlayerSearchRank(a, lowerQuery)
@@ -231,8 +286,8 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         local attitude, attitudeDesc = TransferManager.getPlayerTransferAttitude(gameState, p.id, gameState.playerTeamId)
         local competingBids = TransferManager.getCompetingBids(gameState, p.id)
 
-        -- 态度颜色和文本
-        local attitudeText = attitude == "eager" and "想转会" or (attitude == "open" and "愿考虑" or (attitude == "reluctant" and "不情愿" or "拒绝"))
+        -- ???????
+        local attitudeText = attitude == "eager" and "???" or (attitude == "open" and "???" or (attitude == "reluctant" and "???" or "??"))
         if attitude == "refusing" and attitudeDesc and attitudeDesc ~= "" then
             attitudeText = attitudeDesc
         end
@@ -240,34 +295,34 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
             or (attitude == "open" and Theme.COLORS.ACCENT
             or (attitude == "reluctant" and Theme.COLORS.WARNING or Theme.COLORS.DANGER))
 
-        -- 附加信息标签
+        -- ??????
         local extraTags = {}
         if releaseClause then
             table.insert(extraTags, UI.Panel {
                 backgroundColor = {80, 60, 20, 255}, borderRadius = 3,
                 paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2, marginRight = 4,
-                children = { UI.Label { text = "解约 " .. _market()._formatValue(releaseClause), fontSize = 9, color = {255, 200, 80, 255} } },
+                children = { UI.Label { text = "?? " .. _market()._formatValue(releaseClause), fontSize = 9, color = {255, 200, 80, 255} } },
             })
         end
         if p.isYouth then
             table.insert(extraTags, UI.Panel {
                 backgroundColor = {30, 70, 50, 255}, borderRadius = 3,
                 paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2, marginRight = 4,
-                children = { UI.Label { text = "青训", fontSize = 9, color = {120, 220, 150, 255} } },
+                children = { UI.Label { text = "??", fontSize = 9, color = {120, 220, 150, 255} } },
             })
         end
         if #competingBids > 0 then
             table.insert(extraTags, UI.Panel {
                 backgroundColor = {80, 30, 30, 255}, borderRadius = 3,
                 paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2, marginRight = 4,
-                children = { UI.Label { text = #competingBids .. "队竞价", fontSize = 9, color = {255, 120, 120, 255} } },
+                children = { UI.Label { text = #competingBids .. "???", fontSize = 9, color = {255, 120, 120, 255} } },
             })
         end
         if p.teamId and gameState.playerTeamId and TransferManager.isRivalry(gameState, p.teamId, gameState.playerTeamId) then
             table.insert(extraTags, UI.Panel {
                 backgroundColor = {120, 30, 30, 255}, borderRadius = 3,
                 paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2, marginRight = 4,
-                children = { UI.Label { text = "死敌", fontSize = 9, color = {255, 160, 160, 255}, fontWeight = "bold" } },
+                children = { UI.Label { text = "??", fontSize = 9, color = {255, 160, 160, 255}, fontWeight = "bold" } },
             })
         end
 
@@ -276,7 +331,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
             paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
             borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
             children = {
-                -- 第一行：名字 + 能力值 + 身价 + 报价按钮
+                -- ?????? + ??? + ?? + ????
                 UI.Panel {
                     width = "100%", flexDirection = "row", alignItems = "center",
                     children = {
@@ -304,7 +359,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
                                 TransferLimitDialog.show(p.displayName, gameState)
                             end,
                             children = {
-                                UI.Label { text = "已转", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, fontWeight = "bold" },
+                                UI.Label { text = "??", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, fontWeight = "bold" },
                             },
                         } or UI.Panel { width = 0, height = 0 },
                         p.potential and UI.Label {
@@ -316,7 +371,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
                             fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
                         },
                         UI.Button {
-                            text = movedThisWindow and "已转" or (hasBid and "已报" or (isFreeAgent and "邀约" or (releaseClause and "解约" or "报价"))),
+                            text = movedThisWindow and "??" or (hasBid and "??" or (isFreeAgent and "??" or (releaseClause and "??" or "??"))),
                             width = 50, height = 28,
                             backgroundColor = (movedThisWindow or hasBid) and Theme.COLORS.TEXT_MUTED or Theme.COLORS.GOLD,
                             borderRadius = 6, fontSize = 12,
@@ -340,7 +395,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
                                             end
                                             return
                                         end
-                                        UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
+                                        UI.Toast.Show({ message = "????????", variant = "success" })
                                         Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = ovrRange, ageRange = ageRange })
                                     else
                                         Tab.showBidSheet(gameState, p, posFilter, searchQuery, ovrRange, ageRange)
@@ -350,16 +405,16 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
                         },
                     },
                 },
-                -- 第二行：球队 | 年龄 | 身价 | 态度 | 标签
+                -- ?????? | ?? | ?? | ?? | ??
                 UI.Panel {
                     width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
                     children = {
                         UI.Label {
-                            text = (team and team.name or "自由"),
+                            text = (team and team.name or "??"),
                             fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexShrink = 1,
                         },
-                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
-                        UI.Label { text = p:getAge(gameState.date.year) .. "岁", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                        UI.Label { text = " ? ", fontSize = 11, color = Theme.COLORS.BORDER },
+                        UI.Label { text = p:getAge(gameState.date.year) .. "?", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
                         UI.Label { text = " ? ", fontSize = 11, color = Theme.COLORS.BORDER },
                         UI.Label { text = _market()._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
                         UI.Label { text = " ? ", fontSize = 11, color = Theme.COLORS.BORDER },
@@ -375,11 +430,11 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
     if maxShow == 0 then
         local emptyText
         if posFilter == "SHORTLIST" then
-            emptyText = "候选名单为空，在球员详情页可添加"
+            emptyText = "????????????????"
         elseif isSearching then
-            emptyText = "未找到符合搜索条件的球员"
+            emptyText = "????????????"
         else
-            emptyText = "未找到球员"
+            emptyText = "?????"
         end
         table.insert(children, UI.Panel {
             width = "100%", height = 100,
@@ -396,7 +451,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
             alignItems = "center",
             children = {
                 UI.Label {
-                    text = string.format("共 %d 名球员，显示前 %d 名", #availablePlayers, maxShow),
+                    text = string.format("? %d ??????? %d ?", #availablePlayers, maxShow),
                     fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
                 },
             },
@@ -406,7 +461,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
     return children
 end
 
--- 报价谈判弹窗
+-- ??????
 function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, ageRange)
     if TransferLimitDialog.guardPlayer(gameState, player.id) then
         return
@@ -422,38 +477,38 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
     local suggestedWage = TransferManager.getSuggestedTransferWage(player, gameState:getPlayerTeam(), gameState)
 
     local clauseOptions = {
-        { key = "simple", label = "一次付清·无附加条款", installments = 1, bonus = 0, sellOn = 0 },
-        { key = "standard", label = "2期·出场奖金8%·转售10%", installments = 2, bonus = 0.08, sellOn = 10 },
-        { key = "heavy", label = "3期·出场奖金12%·转售15%", installments = 3, bonus = 0.12, sellOn = 15 },
+        { key = "simple", label = "??????????", installments = 1, bonus = 0, sellOn = 0 },
+        { key = "standard", label = "2??????8%???10%", installments = 2, bonus = 0.08, sellOn = 10 },
+        { key = "heavy", label = "3??????12%???15%", installments = 3, bonus = 0.12, sellOn = 15 },
     }
     local yearsOptions = { 2, 3, 4, 5 }
 
-    -- 状态
+    -- ??
     local selectedClauseIdx = 2
     local selectedYearsIdx = 2
 
-    -- 创建带引用的控件
+    -- ????????
     local bidField = UI.TextField {
         flexGrow = 1, height = 38,
-        placeholder = "输入报价（万）",
+        placeholder = "???????",
         value = tostring(math.floor(baseValue * 1.1 / 10000)),
         fontSize = 14, borderRadius = 6,
     }
 
     local wageField = UI.TextField {
         flexGrow = 1, height = 38,
-        placeholder = "输入周薪（万）",
+        placeholder = "???????",
         value = _market()._amountToWanText(suggestedWage),
         fontSize = 14, borderRadius = 6,
     }
 
-    -- 快捷报价按钮
+    -- ??????
     local bidPresets = {
-        { label = "×0.9", multiplier = 0.9 },
-        { label = "×1.0", multiplier = 1.0 },
-        { label = "×1.1", multiplier = 1.1 },
-        { label = "×1.2", multiplier = 1.2 },
-        { label = "×1.35", multiplier = 1.35 },
+        { label = "?0.9", multiplier = 0.9 },
+        { label = "?1.0", multiplier = 1.0 },
+        { label = "?1.1", multiplier = 1.1 },
+        { label = "?1.2", multiplier = 1.2 },
+        { label = "?1.35", multiplier = 1.35 },
     }
     local bidPresetBtns = {}
     for _, p in ipairs(bidPresets) do
@@ -470,7 +525,7 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
         })
     end
 
-    -- 快捷周薪按钮（基于市场合理周薪，与 AI 出价逻辑一致）
+    -- ????????????????? AI ???????
     local wagePresets = { 0.9, 1.0, 1.2, 1.5 }
     local wagePresetBtns = {}
     for _, mul in ipairs(wagePresets) do
@@ -487,11 +542,11 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
         })
     end
 
-    -- 条款按钮（用闭包切换选中状态）
+    -- ???????????????
     local clauseBtns = {}
     for i, c in ipairs(clauseOptions) do
         local btn = UI.Button {
-            text = (i == selectedClauseIdx and "● " or "  ") .. c.label,
+            text = (i == selectedClauseIdx and "? " or "  ") .. c.label,
             width = "100%", height = 34, marginBottom = 3,
             backgroundColor = (i == selectedClauseIdx) and Theme.COLORS.ACCENT or {38, 46, 71, 255},
             borderRadius = 6, fontSize = 12, textAlign = "left", paddingLeft = 10,
@@ -500,7 +555,7 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
                 selectedClauseIdx = i
                 for j, b in ipairs(clauseBtns) do
                     local isSel = (j == i)
-                    b:SetText((isSel and "● " or "  ") .. clauseOptions[j].label)
+                    b:SetText((isSel and "? " or "  ") .. clauseOptions[j].label)
                     b:SetStyle({
                         width = "100%",
                         backgroundColor = isSel and Theme.COLORS.ACCENT or {38, 46, 71, 255},
@@ -512,11 +567,11 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
         table.insert(clauseBtns, btn)
     end
 
-    -- 年限按钮
+    -- ????
     local yearsBtns = {}
     for i, y in ipairs(yearsOptions) do
         local btn = UI.Button {
-            text = (i == selectedYearsIdx and "● " or "") .. y .. "年",
+            text = (i == selectedYearsIdx and "? " or "") .. y .. "?",
             height = 30, marginRight = 6,
             paddingLeft = 10, paddingRight = 10,
             backgroundColor = (i == selectedYearsIdx) and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
@@ -526,7 +581,7 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
                 selectedYearsIdx = i
                 for j, b in ipairs(yearsBtns) do
                     local isSel = (j == i)
-                    b:SetText((isSel and "● " or "") .. yearsOptions[j] .. "年")
+                    b:SetText((isSel and "? " or "") .. yearsOptions[j] .. "?")
                     b:SetStyle({
                         backgroundColor = isSel and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
                         color = isSel and {20, 20, 20, 255} or Theme.COLORS.TEXT_SECONDARY,
@@ -539,7 +594,7 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
 
     local children = {}
 
-    -- 球员信息
+    -- ????
     table.insert(children, UI.Panel {
         width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 12,
         children = {
@@ -548,7 +603,7 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
                 children = {
                     UI.Label { text = player.displayName, fontSize = 16, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY },
                     UI.Label {
-                        text = string.format("%s | %s | 能力 %d | %d岁",
+                        text = string.format("%s | %s | ?? %d | %d?",
                             sellerTeam and sellerTeam.name or "?",
                             Constants.POSITION_NAMES[player.position] or player.position,
                             math.min(Constants.ABILITY_MAX, player.overall or 0),
@@ -561,18 +616,18 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
                 backgroundColor = {Theme.COLORS.ACCENT[1], Theme.COLORS.ACCENT[2], Theme.COLORS.ACCENT[3], 40},
                 borderRadius = 6, paddingLeft = 8, paddingRight = 8, paddingTop = 4, paddingBottom = 4,
                 children = {
-                    UI.Label { text = "身价 " .. _market()._formatValue(baseValue), fontSize = 12, color = Theme.COLORS.ACCENT },
+                    UI.Label { text = "?? " .. _market()._formatValue(baseValue), fontSize = 12, color = Theme.COLORS.ACCENT },
                 },
             },
         }
     })
 
-    -- 预算与负债概览
+    -- ???????
     local budgetRows = {
         UI.Panel {
             width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 3,
             children = {
-                UI.Label { text = "可用转会预算", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = "??????", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
                 UI.Label { text = FinanceManager.formatMoney(budget), fontSize = 12, fontWeight = "bold",
                     color = budget > 0 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.DANGER },
             },
@@ -582,7 +637,7 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
         table.insert(budgetRows, UI.Panel {
             width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 3,
             children = {
-                UI.Label { text = "未付分期负债", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = "??????", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
                 UI.Label { text = "-" .. FinanceManager.formatMoney(pendingPayables), fontSize = 12,
                     color = Theme.COLORS.WARNING or Theme.COLORS.DANGER },
             },
@@ -591,7 +646,7 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
     table.insert(budgetRows, UI.Panel {
         width = "100%", flexDirection = "row", justifyContent = "space-between",
         children = {
-            UI.Label { text = "周薪预算（已用/总）", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+            UI.Label { text = "???????/??", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
             UI.Label {
                 text = string.format("%s / %s", FinanceManager.formatMoney(currentWage), FinanceManager.formatMoney(wageBudget)),
                 fontSize = 12, fontWeight = "bold",
@@ -604,8 +659,8 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
         padding = 10, marginBottom = 12, children = budgetRows,
     })
 
-    -- 报价金额
-    table.insert(children, UI.Label { text = "报价金额（万）", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4 })
+    -- ????
+    table.insert(children, UI.Label { text = "???????", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4 })
     table.insert(children, UI.Panel {
         width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
         children = { bidField },
@@ -615,14 +670,14 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
         children = bidPresetBtns,
     })
 
-    -- 合同条款
-    table.insert(children, UI.Label { text = "合同条款", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
+    -- ????
+    table.insert(children, UI.Label { text = "????", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
     for _, btn in ipairs(clauseBtns) do
         table.insert(children, btn)
     end
 
-    -- 球员周薪
-    table.insert(children, UI.Label { text = "球员周薪（万/周）", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginTop = 10, marginBottom = 4 })
+    -- ????
+    table.insert(children, UI.Label { text = "??????/??", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginTop = 10, marginBottom = 4 })
     table.insert(children, UI.Panel {
         width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
         children = { wageField },
@@ -632,16 +687,16 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
         children = wagePresetBtns,
     })
 
-    -- 合同年限
-    table.insert(children, UI.Label { text = "合同年限", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
+    -- ????
+    table.insert(children, UI.Label { text = "????", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
     table.insert(children, UI.Panel {
         width = "100%", flexDirection = "row",
         children = yearsBtns,
     })
 
-    -- 提交按钮
+    -- ????
     local submitBtn = UI.Button {
-        text = "提交报价",
+        text = "????",
         width = "100%", height = 44, marginTop = 12,
         backgroundColor = Theme.COLORS.GOLD,
         borderRadius = 8, fontSize = 15, fontWeight = "bold",
@@ -660,18 +715,18 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
             if offerAmount > budget then
                 AudioManager.deny()
                 local hint = pendingPayables > 0
-                    and string.format("转会预算不足！可用 %s（已扣未付分期负债 %s）",
+                    and string.format("????????? %s????????? %s?",
                         FinanceManager.formatMoney(budget), FinanceManager.formatMoney(pendingPayables))
-                    or ("转会预算不足！剩余预算: " .. FinanceManager.formatMoney(budget))
+                    or ("???????????: " .. FinanceManager.formatMoney(budget))
                 UI.Toast.Show({ message = hint, variant = "error" })
                 return
             end
 
-            -- 工资预算硬约束：引援后总周薪不得超出工资预算
+            -- ??????????????????????
             if wageBudget > 0 and (currentWage + offeredWage) > wageBudget then
                 AudioManager.deny()
                 UI.Toast.Show({
-                    message = string.format("工资预算不足！引援后周薪 %s 将超出预算 %s，请降低周薪或先清理高薪球员。",
+                    message = string.format("???????????? %s ????? %s???????????????",
                         FinanceManager.formatMoney(currentWage + offeredWage), FinanceManager.formatMoney(wageBudget)),
                     variant = "error",
                 })
@@ -695,11 +750,11 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
             local bid, bidErr = TransferManager.makeBidWithClauses(gameState, player.id, offerAmount, offeredWage, clauses)
             if bid then
                 bid.contractYears = offeredYears
-                UI.Toast.Show({ message = "报价已提交", variant = "success" })
+                UI.Toast.Show({ message = "?????", variant = "success" })
             else
                 if not TransferLimitDialog.handleError(bidErr, player.displayName, gameState) then
                     AudioManager.deny()
-                    UI.Toast.Show({ message = bidErr or "报价失败", variant = "error" })
+                    UI.Toast.Show({ message = bidErr or "????", variant = "error" })
                 end
             end
             BottomSheet.close()
@@ -708,7 +763,7 @@ function Tab.showBidSheet(gameState, player, posFilter, searchQuery, ovrRange, a
     }
 
     BottomSheet.showCustom({
-        title = "转会报价 — " .. player.displayName,
+        title = "???? ? " .. player.displayName,
         height = 680,
         showCancel = true,
         children = children,

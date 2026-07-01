@@ -290,7 +290,29 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
     end
 
     -- 1. 导入球队
+    local parentDisplayNames = nil
+    if (leagueConfig.tier or 1) >= 2 and leagueConfig.parentLeague then
+        parentDisplayNames = {}
+        local parentLeague = gameState.leagues and gameState.leagues[leagueConfig.parentLeague]
+        if parentLeague then
+            for _, parentTeamId in ipairs(parentLeague.teamIds or {}) do
+                local parentTeam = gameState.teams[parentTeamId]
+                if parentTeam and parentTeam.name and parentTeam.name ~= "" then
+                    parentDisplayNames[parentTeam.name] = true
+                end
+            end
+        end
+    end
+
     for _, tData in ipairs(leagueData.teams) do
+        local displayName = tData.name_cn or NameLocalizer.getTeamNameCn(tData.id, tData.name)
+        if parentDisplayNames and parentDisplayNames[displayName] then
+            if log then
+                log:Write(LOG_WARNING, string.format(
+                    "RealDataLoader: skip duplicate second-division club %s (%s), already in %s",
+                    displayName, tostring(tData.id), tostring(leagueConfig.parentLeague)))
+            end
+        else
         local rep = cslRepMap and cslRepMap[tData.id]
             or RealDataLoader._calcReputation(tData.wage_budget, leagueConfig.tier)
         -- 中超：财务与初始声望对应（声望后续仍可通过赛季/比赛变动）
@@ -327,6 +349,7 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         table.insert(teamIds, team.id)
         team._baseWageBudget = wb
         team._financialScale = math.sqrt(wb / 2000000)
+        end
     end
 
     -- 2. 导入球员

@@ -11,9 +11,26 @@ DATA = ROOT / "assets" / "Data"
 
 PAIRS = [
     ("fm2024_premier_league.json", "second/fm2024_championship.json"),
+    ("fm2024_la_liga.json", "second/fm2024_la_liga_2.json"),
     ("fm2024_serie_a.json", "second/fm2024_serie_b.json"),
+    ("fm2024_bundesliga.json", "second/fm2024_bundesliga_2.json"),
     ("fm2024_ligue_1.json", "second/fm2024_ligue_2.json"),
 ]
+
+
+def top_team_name_cns(top: dict) -> dict[str, str]:
+    return {t.get("name_cn") or t["name"]: t["id"] for t in top.get("teams", [])}
+
+
+def second_overlap_ids(top: dict, second: dict) -> set[str]:
+    top_team_ids = {t["id"] for t in top.get("teams", [])}
+    top_names = top_team_name_cns(top)
+    overlap = set(top_team_ids & {t["id"] for t in second.get("teams", [])})
+    for team in second.get("teams", []):
+        name = team.get("name_cn") or team["name"]
+        if name in top_names:
+            overlap.add(team["id"])
+    return overlap
 
 
 def load_json(rel_path: str) -> dict:
@@ -34,9 +51,7 @@ def prune_second(top_rel: str, second_rel: str) -> dict:
     top_team_ids = {t["id"] for t in top.get("teams", [])}
     top_player_ids = {p["id"] for p in top.get("players", [])}
 
-    overlap_teams = sorted(
-        top_team_ids & {t["id"] for t in second.get("teams", [])}
-    )
+    overlap_teams = sorted(second_overlap_ids(top, second))
     overlap_set = set(overlap_teams)
 
     teams_before = len(second.get("teams", []))
@@ -83,9 +98,14 @@ def verify_no_overlap() -> list[str]:
         sec_team_ids = {t["id"] for t in second.get("teams", [])}
         sec_player_ids = {p["id"] for p in second.get("players", [])}
         team_overlap = top_team_ids & sec_team_ids
+        name_overlap = second_overlap_ids(top, second) - top_team_ids
         player_overlap = top_player_ids & sec_player_ids
         if team_overlap:
-            errors.append(f"{second_rel}: team overlap {sorted(team_overlap)}")
+            errors.append(f"{second_rel}: team slug overlap {sorted(team_overlap)}")
+        if name_overlap:
+            errors.append(
+                f"{second_rel}: team name_cn overlap {sorted(name_overlap)}"
+            )
         if player_overlap:
             errors.append(
                 f"{second_rel}: player overlap {len(player_overlap)} ids"

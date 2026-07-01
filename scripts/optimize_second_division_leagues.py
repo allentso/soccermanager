@@ -30,63 +30,94 @@ TOP_FILES = [
     "fm2024_ligue_1.json",
 ]
 
-LIGUE2_ADDITIONS = [
-    {
-        "id": "en-avant-guingamp",
-        "name": "En Avant Guingamp",
-        "short_name": "EAG",
-        "city": "Guingamp",
-        "stadium_name": "Stade du Roudourou",
-        "stadium_capacity": 18126,
-        "reputation": 548,
-        "wage_budget": 215000,
-        "colors": {"primary": "#e30613", "secondary": "#ffffff"},
-    },
-    {
-        "id": "stade-lavallois-mayenne-fc",
-        "name": "Stade Lavallois Mayenne FC",
-        "short_name": "SLM",
-        "city": "Laval",
-        "stadium_name": "Stade Francis Le Basser",
-        "stadium_capacity": 18900,
-        "reputation": 512,
-        "wage_budget": 200000,
-        "colors": {"primary": "#ff6600", "secondary": "#000000"},
-    },
-    {
-        "id": "sporting-club-de-bastia",
-        "name": "Sporting Club de Bastia",
-        "short_name": "SCB",
-        "city": "Bastia",
-        "stadium_name": "Stade Armand Cesari",
-        "stadium_capacity": 16480,
-        "reputation": 558,
-        "wage_budget": 225000,
-        "colors": {"primary": "#004996", "secondary": "#ffffff"},
-    },
-    {
-        "id": "paris-fc",
-        "name": "Paris FC",
-        "short_name": "PFC",
-        "city": "Paris",
-        "stadium_name": "Stade Charlety",
-        "stadium_capacity": 20000,
-        "reputation": 572,
-        "wage_budget": 240000,
-        "colors": {"primary": "#002b87", "secondary": "#ffffff"},
-    },
-    {
-        "id": "usl-dunkerque",
-        "name": "USL Dunkerque",
-        "short_name": "USL",
-        "city": "Dunkerque",
-        "stadium_name": "Stade Marcel Tribut",
-        "stadium_capacity": 4933,
-        "reputation": 498,
-        "wage_budget": 200000,
-        "colors": {"primary": "#0066cc", "secondary": "#ffffff"},
-    },
-]
+SECOND_DIV_FILL = {
+    "fm2024_ligue_2.json": [
+        {
+            "id": "stade-malherbe-caen-calvados",
+            "name": "Stade Malherbe Caen",
+            "name_cn": "卡昂",
+            "short_name": "SMC",
+            "city": "Caen",
+            "stadium_name": "Stade Michel d'Ornano",
+            "stadium_capacity": 20835,
+            "reputation": 520,
+            "wage_budget": 205000,
+            "colors": {"primary": "#0033a0", "secondary": "#ff0000"},
+        },
+        {
+            "id": "valenciennes-fc",
+            "name": "Valenciennes FC",
+            "name_cn": "瓦朗谢纳",
+            "short_name": "VAFC",
+            "city": "Valenciennes",
+            "stadium_name": "Stade du Hainaut",
+            "stadium_capacity": 25200,
+            "reputation": 505,
+            "wage_budget": 195000,
+            "colors": {"primary": "#cc0000", "secondary": "#ffffff"},
+        },
+    ],
+    "fm2024_la_liga_2.json": [
+        {
+            "id": "cd-tenerife",
+            "name": "CD Tenerife",
+            "name_cn": "特内里费",
+            "short_name": "TEN",
+            "city": "Santa Cruz de Tenerife",
+            "stadium_name": "Estadio Heliodoro Rodríguez López",
+            "stadium_capacity": 22454,
+            "reputation": 540,
+            "wage_budget": 210000,
+            "colors": {"primary": "#0033a0", "secondary": "#ffffff"},
+            "country": "ES",
+            "football_nation": "ES",
+        },
+        {
+            "id": "real-burgos-cf",
+            "name": "Real Burgos CF",
+            "name_cn": "布尔戈斯",
+            "short_name": "BUR",
+            "city": "Burgos",
+            "stadium_name": "Estadio El Plantío",
+            "stadium_capacity": 12300,
+            "reputation": 515,
+            "wage_budget": 198000,
+            "colors": {"primary": "#000000", "secondary": "#ffffff"},
+            "country": "ES",
+            "football_nation": "ES",
+        },
+    ],
+    "fm2024_serie_b.json": [
+        {
+            "id": "ss-bari",
+            "name": "SSC Bari",
+            "name_cn": "巴里",
+            "short_name": "BAR",
+            "city": "Bari",
+            "stadium_name": "Stadio San Nicola",
+            "stadium_capacity": 58248,
+            "reputation": 530,
+            "wage_budget": 205000,
+            "colors": {"primary": "#cc0000", "secondary": "#ffffff"},
+            "country": "IT",
+            "football_nation": "IT",
+        },
+        {
+            "id": "spezia-calcio",
+            "name": "Spezia Calcio",
+            "name_cn": "斯佩齐亚",
+            "short_name": "SPE",
+            "city": "La Spezia",
+            "stadium_name": "Stadio Alberto Picco",
+            "stadium_capacity": 10336,
+            "reputation": 508,
+            "wage_budget": 192000,
+            "colors": {"primary": "#ffffff", "secondary": "#000000"},
+            "country": "IT",
+            "football_nation": "IT",
+        },
+    ],
+}
 
 
 def load_json(path: Path) -> dict:
@@ -112,13 +143,14 @@ def make_team_from_template(template: dict, spec: dict) -> dict:
     team = copy.deepcopy(template)
     rep = spec["reputation"]
     wb = spec["wage_budget"]
+    country = spec.get("country", "FR")
     team.update(
         {
             "id": spec["id"],
             "name": spec["name"],
             "short_name": spec["short_name"],
-            "country": "FR",
-            "football_nation": "FR",
+            "country": country,
+            "football_nation": spec.get("football_nation", country),
             "city": spec["city"],
             "stadium_name": spec["stadium_name"],
             "stadium_capacity": spec["stadium_capacity"],
@@ -152,6 +184,8 @@ def make_team_from_template(template: dict, spec: dict) -> dict:
             "history": [],
         }
     )
+    if spec.get("name_cn"):
+        team["name_cn"] = spec["name_cn"]
     return team
 
 
@@ -209,10 +243,10 @@ def prune_fixtures(data: dict, removed_team_ids: set[str]) -> int:
     return before - len(league["fixtures"])
 
 
-def add_ligue2_teams(data: dict, needed: int, blocked_ids: set[str]) -> list[str]:
-    template = next(t for t in data["teams"] if t["id"] == "rodez-af")
+def add_fill_teams(data: dict, needed: int, blocked_ids: set[str], specs: list[dict]) -> list[str]:
+    template = data["teams"][0]
     added: list[str] = []
-    for spec in LIGUE2_ADDITIONS:
+    for spec in specs:
         if len(added) >= needed:
             break
         if spec["id"] in blocked_ids:
@@ -223,7 +257,7 @@ def add_ligue2_teams(data: dict, needed: int, blocked_ids: set[str]) -> list[str
         added.append(spec["id"])
     if len(added) < needed:
         raise RuntimeError(
-            f"Could only add {len(added)} Ligue 2 teams, still need {needed - len(added)}"
+            f"Could only add {len(added)} teams, still need {needed - len(added)}"
         )
     return added
 
@@ -285,11 +319,11 @@ def optimize_file(path: Path, blocked_team_ids: set[str]) -> dict:
 
     if len(teams) < TARGET_TEAMS:
         need = TARGET_TEAMS - len(teams)
-        if path.name == "fm2024_ligue_2.json":
-            added = add_ligue2_teams(data, need, blocked_team_ids)
-            teams = data["teams"]
-        else:
+        fill_specs = SECOND_DIV_FILL.get(path.name)
+        if not fill_specs:
             raise RuntimeError(f"{path.name}: {len(teams)} teams, cannot reach {TARGET_TEAMS}")
+        added = add_fill_teams(data, need, blocked_team_ids, fill_specs)
+        teams = data["teams"]
 
     balanced = balance_rosters(teams, players)
 
@@ -316,11 +350,19 @@ def optimize_file(path: Path, blocked_team_ids: set[str]) -> dict:
 
 def verify() -> None:
     blocked = top_team_ids()
+    top_name_sets = []
+    for name in TOP_FILES:
+        top = load_json(DATA / name)
+        top_name_sets.append({t.get("name_cn") or t["name"] for t in top.get("teams", [])})
     for name in SECOND_FILES:
         data = load_json(SECOND / name)
         assert len(data["teams"]) == TARGET_TEAMS, name
         team_ids = {t["id"] for t in data["teams"]}
         assert not (team_ids & blocked), f"{name} overlaps top tier: {team_ids & blocked}"
+        sec_names = {t.get("name_cn") or t["name"] for t in data["teams"]}
+        for top_names in top_name_sets:
+            overlap = sec_names & top_names
+            assert not overlap, f"{name} name_cn overlap with top tier: {sorted(overlap)}"
         for player in data["players"]:
             assert player.get("team_id") in team_ids, f"{name} orphan player {player.get('id')}"
 
