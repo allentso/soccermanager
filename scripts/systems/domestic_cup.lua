@@ -525,6 +525,7 @@ function DomesticCup._checkCupAdvance(gameState, cup)
         cup.phase = "final"
         local finalFixtures = DomesticCup._generateNextRound(gameState, cup, winners, true)
         table.insert(cup.rounds, finalFixtures)
+        DomesticCup.invalidateFixtureCaches(gameState)
         return
     end
 
@@ -533,6 +534,7 @@ function DomesticCup._checkCupAdvance(gameState, cup)
     cup.phase = "round_" .. cup.currentRound
     local nextFixtures = DomesticCup._generateNextRound(gameState, cup, winners, false)
     table.insert(cup.rounds, nextFixtures)
+    DomesticCup.invalidateFixtureCaches(gameState)
 end
 
 ------------------------------------------------------
@@ -804,6 +806,32 @@ function DomesticCup.deserialize(gameState, data)
         return
     end
     gameState.domesticCups = data
+    DomesticCup.invalidateFixtureCaches(gameState)
+end
+
+--- 按 id 查找杯赛 fixture（读档后 pendingPlayerFixture 需重新绑定）
+function DomesticCup.findFixtureById(gameState, fixtureId)
+    if not fixtureId or not gameState.domesticCups then return nil end
+    for leagueKey, cup in pairs(gameState.domesticCups) do
+        local cupKey = cup.leagueKey or leagueKey
+        for _, roundFixtures in ipairs(cup.rounds or {}) do
+            for _, f in ipairs(roundFixtures) do
+                if f.id == fixtureId then
+                    return f, cupKey
+                end
+            end
+        end
+    end
+    return nil
+end
+
+--- 补全杯赛 fixture 运行时标记（_isDomesticCup/_cupLeague 不持久化，读档/子页面返回后可能丢失）
+function DomesticCup.ensureCupFixtureFlags(gameState, fixture)
+    if not fixture or fixture._isDomesticCup then return end
+    local _, cupKey = DomesticCup.findFixtureById(gameState, fixture.id)
+    if not cupKey then return end
+    fixture._isDomesticCup = true
+    fixture._cupLeague = cupKey
 end
 
 return DomesticCup

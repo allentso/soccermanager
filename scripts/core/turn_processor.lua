@@ -482,6 +482,9 @@ function TurnProcessor.repairStuckProgressOnLoad(gameState)
     local pf = gameState.pendingPlayerFixture
     if pf and pf.status ~= "scheduled" then
         gameState.pendingPlayerFixture = nil
+    elseif pf then
+        DomesticCup.ensureCupFixtureFlags(gameState, pf)
+        WorldCup.ensureIntlFixtureFlags(gameState, pf)
     end
     TurnProcessor.simulateNonPlayerOverdueLeagueFixtures(gameState)
     TurnProcessor.simulateNonPlayerOverdueUCLFixtures(gameState)
@@ -884,6 +887,56 @@ function TurnProcessor._catchUpOverdueWCFixtures(gameState, currentDate)
         ::continue_overdue::
     end
     return playerOverdue
+end
+
+--- 按 id 查找任意赛事 fixture（联赛/杯赛/洲际/国际大赛）
+function TurnProcessor.findFixtureById(gameState, fixtureId)
+    if not fixtureId then return nil end
+
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, f in ipairs(lg.fixtures or {}) do
+            if f.id == fixtureId then return f end
+        end
+    end
+
+    local cupFixture = DomesticCup.findFixtureById(gameState, fixtureId)
+    if cupFixture then return cupFixture end
+
+    local function searchTournament(tournament)
+        if not tournament then return nil end
+        local lp = tournament.leaguePhase
+        if lp and lp.fixtures then
+            for _, f in ipairs(lp.fixtures) do
+                if f.id == fixtureId then return f end
+            end
+        end
+        if tournament.groups then
+            for _, group in pairs(tournament.groups) do
+                for _, f in ipairs(group.fixtures or {}) do
+                    if f.id == fixtureId then return f end
+                end
+            end
+        end
+        if tournament.knockout then
+            for _, fixtures in pairs(tournament.knockout) do
+                for _, f in ipairs(fixtures or {}) do
+                    if f.id == fixtureId then return f end
+                end
+            end
+        end
+        return nil
+    end
+
+    local f = searchTournament(gameState.championsLeague)
+    if f then return f end
+    f = searchTournament(gameState.europaLeague)
+    if f then return f end
+    f = searchTournament(gameState.worldCup)
+    if f then return f end
+    f = searchTournament(gameState.euroCup)
+    if f then return f end
+
+    return nil
 end
 
 --- 仅检测（不模拟、不推进日期）是否存在逾期的玩家比赛

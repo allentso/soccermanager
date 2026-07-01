@@ -780,6 +780,8 @@ end
 function MatchEngine._resolveTeams(gameState, fixture)
     local WorldCup = require("scripts/systems/world_cup")
     WorldCup.ensureIntlFixtureFlags(gameState, fixture)
+    local DomesticCup = require("scripts/systems/domestic_cup")
+    DomesticCup.ensureCupFixtureFlags(gameState, fixture)
     if fixture._isWC or fixture._isEuro then
         local homeTeam = WorldCup.buildNationalTeam(gameState, fixture.homeTeamId)
         local awayTeam = WorldCup.buildNationalTeam(gameState, fixture.awayTeamId)

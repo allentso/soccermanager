@@ -375,6 +375,8 @@ function PreMatch.create(params)
 
     local WorldCupFlags = require("scripts/systems/world_cup")
     WorldCupFlags.ensureIntlFixtureFlags(gameState, fixture)
+    local DomesticCup = require("scripts/systems/domestic_cup")
+    DomesticCup.ensureCupFixtureFlags(gameState, fixture)
 
     -- 世界杯比赛：用虚拟国家队对象
     local team, opponent, isHome, oppName
@@ -760,6 +762,8 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                             -- 保存当前阵容并自动模拟比赛
                             local WorldCup = require("scripts/systems/world_cup")
                             WorldCup.ensureIntlFixtureFlags(gameState, fixture)
+                            local DomesticCup = require("scripts/systems/domestic_cup")
+                            DomesticCup.ensureCupFixtureFlags(gameState, fixture)
                             _saveIntlLineup(gameState, team, fixture)
                             local MatchEngine = require("scripts/match/match_engine")
                             local TurnProcessor = require("scripts/core/turn_processor")

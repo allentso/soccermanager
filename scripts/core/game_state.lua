@@ -271,6 +271,8 @@ function GameState:serialize()
     local uelData = self.europaLeague and self.europaLeague:serialize() or nil
     local wcData = self.worldCup and self.worldCup:serialize() or nil
     local euroData = self.euroCup and self.euroCup:serialize() or nil
+    local DomesticCup = require("scripts/systems/domestic_cup")
+    local domesticCupsData = DomesticCup.serialize(self)
 
     return {
         date = self.date,
@@ -288,6 +290,8 @@ function GameState:serialize()
         europaLeague = uelData,
         worldCup = wcData,
         euroCup = euroData,
+        domesticCups = domesticCupsData,
+        pendingPlayerFixtureId = self.pendingPlayerFixture and self.pendingPlayerFixture.id or nil,
         inbox = self.inbox,
         news = self.news,
         worldHistory = self.worldHistory,
@@ -587,6 +591,22 @@ function GameState:deserialize(data)
     self.euroCup = nil
     if data.euroCup then
         self.euroCup = Tournament.new(data.euroCup)
+    end
+
+    -- 恢复国内杯赛
+    local DomesticCup = require("scripts/systems/domestic_cup")
+    DomesticCup.deserialize(self, data.domesticCups)
+
+    -- 恢复待踢玩家比赛指针（仅存 id，读档后重新绑定 fixture 对象）
+    self.pendingPlayerFixture = nil
+    if data.pendingPlayerFixtureId then
+        local TurnProcessor = require("scripts/core/turn_processor")
+        self.pendingPlayerFixture = TurnProcessor.findFixtureById(self, data.pendingPlayerFixtureId)
+        if self.pendingPlayerFixture then
+            DomesticCup.ensureCupFixtureFlags(self, self.pendingPlayerFixture)
+            local WorldCup = require("scripts/systems/world_cup")
+            WorldCup.ensureIntlFixtureFlags(self, self.pendingPlayerFixture)
+        end
     end
 
     -- 迁移：验证并修复联赛积分榜一致性
