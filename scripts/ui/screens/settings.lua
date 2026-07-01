@@ -1624,7 +1624,11 @@ function Settings._claimCompensationLegend()
     if not gameState then return end
 
     if not YouthManager.canMutateLegendGacha() then
-        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        if YouthManager.getLegendGachaPendingConflict() then
+            UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
+        else
+            UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        end
         return
     end
 
@@ -1777,66 +1781,85 @@ function Settings._cheatEnableLegendCloudSave()
     local gameState = _G.gameState
     if not gameState then return end
 
-    local canSeed, reason = LegendGachaCloud.canSeedFromCurrentSave()
-    if not canSeed then
-        if reason == "already_used" then
-            UI.Toast.Show({ message = "该功能只能使用一次，已完成名单上云", variant = "info" })
-        elseif reason == "already_enabled" then
-            UI.Toast.Show({ message = "传奇云存档已开启", variant = "info" })
-        else
-            UI.Toast.Show({ message = "当前无法执行该操作", variant = "warning" })
+    local function trySeedOrExplain()
+        local canSeed, reason = LegendGachaCloud.canSeedFromCurrentSave()
+        if not canSeed then
+            if reason == "already_used" then
+                UI.Toast.Show({ message = "该功能只能使用一次，已完成名单上云", variant = "info" })
+            elseif reason == "already_enabled" then
+                UI.Toast.Show({ message = "传奇云存档已开启", variant = "info" })
+            elseif reason == "cloud_ledger_exists" or reason == "cloud_seed_locked" then
+                UI.Toast.Show({
+                    message = "账号云端已有传奇账本，请前往青训-传奇页同步云端",
+                    variant = "info",
+                })
+            else
+                UI.Toast.Show({ message = "当前无法执行该操作", variant = "warning" })
+            end
+            return
         end
-        return
+
+        ConfirmDialog.show({
+            title = "开启传奇云存档灰度",
+            message = "将把当前存档的传奇抽卡状态与已拥有传奇名单复制到账号级云存档，并开启云同步。\n\n为保证云存档的安全与干净，该功能只能使用一次，请慎重考虑后再确认。",
+            confirmText = "继续确认",
+            confirmColor = Theme.COLORS.DANGER,
+            onConfirm = function()
+                ConfirmDialog.show({
+                    title = "确认使用当前存档上云",
+                    message = "请再次确认：本次会以你当前正在打开的这个存档作为首次上云来源。\n\n系统会复制当前存档的传奇抽卡状态与已拥有传奇名单到账号级云存档。其他旧存档的本地名单不会自动合并进云端。\n\n确认后该一次性入口将关闭。",
+                    confirmText = "使用当前存档上云",
+                    confirmColor = Theme.COLORS.DANGER,
+                    onConfirm = function()
+                        local ok, err = LegendGachaCloud.enableAndSeedFromCurrentSave(gameState, {
+                            ok = function()
+                                UI.Toast.Show({ message = "传奇名单已复制上云并开启同步", variant = "success" })
+                            end,
+                            error = function(_, syncErr)
+                                UI.Toast.Show({
+                                    message = "云同步失败，已写入本地缓存: " .. tostring(syncErr),
+                                    variant = "warning",
+                                })
+                            end,
+                            timeout = function()
+                                UI.Toast.Show({ message = "云同步超时，已写入本地缓存", variant = "warning" })
+                            end,
+                        })
+                        if not ok then
+                            UI.Toast.Show({ message = "开启失败: " .. tostring(err), variant = "error" })
+                            return
+                        end
+
+                        SaveManager.save(gameState, "auto")
+                        local cloudState = LegendGachaCloud.tryGetState()
+                        local legendCount = 0
+                        if cloudState then
+                            legendCount = #(cloudState.pulledLegendIds or {}) + #(cloudState.pulledLegends or {})
+                        end
+                        gameState:sendMessage({
+                            category = "youth",
+                            title = "传奇云存档灰度已开启",
+                            body = string.format(
+                                "开发者工具：已将当前存档传奇名单（%d 条记录）复制上云。后续传奇抽卡状态走账号级云存档。",
+                                legendCount),
+                            priority = "high",
+                        })
+                        Router.replaceWith("dashboard")
+                    end,
+                })
+            end,
+        })
     end
 
-    ConfirmDialog.show({
-        title = "开启传奇云存档灰度",
-        message = "将把当前存档的传奇抽卡状态与已拥有传奇名单复制到账号级云存档，并开启云同步。\n\n为保证云存档的安全与干净，该功能只能使用一次，请慎重考虑后再确认。",
-        confirmText = "继续确认",
-        confirmColor = Theme.COLORS.DANGER,
-        onConfirm = function()
-            ConfirmDialog.show({
-                title = "确认使用当前存档上云",
-                message = "请再次确认：本次会以你当前正在打开的这个存档作为首次上云来源。\n\n系统会复制当前存档的传奇抽卡状态与已拥有传奇名单到账号级云存档。其他旧存档的本地名单不会自动合并进云端。\n\n确认后该一次性入口将关闭。",
-                confirmText = "使用当前存档上云",
-                confirmColor = Theme.COLORS.DANGER,
-                onConfirm = function()
-                    local ok, err = LegendGachaCloud.enableAndSeedFromCurrentSave(gameState, {
-                        ok = function()
-                            UI.Toast.Show({ message = "传奇名单已复制上云并开启同步", variant = "success" })
-                        end,
-                        error = function(_, syncErr)
-                            UI.Toast.Show({
-                                message = "云同步失败，已写入本地缓存: " .. tostring(syncErr),
-                                variant = "warning",
-                            })
-                        end,
-                        timeout = function()
-                            UI.Toast.Show({ message = "云同步超时，已写入本地缓存", variant = "warning" })
-                        end,
-                    })
-                    if not ok then
-                        UI.Toast.Show({ message = "开启失败: " .. tostring(err), variant = "error" })
-                        return
-                    end
-
-                    SaveManager.save(gameState, "auto")
-                    local cloudState = LegendGachaCloud.tryGetState()
-                    local legendCount = 0
-                    if cloudState then
-                        legendCount = #(cloudState.pulledLegendIds or {}) + #(cloudState.pulledLegends or {})
-                    end
-                    gameState:sendMessage({
-                        category = "youth",
-                        title = "传奇云存档灰度已开启",
-                        body = string.format(
-                            "开发者工具：已将当前存档传奇名单（%d 条记录）复制上云。后续传奇抽卡状态走账号级云存档。",
-                            legendCount),
-                        priority = "high",
-                    })
-                    Router.replaceWith("dashboard")
-                end,
-            })
+    LegendGachaCloud.probeAccountLedger({
+        ok = function()
+            trySeedOrExplain()
+        end,
+        error = function()
+            trySeedOrExplain()
+        end,
+        timeout = function()
+            trySeedOrExplain()
         end,
     })
 end
@@ -1849,7 +1872,11 @@ function Settings._cheatUnlockLegendPool()
     if not gameState then return end
 
     if not YouthManager.canMutateLegendGacha() then
-        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        if YouthManager.getLegendGachaPendingConflict() then
+            UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
+        else
+            UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        end
         return
     end
 
@@ -1880,7 +1907,11 @@ function Settings._cheatAddPulls()
     if not gameState then return end
 
     if not YouthManager.canMutateLegendGacha() then
-        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        if YouthManager.getLegendGachaPendingConflict() then
+            UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
+        else
+            UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        end
         return
     end
 
@@ -1914,7 +1945,11 @@ function Settings._cheatForceLegend()
     if not gameState then return end
 
     if not YouthManager.canMutateLegendGacha() then
-        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        if YouthManager.getLegendGachaPendingConflict() then
+            UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
+        else
+            UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        end
         return
     end
 
@@ -1954,7 +1989,11 @@ function Settings._cheatResetLegendPool()
     if not gameState then return end
 
     if not YouthManager.canMutateLegendGacha() then
-        UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        if YouthManager.getLegendGachaPendingConflict() then
+            UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
+        else
+            UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        end
         return
     end
 

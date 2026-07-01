@@ -60,10 +60,12 @@ return function(YouthManager)
     local LegendTagPools = require("scripts/data/legend_tag_pools")
 
     YouthManager.LEGEND_CLOUD_SYNCING = "legend_cloud_syncing"
+    YouthManager.LEGEND_CLOUD_CONFLICT = "legend_cloud_conflict"
 
     --- 云存档模式下是否允许修改传奇抽卡账本
     ---@return boolean
     function YouthManager.canMutateLegendGacha()
+        if LegendGachaCloud.hasPendingConflict() then return false end
         if not LegendGachaCloud.isEnabled() then return true end
         return LegendGachaCloud.canMutate()
     end
@@ -71,13 +73,42 @@ return function(YouthManager)
     --- 云存档是否已完成首次同步
     ---@return boolean
     function YouthManager.isLegendGachaCloudReady()
+        if LegendGachaCloud.hasPendingConflict() then return false end
         if not LegendGachaCloud.isEnabled() then return true end
         return LegendGachaCloud.isReady()
+    end
+
+    ---@return table|nil
+    function YouthManager.getLegendGachaPendingAccountAttach()
+        return LegendGachaCloud.getPendingAccountAttach()
+    end
+
+    ---@return table|nil
+    function YouthManager.getLegendGachaPendingConflict()
+        return LegendGachaCloud.getPendingConflict()
+    end
+
+    --- 探测账号级云账本（本地未开启时）
+    function YouthManager.probeLegendGachaAccountLedger(events)
+        return LegendGachaCloud.probeAccountLedger(events)
+    end
+
+    --- 确认接入账号云账本
+    function YouthManager.acceptLegendGachaAccountLedger(gameState)
+        return LegendGachaCloud.acceptRemoteAccountLedger(gameState)
+    end
+
+    --- 冲突时选择使用云端
+    function YouthManager.resolveLegendGachaConflictUseCloud(gameState)
+        return LegendGachaCloud.resolveConflictUseCloud(gameState)
     end
 
     ---@return boolean ok
     ---@return string|nil err
     local function _requireLegendGachaMutate()
+        if LegendGachaCloud.hasPendingConflict() then
+            return false, YouthManager.LEGEND_CLOUD_CONFLICT
+        end
         if LegendGachaCloud.isEnabled() and not LegendGachaCloud.canMutate() then
             return false, YouthManager.LEGEND_CLOUD_SYNCING
         end
@@ -88,9 +119,12 @@ return function(YouthManager)
     ---@param gameState table
     ---@return table state
     function YouthManager.getLegendGachaState(gameState)
+        if LegendGachaCloud.hasPendingConflict() then
+            return LegendGachaCloud.getSaveMirror(gameState)
+        end
         if LegendGachaCloud.isEnabled() then
             local cloudState = LegendGachaCloud.tryGetState()
-            if LegendGachaCloud.isReady() then
+            if LegendGachaCloud.isReady() and not LegendGachaCloud.hasPendingConflict() then
                 LegendGachaCloud.syncMirrorToSave(gameState, cloudState)
                 return cloudState
             end

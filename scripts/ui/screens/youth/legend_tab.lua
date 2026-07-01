@@ -510,7 +510,7 @@ end
 function Tab.build(gameState)
     local gachaState = YouthManager.getLegendGachaState(gameState)
     local cloudBlocked = _youth()._legendCloudMutateBlocked()
-    local syncBanner = _youth()._buildLegendCloudSyncBanner()
+    local syncBanner = _youth()._buildLegendCloudSyncBanner(gameState)
 
     -- 未解锁状态：显示进度条和观看广告按钮
     if not gachaState.unlocked then
@@ -747,6 +747,11 @@ function Tab._watchAdForUnlock(gameState)
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
             local unlocked, _progress, err = YouthManager.watchAdForUnlock(gameState)
+            if err == YouthManager.LEGEND_CLOUD_CONFLICT then
+                _youth()._showLegendCloudConflictToast()
+                _youth()._showLegendConflictDialog(gameState)
+                return
+            end
             if err == YouthManager.LEGEND_CLOUD_SYNCING then
                 _youth()._showLegendCloudSyncingToast()
                 return
@@ -928,6 +933,11 @@ function Tab._doWatchAdInModal(gameState)
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
             local newPulls, err = YouthManager.watchAdForPulls(gameState)
+            if err == YouthManager.LEGEND_CLOUD_CONFLICT then
+                _youth()._showLegendCloudConflictToast()
+                _youth()._showLegendConflictDialog(gameState)
+                return
+            end
             if err == YouthManager.LEGEND_CLOUD_SYNCING then
                 _youth()._showLegendCloudSyncingToast()
                 return
@@ -1037,10 +1047,20 @@ end
 --- 执行单抽
 function Tab._doSinglePull(gameState)
     if _youth()._legendCloudMutateBlocked() then
-        _youth()._showLegendCloudSyncingToast()
+        if YouthManager.getLegendGachaPendingConflict() then
+            _youth()._showLegendCloudConflictToast()
+            _youth()._showLegendConflictDialog(gameState)
+        else
+            _youth()._showLegendCloudSyncingToast()
+        end
         return
     end
     local candidate, err = YouthManager.doSinglePull(gameState)
+    if err == YouthManager.LEGEND_CLOUD_CONFLICT then
+        _youth()._showLegendCloudConflictToast()
+        _youth()._showLegendConflictDialog(gameState)
+        return
+    end
     if err == YouthManager.LEGEND_CLOUD_SYNCING then
         _youth()._showLegendCloudSyncingToast()
         return
@@ -1061,10 +1081,20 @@ end
 --- 执行十连抽
 function Tab._doTenPull(gameState)
     if _youth()._legendCloudMutateBlocked() then
-        _youth()._showLegendCloudSyncingToast()
+        if YouthManager.getLegendGachaPendingConflict() then
+            _youth()._showLegendCloudConflictToast()
+            _youth()._showLegendConflictDialog(gameState)
+        else
+            _youth()._showLegendCloudSyncingToast()
+        end
         return
     end
     local results, err = YouthManager.doTenPull(gameState)
+    if err == YouthManager.LEGEND_CLOUD_CONFLICT then
+        _youth()._showLegendCloudConflictToast()
+        _youth()._showLegendConflictDialog(gameState)
+        return
+    end
     if err == YouthManager.LEGEND_CLOUD_SYNCING then
         _youth()._showLegendCloudSyncingToast()
         return

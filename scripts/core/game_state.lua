@@ -318,6 +318,7 @@ function GameState:serialize()
         _freeStaffIds = self._freeStaffIds,
         -- 传奇抽卡状态
         _legendGacha = self._legendGacha,
+        _legendGachaCloudMeta = self._legendGachaCloudMeta,
         -- 转生记录（防重复）
         _reincarnationsDone = self._reincarnationsDone,
         _reincarnationKnownSources = self._reincarnationKnownSources,
@@ -430,6 +431,7 @@ function GameState:deserialize(data)
     self._freeStaffIds = data._freeStaffIds or {}
     -- 传奇抽卡状态
     self._legendGacha = data._legendGacha or nil
+    self._legendGachaCloudMeta = data._legendGachaCloudMeta or nil
     -- 转生记录
     self._reincarnationsDone = data._reincarnationsDone or {}
     self._reincarnationKnownSources = data._reincarnationKnownSources or {}

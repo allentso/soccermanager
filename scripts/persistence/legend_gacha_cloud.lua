@@ -9,6 +9,7 @@ local LegendGachaCloud = {}
 local CACHE_PATH = "Saves/legend_gacha_cloud_cache.json"
 local CLOUD_KEY = "legend_gacha_global_v1"
 local CACHE_VERSION = 1
+local ENVELOPE_SCHEMA_VERSION = 2
 
 local cache_ = nil
 local syncInFlight_ = false
@@ -18,6 +19,7 @@ local bootstrapping_ = false
 local pendingSync_ = false
 local syncSeq_ = 0
 local inflightSeq_ = nil
+local pendingRemoteEnvelope_ = nil
 
 local function nowSeconds()
     return math.floor(os.time and os.time() or os.clock())
@@ -139,12 +141,89 @@ local function applyStateInPlace(target, source)
     return target
 end
 
+local function generateLedgerId()
+    return string.format("ledger-%d-%d", nowSeconds(), math.random(10000, 99999))
+end
+
+local function ensureDeviceId(cache)
+    if cache.deviceId and cache.deviceId ~= "" then return cache.deviceId end
+    cache.deviceId = string.format("dev-%d-%d", nowSeconds(), math.random(1000, 9999))
+    return cache.deviceId
+end
+
+--- 解析云端 payload：v2 envelope 或 v1 裸 state
+local function parseRemoteEnvelope(remote)
+    if type(remote) ~= "table" then return nil end
+    if type(remote.state) == "table" then
+        return {
+            schemaVersion = remote.schemaVersion or ENVELOPE_SCHEMA_VERSION,
+            cloudEnabled = remote.cloudEnabled ~= false,
+            seedLocked = remote.seedLocked == true,
+            ledgerId = remote.ledgerId,
+            revision = tonumber(remote.revision) or 0,
+            updatedAt = tonumber(remote.updatedAt) or 0,
+            lastWriterId = remote.lastWriterId,
+            state = normalizeState(remote.state),
+        }
+    end
+    -- v1 裸 state 兼容
+    return {
+        schemaVersion = 1,
+        cloudEnabled = true,
+        seedLocked = false,
+        ledgerId = remote.ledgerId,
+        revision = tonumber(remote.revision) or 0,
+        updatedAt = tonumber(remote.updatedAt) or 0,
+        lastWriterId = remote.lastWriterId,
+        state = normalizeState(remote),
+    }
+end
+
+local function buildEnvelopeFromCache(cache, nextRevision)
+    if not cache.ledgerId or cache.ledgerId == "" then
+        cache.ledgerId = generateLedgerId()
+    end
+    local rev = nextRevision or ((cache.revision or 0) + 1)
+    local ts = nowSeconds()
+    local env = {
+        schemaVersion = ENVELOPE_SCHEMA_VERSION,
+        cloudEnabled = true,
+        seedLocked = cache.seedFromSaveUsed == true,
+        ledgerId = cache.ledgerId,
+        revision = rev,
+        updatedAt = ts,
+        lastWriterId = ensureDeviceId(cache),
+        state = {},
+    }
+    applyStateInPlace(env.state, cache.state)
+    env.state.updatedAt = ts
+    return env
+end
+
+local function applyEnvelopeToCache(cache, envelope)
+    if not envelope then return end
+    applyStateInPlace(cache.state, envelope.state)
+    if envelope.ledgerId and envelope.ledgerId ~= "" then
+        cache.ledgerId = envelope.ledgerId
+    end
+    cache.revision = tonumber(envelope.revision) or cache.revision or 0
+    if envelope.seedLocked then
+        cache.seedFromSaveUsed = true
+    end
+end
+
 local function newCache(enabled)
     return {
         version = CACHE_VERSION,
         enabled = enabled == true,
         dirty = false,
         lastSyncAt = 0,
+        ledgerId = nil,
+        revision = 0,
+        baselineRevision = 0,
+        deviceId = nil,
+        pendingAccountAttach = false,
+        pendingConflict = false,
         state = cleanState(),
     }
 end
@@ -156,6 +235,12 @@ local function normalizeCache(raw)
     raw.dirty = raw.dirty == true
     raw.lastSyncAt = raw.lastSyncAt or 0
     raw.seedFromSaveUsed = raw.seedFromSaveUsed == true
+    raw.ledgerId = raw.ledgerId
+    raw.revision = tonumber(raw.revision) or 0
+    raw.baselineRevision = tonumber(raw.baselineRevision) or raw.revision or 0
+    raw.deviceId = raw.deviceId
+    raw.pendingAccountAttach = raw.pendingAccountAttach == true
+    raw.pendingConflict = raw.pendingConflict == true
     raw.state = normalizeState(raw.state)
     return raw
 end
@@ -255,6 +340,90 @@ local function scheduleSyncIfNeeded()
     end
 end
 
+local function envelopeStateField(payload)
+    if type(payload) ~= "table" then return nil end
+    if type(payload.state) == "table" then return payload.state end
+    return payload
+end
+
+local function handleRemoteEnvelope(cache, envelope, gameState)
+    if not envelope then
+        cache.dirty = true
+        LegendGachaCloud.saveLocal()
+        markReady()
+        LegendGachaCloud.syncToCloud()
+        return
+    end
+
+    pendingRemoteEnvelope_ = envelope
+
+    if not cache.enabled then
+        cache.pendingAccountAttach = true
+        LegendGachaCloud.saveLocal()
+        markReady()
+        return
+    end
+
+    local remoteRev = envelope.revision or 0
+    local localRev = cache.revision or 0
+
+    if cache.ledgerId and envelope.ledgerId and cache.ledgerId ~= envelope.ledgerId then
+        cache.pendingConflict = true
+        LegendGachaCloud.saveLocal()
+        markReady()
+        return
+    end
+
+    if cache.dirty then
+        local baseline = cache.baselineRevision or localRev
+        if remoteRev ~= baseline then
+            cache.pendingConflict = true
+            LegendGachaCloud.saveLocal()
+            markReady()
+            return
+        end
+        normalizeState(cache.state)
+        cache.state.updatedAt = nowSeconds()
+        markReady()
+        LegendGachaCloud.syncToCloud()
+        return
+    end
+
+    local shouldApplyRemote = false
+    if remoteRev > localRev then
+        shouldApplyRemote = true
+    elseif remoteRev == localRev then
+        local remoteTs = envelope.updatedAt or envelope.state.updatedAt or 0
+        local localTs = cache.state.updatedAt or 0
+        if remoteTs > localTs then
+            shouldApplyRemote = true
+        elseif remoteTs == localTs and (envelope.state.pulls or 0) ~= (cache.state.pulls or 0) then
+            shouldApplyRemote = true
+        end
+    end
+
+    if shouldApplyRemote then
+        applyEnvelopeToCache(cache, envelope)
+        cache.dirty = false
+        cache.baselineRevision = cache.revision
+        cache.pendingConflict = false
+        pendingRemoteEnvelope_ = nil
+    else
+        cache.pendingConflict = false
+        pendingRemoteEnvelope_ = nil
+    end
+
+    cache.lastSyncAt = nowSeconds()
+    LegendGachaCloud.saveLocal()
+    markReady()
+    if cache.dirty then
+        LegendGachaCloud.syncToCloud()
+    end
+    if gameState then
+        LegendGachaCloud.syncMirrorToSave(gameState, cache.state)
+    end
+end
+
 function LegendGachaCloud.getCloudKey()
     return CLOUD_KEY
 end
@@ -269,9 +438,51 @@ function LegendGachaCloud.isReady()
     return ready_
 end
 
+function LegendGachaCloud.hasPendingAccountAttach()
+    local cache = ensureLoaded()
+    return cache.pendingAccountAttach == true and not cache.enabled
+end
+
+function LegendGachaCloud.hasPendingConflict()
+    local cache = ensureLoaded()
+    return cache.pendingConflict == true
+end
+
+---@return table|nil
+function LegendGachaCloud.getPendingAccountAttach()
+    local cache = ensureLoaded()
+    if not cache.pendingAccountAttach or cache.enabled then return nil end
+    local env = pendingRemoteEnvelope_
+    if not env then return { pending = true } end
+    return {
+        pending = true,
+        ledgerId = env.ledgerId,
+        revision = env.revision or 0,
+        pulls = env.state.pulls or 0,
+        legendCount = #(env.state.pulledLegendIds or {}) + #(env.state.pulledLegends or {}),
+        seedLocked = env.seedLocked == true,
+    }
+end
+
+---@return table|nil
+function LegendGachaCloud.getPendingConflict()
+    local cache = ensureLoaded()
+    if not cache.pendingConflict then return nil end
+    local env = pendingRemoteEnvelope_
+    local info = {
+        pending = true,
+        localRevision = cache.baselineRevision or cache.revision or 0,
+        remoteRevision = env and env.revision or 0,
+        localPulls = cache.state.pulls or 0,
+        remotePulls = env and env.state.pulls or 0,
+    }
+    return info
+end
+
 function LegendGachaCloud.canMutate()
     local cache = ensureLoaded()
     if not cache.enabled then return true end
+    if cache.pendingConflict then return false end
     if ready_ and not bootstrapping_ then return true end
     -- 云同步未完成时，允许写入本地存档镜像作为离线兜底
     local gs = _G and _G.gameState
@@ -279,11 +490,24 @@ function LegendGachaCloud.canMutate()
     return false
 end
 
+--- 将账本元数据写入存档镜像
+function LegendGachaCloud.syncSaveCloudMeta(gameState, cache)
+    if not gameState or not cache then return end
+    gameState._legendGachaCloudMeta = {
+        ledgerId = cache.ledgerId,
+        revision = cache.revision or 0,
+    }
+end
+
 --- 将云/权威状态镜像到当前存档（随 save 持久化，云失效时可恢复）
 function LegendGachaCloud.syncMirrorToSave(gameState, sourceState)
     if not gameState or type(sourceState) ~= "table" then return end
     gameState._legendGacha = gameState._legendGacha or {}
     applyStateInPlace(gameState._legendGacha, sourceState)
+    local cache = ensureLoaded()
+    if cache.enabled then
+        LegendGachaCloud.syncSaveCloudMeta(gameState, cache)
+    end
 end
 
 --- 读取并补全当前存档内的传奇抽卡镜像
@@ -303,6 +527,10 @@ function LegendGachaCloud.getStatus()
         syncInFlight = syncInFlight_,
         pendingSync = pendingSync_,
         lastSyncAt = cache.lastSyncAt or 0,
+        pendingAccountAttach = cache.pendingAccountAttach == true,
+        pendingConflict = cache.pendingConflict == true,
+        revision = cache.revision or 0,
+        ledgerId = cache.ledgerId,
     }
 end
 
@@ -329,6 +557,7 @@ end
 function LegendGachaCloud.syncToCloud(events)
     local cache = ensureLoaded()
     if not cache.enabled then return false, "disabled" end
+    if cache.pendingConflict then return false, "legend_cloud_conflict" end
     if not canUseClientCloud() then
         cache.dirty = true
         pendingSync_ = true
@@ -346,10 +575,8 @@ function LegendGachaCloud.syncToCloud(events)
     local thisSeq = syncSeq_
     inflightSeq_ = thisSeq
 
-    local payload = {}
-    applyStateInPlace(payload, cache.state)
-    payload.updatedAt = nowSeconds()
-    applyStateInPlace(cache.state, payload)
+    local nextRev = (cache.revision or 0) + 1
+    local payload = buildEnvelopeFromCache(cache, nextRev)
 
     clientCloud:Set(CLOUD_KEY, payload, {
         ok = function()
@@ -358,6 +585,10 @@ function LegendGachaCloud.syncToCloud(events)
                 inflightSeq_ = nil
                 if syncSeq_ == thisSeq then
                     cache.dirty = false
+                    cache.revision = payload.revision
+                    cache.ledgerId = payload.ledgerId
+                    cache.baselineRevision = cache.revision
+                    applyStateInPlace(cache.state, payload.state)
                 end
                 cache.lastSyncAt = nowSeconds()
                 LegendGachaCloud.saveLocal()
@@ -394,7 +625,6 @@ end
 
 function LegendGachaCloud.syncFromCloud(events)
     local cache = ensureLoaded()
-    if not cache.enabled then return false, "disabled" end
     if not canUseClientCloud() then
         return false, "clientCloud unavailable"
     end
@@ -405,48 +635,45 @@ function LegendGachaCloud.syncFromCloud(events)
         ok = function(values)
             syncInFlight_ = false
             local remote = values and values[CLOUD_KEY]
-            if type(remote) == "table" then
-                if cache.dirty then
-                    -- 本地在 Get 飞行期间发生了写入，不能用旧远端覆盖。
-                    normalizeState(cache.state)
-                    cache.state.updatedAt = nowSeconds()
-                else
-                    applyStateInPlace(cache.state, remote)
-                    cache.dirty = false
-                end
-                cache.lastSyncAt = nowSeconds()
-                LegendGachaCloud.saveLocal()
-                logInfo("云端读取成功")
-                markReady()
-                if cache.dirty then
-                    LegendGachaCloud.syncToCloud()
-                end
-            else
-                cache.dirty = true
-                LegendGachaCloud.saveLocal()
-                markReady()
-                LegendGachaCloud.syncToCloud()
-            end
+            local envelope = parseRemoteEnvelope(remote)
             local gs = _G and _G.gameState
-            if gs then
-                LegendGachaCloud.syncMirrorToSave(gs, cache.state)
+            if envelope then
+                handleRemoteEnvelope(cache, envelope, gs)
+            else
+                if cache.enabled then
+                    cache.dirty = true
+                    LegendGachaCloud.saveLocal()
+                    markReady()
+                    LegendGachaCloud.syncToCloud()
+                else
+                    markReady()
+                end
             end
             if events and events.ok then events.ok(cache.state) end
         end,
         error = function(code, reason)
             syncInFlight_ = false
-            resetBootstrapAfterReadFailure()
+            if cache.enabled then
+                resetBootstrapAfterReadFailure()
+            end
             logWarn("云端读取失败: " .. tostring(code) .. " " .. tostring(reason))
             if events and events.error then events.error(code, reason) end
         end,
         timeout = function()
             syncInFlight_ = false
-            resetBootstrapAfterReadFailure()
+            if cache.enabled then
+                resetBootstrapAfterReadFailure()
+            end
             logWarn("云端读取超时")
             if events and events.timeout then events.timeout() end
         end,
     })
     return true
+end
+
+--- 探测账号级云账本（本地未开启时也可调用）
+function LegendGachaCloud.probeAccountLedger(events)
+    return LegendGachaCloud.syncFromCloud(events)
 end
 
 function LegendGachaCloud.bootstrap()
@@ -456,7 +683,6 @@ function LegendGachaCloud.bootstrap()
     bootstrapped_ = true
     bootstrapping_ = true
     ready_ = false
-    -- 云端权威：始终先 Get，再根据远端是否存在决定是否 Set
     local ok, err = LegendGachaCloud.syncFromCloud()
     if not ok then
         resetBootstrapAfterReadFailure()
@@ -477,12 +703,19 @@ end
 function LegendGachaCloud.markDirty(gameState)
     local cache = ensureLoaded()
     if not cache.enabled then return false end
+    if cache.pendingConflict then
+        return false, "legend_cloud_conflict"
+    end
     if not LegendGachaCloud.canMutate() then
         return false, "legend_cloud_syncing"
     end
 
     gameState = gameState or (_G and _G.gameState)
     local cloudReady = ready_ and not bootstrapping_
+
+    if not cache.dirty then
+        cache.baselineRevision = cache.revision or 0
+    end
 
     if cloudReady then
         normalizeState(cache.state)
@@ -519,14 +752,66 @@ function LegendGachaCloud.markDirty(gameState)
     return true
 end
 
+--- 确认接入账号级云账本，用云端覆盖当前存档镜像
+function LegendGachaCloud.acceptRemoteAccountLedger(gameState)
+    local cache = ensureLoaded()
+    local envelope = pendingRemoteEnvelope_
+    if not envelope then return false, "no_pending_attach" end
+
+    cache.enabled = true
+    cache.pendingAccountAttach = false
+    applyEnvelopeToCache(cache, envelope)
+    if envelope.seedLocked then
+        cache.seedFromSaveUsed = true
+    end
+    cache.dirty = false
+    cache.baselineRevision = cache.revision or 0
+    bootstrapped_ = true
+    bootstrapping_ = false
+    ready_ = true
+    pendingRemoteEnvelope_ = nil
+
+    if gameState then
+        LegendGachaCloud.syncMirrorToSave(gameState, cache.state)
+    end
+    cache.lastSyncAt = nowSeconds()
+    LegendGachaCloud.saveLocal()
+    return true
+end
+
+--- 冲突时选择使用云端账本覆盖本地
+function LegendGachaCloud.resolveConflictUseCloud(gameState)
+    local cache = ensureLoaded()
+    local envelope = pendingRemoteEnvelope_
+    if not cache.pendingConflict or not envelope then
+        return false, "no_conflict"
+    end
+
+    applyEnvelopeToCache(cache, envelope)
+    cache.dirty = false
+    cache.pendingConflict = false
+    cache.baselineRevision = cache.revision or 0
+    pendingRemoteEnvelope_ = nil
+
+    if gameState then
+        LegendGachaCloud.syncMirrorToSave(gameState, cache.state)
+    end
+    cache.lastSyncAt = nowSeconds()
+    LegendGachaCloud.saveLocal()
+    return true
+end
+
 function LegendGachaCloud.disableForDeveloper()
     local cache = ensureLoaded()
     cache.enabled = false
     cache.dirty = false
+    cache.pendingAccountAttach = false
+    cache.pendingConflict = false
     ready_ = false
     bootstrapped_ = false
     bootstrapping_ = false
     pendingSync_ = false
+    pendingRemoteEnvelope_ = nil
     return LegendGachaCloud.saveLocal()
 end
 
@@ -585,11 +870,15 @@ end
 
 --- 是否仍可使用「复制当前存档名单上云」的一次性入口
 ---@return boolean ok
----@return string|nil reason already_used|already_enabled
+---@return string|nil reason already_used|already_enabled|cloud_ledger_exists|cloud_seed_locked
 function LegendGachaCloud.canSeedFromCurrentSave()
     local cache = ensureLoaded()
     if cache.seedFromSaveUsed then return false, "already_used" end
     if cache.enabled then return false, "already_enabled" end
+    if cache.pendingAccountAttach then return false, "cloud_ledger_exists" end
+    if pendingRemoteEnvelope_ and pendingRemoteEnvelope_.seedLocked then
+        return false, "cloud_seed_locked"
+    end
     return true
 end
 
@@ -607,6 +896,9 @@ function LegendGachaCloud.enableAndSeedFromCurrentSave(gameState, events)
     cache.dirty = true
     cache.lastSyncAt = 0
     cache.seedFromSaveUsed = true
+    cache.ledgerId = generateLedgerId()
+    cache.revision = 0
+    cache.baselineRevision = 0
     applyStateInPlace(cache.state, seedState)
     bootstrapped_ = true
     bootstrapping_ = false
@@ -655,6 +947,7 @@ function LegendGachaCloud.enableAndResetForDeveloper(gameState, events)
     cache.enabled = true
     cache.dirty = true
     cache.lastSyncAt = 0
+    if not cache.ledgerId then cache.ledgerId = generateLedgerId() end
     applyStateInPlace(cache.state, cleanState())
     bootstrapped_ = true
     bootstrapping_ = false
@@ -669,9 +962,11 @@ end
 function LegendGachaCloud.getDebugSummary()
     local cache = ensureLoaded()
     local state = normalizeState(cache.state)
-    return string.format("enabled=%s ready=%s dirty=%s seedUsed=%s pulls=%d legends=%d lastSync=%s",
+    return string.format(
+        "enabled=%s ready=%s dirty=%s seedUsed=%s rev=%d pulls=%d legends=%d attach=%s conflict=%s",
         tostring(cache.enabled), tostring(ready_), tostring(cache.dirty), tostring(cache.seedFromSaveUsed),
-        tonumber(state.pulls) or 0, #(state.pulledLegendIds or {}), tostring(cache.lastSyncAt or 0))
+        tonumber(cache.revision) or 0, tonumber(state.pulls) or 0, #(state.pulledLegendIds or {}),
+        tostring(cache.pendingAccountAttach), tostring(cache.pendingConflict))
 end
 
 --- 测试专用：重置模块内存状态
@@ -685,11 +980,20 @@ function LegendGachaCloud._resetForTests(opts)
     pendingSync_ = false
     syncSeq_ = 0
     inflightSeq_ = nil
+    pendingRemoteEnvelope_ = nil
     if opts.cache then
         cache_ = normalizeCache(opts.cache)
     end
     if opts.ready ~= nil then ready_ = opts.ready end
     if opts.bootstrapped ~= nil then bootstrapped_ = opts.bootstrapped end
+    if opts.pendingRemoteEnvelope then
+        pendingRemoteEnvelope_ = opts.pendingRemoteEnvelope
+    end
+end
+
+--- 测试专用：读取 envelope state 字段
+function LegendGachaCloud._envelopeState(payload)
+    return envelopeStateField(payload)
 end
 
 return LegendGachaCloud

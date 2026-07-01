@@ -25,6 +25,7 @@ local RecruitTab = require("scripts/ui/screens/youth/recruit_tab")
 local SquadTab = require("scripts/ui/screens/youth/squad_tab")
 local CustomTab = require("scripts/ui/screens/youth/custom_tab")
 local LegendTab = require("scripts/ui/screens/youth/legend_tab")
+local LegendGachaCloud = require("scripts/persistence/legend_gacha_cloud")
 
 
 local Youth = {}
@@ -33,11 +34,133 @@ local function showLegendCloudSyncingToast()
     UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
 end
 
+local function showLegendCloudConflictToast()
+    UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
+end
+
 local function legendCloudMutateBlocked()
     return not YouthManager.canMutateLegendGacha()
 end
 
-local function buildLegendCloudSyncBanner()
+local function showLegendAccountAttachDialog(gameState)
+    local attach = YouthManager.getLegendGachaPendingAccountAttach()
+    if not attach then return end
+    local pulls = attach.pulls or 0
+    local legendCount = attach.legendCount or 0
+    ConfirmDialog.show({
+        title = "检测到账号级传奇云存档",
+        message = string.format(
+            "当前账号云端已有传奇抽卡账本（剩余 %d 次抽取，%d 条传奇记录）。\n\n同步后将以云端抽卡次数、已抽传奇名单、补偿领取状态和标签池选择覆盖当前存档的本地镜像；当前存档里已经存在的球员实体不会被删除。\n\n是否同步到当前存档？",
+            pulls, legendCount),
+        confirmText = "同步云端",
+        cancelText = "稍后",
+        confirmColor = Theme.COLORS.PRIMARY,
+        onConfirm = function()
+            local ok, err = YouthManager.acceptLegendGachaAccountLedger(gameState)
+            if ok then
+                SaveManager.save(gameState, "auto")
+                UI.Toast.Show({ message = "已同步账号传奇云存档", variant = "success" })
+                refreshLegendTab()
+            else
+                UI.Toast.Show({ message = "同步失败: " .. tostring(err), variant = "error" })
+            end
+        end,
+    })
+end
+
+local function showLegendConflictDialog(gameState)
+    local conflict = YouthManager.getLegendGachaPendingConflict()
+    if not conflict then return end
+    ConfirmDialog.show({
+        title = "传奇云存档冲突",
+        message = string.format(
+            "当前存档的传奇抽卡进度与账号云端不一致（本地约 %d 次抽取，云端约 %d 次抽取）。\n\n选择「使用云端」后，将以云端账本覆盖当前存档的本地镜像；球员实体不会被删除。",
+            conflict.localPulls or 0, conflict.remotePulls or 0),
+        confirmText = "使用云端",
+        cancelText = "稍后处理",
+        confirmColor = Theme.COLORS.DANGER,
+        onConfirm = function()
+            local ok, err = YouthManager.resolveLegendGachaConflictUseCloud(gameState)
+            if ok then
+                SaveManager.save(gameState, "auto")
+                UI.Toast.Show({ message = "已使用云端传奇账本", variant = "success" })
+                refreshLegendTab()
+            else
+                UI.Toast.Show({ message = "处理失败: " .. tostring(err), variant = "error" })
+            end
+        end,
+    })
+end
+
+local _legendCloudPrompted = false
+
+local function maybePromptLegendCloudOnce(gameState)
+    if _legendCloudPrompted then return end
+    if YouthManager.getLegendGachaPendingConflict() then
+        _legendCloudPrompted = true
+        showLegendConflictDialog(gameState)
+        return
+    end
+    if YouthManager.getLegendGachaPendingAccountAttach() then
+        _legendCloudPrompted = true
+        showLegendAccountAttachDialog(gameState)
+        return
+    end
+    if not LegendGachaCloud.isEnabled() then
+        YouthManager.probeLegendGachaAccountLedger({
+            ok = function()
+                if YouthManager.getLegendGachaPendingAccountAttach() then
+                    _legendCloudPrompted = true
+                    showLegendAccountAttachDialog(gameState)
+                end
+            end,
+        })
+    end
+end
+
+local function buildLegendCloudSyncBanner(gameState)
+    if YouthManager.getLegendGachaPendingConflict() then
+        return UI.Panel {
+            width = "100%",
+            padding = 8,
+            marginBottom = 8,
+            backgroundColor = {70, 35, 35, 255},
+            borderRadius = 8,
+            borderWidth = 1,
+            borderColor = Theme.COLORS.DANGER,
+            onClick = function()
+                showLegendConflictDialog(gameState)
+            end,
+            children = {
+                UI.Label {
+                    text = "传奇云存档冲突，点击处理（使用云端覆盖本地镜像）",
+                    fontSize = 11,
+                    color = Theme.COLORS.TEXT_SECONDARY,
+                },
+            },
+        }
+    end
+    if YouthManager.getLegendGachaPendingAccountAttach() then
+        return UI.Panel {
+            width = "100%",
+            padding = 8,
+            marginBottom = 8,
+            backgroundColor = {35, 50, 70, 255},
+            borderRadius = 8,
+            borderWidth = 1,
+            borderColor = Theme.COLORS.PRIMARY,
+            onClick = function()
+                showLegendAccountAttachDialog(gameState)
+            end,
+            children = {
+                UI.Label {
+                    text = "检测到账号传奇云存档，点击同步到当前存档",
+                    fontSize = 11,
+                    color = Theme.COLORS.TEXT_SECONDARY,
+                },
+            },
+        }
+    end
     if not legendCloudMutateBlocked() then return nil end
     return UI.Panel {
         width = "100%",
@@ -181,6 +304,7 @@ function Youth.create(params)
             Youth._buildSquadSection(regularYouthSquad, gameState),
         }
     elseif _activeTab == "legend" then
+        Youth._maybePromptLegendCloud(gameState)
         tabContent = {
             Youth._buildOrphanReclaimBanner(gameState),
             Youth._buildLegendGachaSection(gameState),
@@ -472,6 +596,10 @@ Youth._legendCloudMutateBlocked = legendCloudMutateBlocked
 Youth._refreshLegendTab = refreshLegendTab
 Youth._buildLegendCloudSyncBanner = buildLegendCloudSyncBanner
 Youth._showLegendCloudSyncingToast = showLegendCloudSyncingToast
+Youth._showLegendCloudConflictToast = showLegendCloudConflictToast
+Youth._maybePromptLegendCloud = maybePromptLegendCloudOnce
+Youth._showLegendAccountAttachDialog = showLegendAccountAttachDialog
+Youth._showLegendConflictDialog = showLegendConflictDialog
 Youth._getCustomCreatePos = function() return _customCreatePos end
 Youth._setCustomCreatePos = function(v) _customCreatePos = v end
 Youth._getCustomCreateNat = function() return _customCreateNat end
