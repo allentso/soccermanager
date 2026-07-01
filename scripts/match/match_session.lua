@@ -3,6 +3,7 @@
 
 local TacticsResolver = require("scripts/match/tactics_resolver")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
+local Team = require("scripts/domain/team")
 
 ---@class MatchSession
 local MatchSession = {}
@@ -53,6 +54,39 @@ function MatchSession._cloneStartingXI(xi)
     return cloneStartingXI(xi)
 end
 
+local function deepClone(value)
+    if type(value) ~= "table" then return value end
+    local copy = {}
+    for k, v in pairs(value) do
+        copy[k] = deepClone(v)
+    end
+    local mt = getmetatable(value)
+    if mt then setmetatable(copy, mt) end
+    return copy
+end
+
+local function captureMatchTactics(team)
+    if not team then return nil end
+    local snapshot = Team.captureLineupSnapshot(team)
+    snapshot.playStyle = team.playStyle
+    snapshot.attackMode = team.attackMode
+    return snapshot
+end
+
+local function applyMatchTactics(team, snapshot)
+    if not team or not snapshot then return end
+    Team.applyLineupSnapshot(team, snapshot)
+    team.playStyle = snapshot.playStyle or team.playStyle or "Balanced"
+    team.attackMode = snapshot.attackMode or team.attackMode or "balanced"
+end
+
+local function cloneMatchTeam(team)
+    if not team then return nil end
+    local copy = deepClone(team)
+    copy._matchLiveTactics = true
+    return copy
+end
+
 local function rearrangeOnPitchLineup(gameState, team, lineup)
     if not gameState or not team or not lineup then return lineup end
 
@@ -98,13 +132,28 @@ local function rearrangeOnPitchLineup(gameState, team, lineup)
 end
 
 function MatchSession._initLineupTracking(self, homeTeam, awayTeam, homeContext, awayContext)
+    self.kickoffTactics = {
+        home = captureMatchTactics(homeTeam),
+        away = captureMatchTactics(awayTeam),
+    }
+    self.liveTeams = {
+        home = cloneMatchTeam(homeTeam),
+        away = cloneMatchTeam(awayTeam),
+    }
+    if homeContext and self.liveTeams.home then
+        homeContext.team = self.liveTeams.home
+    end
+    if awayContext and self.liveTeams.away then
+        awayContext.team = self.liveTeams.away
+    end
+
     self.kickoffStartingXI = {
-        home = cloneStartingXI(homeTeam and homeTeam.startingXI),
-        away = cloneStartingXI(awayTeam and awayTeam.startingXI),
+        home = cloneStartingXI(self.kickoffTactics.home and self.kickoffTactics.home.startingXI),
+        away = cloneStartingXI(self.kickoffTactics.away and self.kickoffTactics.away.startingXI),
     }
     self.shadowLineup = {
-        home = cloneStartingXI(homeTeam and homeTeam.startingXI),
-        away = cloneStartingXI(awayTeam and awayTeam.startingXI),
+        home = cloneStartingXI(self.liveTeams.home and self.liveTeams.home.startingXI),
+        away = cloneStartingXI(self.liveTeams.away and self.liveTeams.away.startingXI),
     }
     self.appearanceIds = { home = {}, away = {} }
     for _, p in ipairs(homeContext.players or {}) do
@@ -116,18 +165,14 @@ function MatchSession._initLineupTracking(self, homeTeam, awayTeam, homeContext,
     self.subbedOffIds = { home = {}, away = {} }
 end
 
---- 赛后还原存档阵容（临场换人仅存在于 session，不写 permanent startingXI）
+--- 赛后还原存档战术（临场换人/换阵仅存在于 session，不写 permanent team）
 function MatchSession:restoreKickoffLineups()
-    if self._isWC or not self.kickoffStartingXI then return end
+    if self._isWC or not self.kickoffTactics then return end
 
     local homeTeam = self.gameState.teams[self.fixture.homeTeamId]
     local awayTeam = self.gameState.teams[self.fixture.awayTeamId]
-    if homeTeam and self.kickoffStartingXI.home then
-        homeTeam.startingXI = cloneStartingXI(self.kickoffStartingXI.home)
-    end
-    if awayTeam and self.kickoffStartingXI.away then
-        awayTeam.startingXI = cloneStartingXI(self.kickoffStartingXI.away)
-    end
+    applyMatchTactics(homeTeam, self.kickoffTactics.home)
+    applyMatchTactics(awayTeam, self.kickoffTactics.away)
 end
 
 --- 两回合制第二回合：从 gameState 查找第一回合比分，返回总比分偏移
@@ -954,8 +999,8 @@ function MatchSession:buildReport()
     end
 
     local PositionTrainingManager = require("scripts/systems/position_training_manager")
-    local homeTeam = self.gameState.teams[self.fixture.homeTeamId]
-    local awayTeam = self.gameState.teams[self.fixture.awayTeamId]
+    local homeTeam = self.homeContext and self.homeContext.team
+    local awayTeam = self.awayContext and self.awayContext.team
     local playerSlotPos = {
         home = homeTeam and PositionTrainingManager.buildPlayerSlotPosMap(
             homeTeam, self.shadowLineup and self.shadowLineup.home) or {},

@@ -87,6 +87,76 @@ function ScoutManager.getNationOptionList()
     return list
 end
 
+local function textMatchesSearch(text, lowerQuery)
+    if not text or text == "" or not lowerQuery or lowerQuery == "" then
+        return false
+    end
+    return text:lower():find(lowerQuery, 1, true) ~= nil
+end
+
+--- 判断球队名称是否匹配搜索关键词（全称 + 简称）
+function ScoutManager.teamMatchesSearch(team, lowerQuery)
+    if not team or lowerQuery == "" then return false end
+    return textMatchesSearch(team.name, lowerQuery)
+        or textMatchesSearch(team.shortName, lowerQuery)
+end
+
+--- 判断球员姓名相关字段是否匹配搜索关键词
+function ScoutManager.playerNameMatchesSearch(player, lowerQuery)
+    if not player or lowerQuery == "" then return false end
+    if textMatchesSearch(player.displayName, lowerQuery) then return true end
+    if textMatchesSearch(player.firstName, lowerQuery) then return true end
+    if textMatchesSearch(player.lastName, lowerQuery) then return true end
+    if textMatchesSearch(player.matchName, lowerQuery) then return true end
+    if textMatchesSearch(player.shortName, lowerQuery) then return true end
+    if textMatchesSearch(player.legendName, lowerQuery) then return true end
+    if textMatchesSearch(player.reincarnationMatchName, lowerQuery) then return true end
+    local combined = (player.firstName or "") .. (player.lastName or "")
+    return textMatchesSearch(combined, lowerQuery)
+end
+
+--- 转会市场浏览：球员名/所属队/租借队/国籍综合匹配
+function ScoutManager.playerMatchesMarketSearch(gameState, player, lowerQuery)
+    if lowerQuery == "" then return true end
+    if ScoutManager.playerNameMatchesSearch(player, lowerQuery) then return true end
+    if ScoutManager.nationalityMatchesSearch(player.nationality, lowerQuery) then return true end
+    local team = player.teamId and gameState.teams[player.teamId]
+    if team and ScoutManager.teamMatchesSearch(team, lowerQuery) then return true end
+    local TransferManager = require("scripts/systems/transfer_manager")
+    local loan = TransferManager.getLoanForPlayer(gameState, player.id)
+    if loan then
+        local loanTeam = gameState.teams[loan.loanTeamId]
+        if loanTeam and ScoutManager.teamMatchesSearch(loanTeam, lowerQuery) then
+            return true
+        end
+    end
+    return false
+end
+
+--- 搜索匹配优先级（越高越靠前）：全名 > 前缀 > 子串
+function ScoutManager.getPlayerSearchRank(player, lowerQuery)
+    if not player or lowerQuery == "" then return 0 end
+    local fields = {
+        player.displayName, player.firstName, player.lastName,
+        player.matchName, player.shortName, player.legendName,
+        player.reincarnationMatchName,
+    }
+    local best = 0
+    for _, field in ipairs(fields) do
+        if field and field ~= "" then
+            local lower = field:lower()
+            if lower == lowerQuery then
+                best = math.max(best, 100)
+            elseif #lowerQuery <= #lower and lower:sub(1, #lowerQuery) == lowerQuery then
+                best = math.max(best, 80)
+            elseif lower:find(lowerQuery, 1, true) then
+                best = math.max(best, 50)
+            end
+        end
+    end
+    return best
+end
+
 --- 判断球员国籍是否匹配搜索关键词（支持中文名、代码及别名）
 function ScoutManager.nationalityMatchesSearch(natCode, lowerQuery)
     if not natCode or lowerQuery == "" then return false end

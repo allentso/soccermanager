@@ -174,6 +174,12 @@ local function _saveIntlLineup(gameState, team, fixture)
     WorldCup.saveNationalTeamSettings(gameState, playerNation, team)
 end
 
+--- 保存阵容变更（俱乐部方案 A/B + 国家队 _nationalTeamSettings）
+local function _saveLineupChanges(gameState, team, fixture)
+    _saveClubLineupPreset(team, fixture)
+    _saveIntlLineup(gameState, team, fixture)
+end
+
 --- 构建替补名单：优先使用战术页手动配置的 benchIds，否则按综合评分自动选取
 local function _buildEffectiveBench(gameState, team, startingPidSet)
     local isNationalTeam = team._isNationalTeam
@@ -604,8 +610,7 @@ function PreMatch.create(params)
                                         color = Theme.COLORS.ACCENT,
                                         onClick = function()
                                             _autoFullSquad(gameState, team)
-                                            _saveClubLineupPreset(team, fixture)
-                                            _saveIntlLineup(gameState, team, fixture)
+                                            _saveLineupChanges(gameState, team, fixture)
                                             Router.replaceWith("pre_match", { fixture = fixture })
                                         end,
                                     })
@@ -1093,7 +1098,7 @@ function PreMatch._showSlotSwapSheet(gameState, team, slotIdx, slots, fixture)
                 color = scoreColor,
                 onClick = function()
                     team.startingXI[slotIdx] = p.id
-                    _saveClubLineupPreset(team, fixture)
+                    _saveLineupChanges(gameState, team, fixture)
                     BottomSheet.close()
                     Router.replaceWith("pre_match", { fixture = fixture })
                 end,
@@ -1125,7 +1130,7 @@ function PreMatch._showSlotSwapSheet(gameState, team, slotIdx, slots, fixture)
                     local tmp = team.startingXI[slotIdx]
                     team.startingXI[slotIdx] = team.startingXI[c.index]
                     team.startingXI[c.index] = tmp
-                    _saveClubLineupPreset(team, fixture)
+                    _saveLineupChanges(gameState, team, fixture)
                     BottomSheet.close()
                     Router.replaceWith("pre_match", { fixture = fixture })
                 end,
@@ -1214,7 +1219,7 @@ function PreMatch._formationQuickSwitch(team, fixture)
                     team.customSlots = nil
                     team.slotOffsets = nil
                     AIManager.rearrangeForFormation(_G.gameState, team)
-                    _saveClubLineupPreset(team, fixture)
+                    _saveLineupChanges(_G.gameState, team, fixture)
                     Router.replaceWith("pre_match", { fixture = fixture })
                 end
             end,

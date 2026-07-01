@@ -81,6 +81,8 @@ function Player.new(data)
     self.firstName = data.firstName or ""
     self.lastName = data.lastName or ""
     self.displayName = data.displayName or (self.firstName .. " " .. self.lastName)
+    self.matchName = data.matchName or data.match_name or nil
+    self.shortName = data.shortName or nil
     self.birthYear = data.birthYear or 2000
     self.nationality = data.nationality or "ENG"
 
@@ -1033,6 +1035,8 @@ function Player:serialize()
         firstName = self.firstName,
         lastName = self.lastName,
         displayName = self.displayName,
+        matchName = self.matchName,
+        shortName = self.shortName,
         birthYear = self.birthYear,
         nationality = self.nationality,
         position = self.position,

@@ -488,7 +488,7 @@ function Settings._showCheatMenu()
             },
 
             UI.Button {
-                text = "⏭️ 跳到赛季末",
+                text = "⏭️ 跳到赛季末（联赛+杯赛+洲际）",
                 width = "100%", height = 44,
                 backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
                 color = Theme.COLORS.TEXT_PRIMARY,
@@ -699,21 +699,7 @@ function Settings._cheatSkipToLeagueFinalMatch()
         return
     end
 
-    local playerLeague = gameState.league
-    if (not playerLeague or not playerLeague.fixtures) and gameState.playerLeagueId then
-        playerLeague = gameState.leagues and gameState.leagues[gameState.playerLeagueId]
-    end
-    if not playerLeague or not playerLeague.fixtures then
-        for _, lg in pairs(gameState.leagues or {}) do
-            for _, tid in ipairs(lg.teamIds or {}) do
-                if tid == playerTeamId then
-                    playerLeague = lg
-                    break
-                end
-            end
-            if playerLeague then break end
-        end
-    end
+    local playerLeague = Settings._resolvePlayerLeague(gameState)
     if not playerLeague or not playerLeague.fixtures then
         UI.Toast.Show({ message = "未找到玩家当前联赛", variant = "warning" })
         Router.replaceWith("settings")
@@ -917,16 +903,40 @@ end
 ------------------------------------------------------
 -- 作弊：三冠王（联赛+欧冠+世界杯）
 ------------------------------------------------------
+function Settings._resolvePlayerLeague(gameState)
+    local playerTeamId = gameState.playerTeamId
+    if not playerTeamId then return nil end
+
+    local playerLeague = gameState.league
+    if (not playerLeague or not playerLeague.fixtures) and gameState.playerLeagueId then
+        playerLeague = gameState.leagues and gameState.leagues[gameState.playerLeagueId]
+    end
+    if not playerLeague or not playerLeague.fixtures then
+        for _, lg in pairs(gameState.leagues or {}) do
+            for _, tid in ipairs(lg.teamIds or {}) do
+                if tid == playerTeamId then
+                    playerLeague = lg
+                    break
+                end
+            end
+            if playerLeague then break end
+        end
+    end
+    return playerLeague
+end
+
 function Settings._cheatTripleCrown()
     local gameState = _G.gameState
     if not gameState then return end
 
     local SeasonManager = require("scripts/systems/season_manager")
     local RecordsManager = require("scripts/systems/records_manager")
+    local TurnProcessor = require("scripts/core/turn_processor")
+    local ChampionsLeague = require("scripts/systems/champions_league")
     local playerTeamId = gameState.playerTeamId
     if not playerTeamId then return end
 
-    local playerLeague = gameState.league
+    local playerLeague = Settings._resolvePlayerLeague(gameState)
     if not playerLeague then return end
 
     gameState._cheatAutoPlay = true
@@ -947,7 +957,6 @@ function Settings._cheatTripleCrown()
                     f.awayGoals = randInt(0, 2)
                 end
                 pcall(function() playerLeague:updateStanding(f) end)
-                -- 写入个人履历和声望
                 Settings._recordPlayerFixture(gameState, f)
             end
         end
@@ -956,24 +965,18 @@ function Settings._cheatTripleCrown()
     -- 2. 完成其他联赛
     Settings._completeOtherLeagues(gameState, playerLeague)
 
-    -- 3. 完成欧冠并让玩家夺冠
-    if gameState.championsLeague then
-        local ucl = gameState.championsLeague
-        if ucl.leaguePhase and ucl.leaguePhase.fixtures then
-            for _, f in ipairs(ucl.leaguePhase.fixtures) do
-                if f.status ~= "finished" then
-                    f.status = "finished"
-                    f.homeGoals = randInt(0, 3)
-                    f.awayGoals = randInt(0, 3)
-                    pcall(function() ucl:updateLeagueStanding(f) end)
-                end
-            end
-        end
-        ucl.phase = "completed"
-        ucl.winner = playerTeamId
+    -- 3. 完成国内杯赛 + 欧冠/欧联（含淘汰赛），玩家球队偏向夺冠
+    Settings._completeDomesticCups(gameState, playerTeamId)
+    Settings._completeContinentalCompetition(gameState, gameState.championsLeague, {
+        flag = "_isUCL",
+        applyFn = TurnProcessor._applyUCLResult,
+        checkAdvanceFn = ChampionsLeague.checkPhaseAdvance,
+        favoredTeamId = playerTeamId,
+    })
+    local uclChampion = gameState.championsLeague and gameState.championsLeague.champion
+    if uclChampion then
+        RecordsManager.onUCLChampionship(gameState, uclChampion)
     end
-    -- 触发欧冠夺冠记录
-    RecordsManager.onUCLChampionship(gameState, playerTeamId)
 
     -- 4. 完成国际大赛（世界杯/欧洲杯）
     Settings._completeInternationalTournaments(gameState)
@@ -1059,7 +1062,156 @@ function Settings._cheatSkipToWorldCup()
     Router.replaceWith("dashboard")
 end
 
--- 快速完成所有联赛（给未完赛的比赛随机赋分）
+------------------------------------------------------
+-- 作弊快进：模拟辅助（偏向指定球队/国家队赢球）
+------------------------------------------------------
+function Settings._cheatBiasedWinReport(fixture, favoredId)
+    local isHome = fixture.homeTeamId == favoredId
+    return {
+        homeGoals = isHome and randInt(1, 3) or randInt(0, 1),
+        awayGoals = isHome and randInt(0, 1) or randInt(1, 3),
+        events = {},
+    }
+end
+
+function Settings._cheatSimulateFixture(gameState, fixture, favoredId)
+    local MatchEngine = require("scripts/match/match_engine")
+    if favoredId and (fixture.homeTeamId == favoredId or fixture.awayTeamId == favoredId) then
+        return Settings._cheatBiasedWinReport(fixture, favoredId)
+    end
+    return MatchEngine.simulate(gameState, fixture)
+end
+
+local function _cheatContinentalHasScheduledFixtures(tournament)
+    if not tournament then return false end
+    if tournament.leaguePhase and tournament.leaguePhase.fixtures then
+        for _, f in ipairs(tournament.leaguePhase.fixtures) do
+            if f.status ~= "finished" then return true end
+        end
+    end
+    if tournament.knockout then
+        for _, phase in ipairs({"playoff", "r16", "qf", "sf", "final"}) do
+            local fixtures = tournament.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.status ~= "finished" then return true end
+                end
+            end
+        end
+    end
+    return false
+end
+
+function Settings._completeContinentalCompetition(gameState, tournament, opts)
+    if not tournament or tournament.phase == "completed" then return end
+
+    local playerTeamId = opts.favoredTeamId or gameState.playerTeamId
+    local flag = opts.flag or "_isUCL"
+    local applyFn = opts.applyFn
+    local checkAdvanceFn = opts.checkAdvanceFn
+    local AIManager = require("scripts/systems/ai_manager")
+
+    for _ = 1, 60 do
+        if tournament.phase == "completed" then break end
+
+        local simulatedAny = false
+
+        if tournament.leaguePhase and tournament.leaguePhase.fixtures then
+            for _, f in ipairs(tournament.leaguePhase.fixtures) do
+                if f.status ~= "finished" then
+                    f[flag] = true
+                    local homeTeam = gameState.teams[f.homeTeamId]
+                    local awayTeam = gameState.teams[f.awayTeamId]
+                    if homeTeam then pcall(AIManager._adjustSquad, gameState, homeTeam) end
+                    if awayTeam then pcall(AIManager._adjustSquad, gameState, awayTeam) end
+                    local report = Settings._cheatSimulateFixture(gameState, f, playerTeamId)
+                    if report then
+                        f.status = "finished"
+                        f.homeGoals = report.homeGoals or 0
+                        f.awayGoals = report.awayGoals or 0
+                        f.events = report.events
+                        pcall(function() tournament:updateLeagueStanding(f) end)
+                        Settings._recordPlayerFixture(gameState, f)
+                        simulatedAny = true
+                    end
+                end
+            end
+        end
+
+        if tournament.knockout then
+            for _, phase in ipairs({"playoff", "r16", "qf", "sf", "final"}) do
+                local fixtures = tournament.knockout[phase]
+                if fixtures then
+                    for _, f in ipairs(fixtures) do
+                        if f.status ~= "finished" then
+                            f[flag] = true
+                            f.tournamentPhase = phase
+                            local homeTeam = gameState.teams[f.homeTeamId]
+                            local awayTeam = gameState.teams[f.awayTeamId]
+                            if homeTeam then pcall(AIManager._adjustSquad, gameState, homeTeam) end
+                            if awayTeam then pcall(AIManager._adjustSquad, gameState, awayTeam) end
+                            local report = Settings._cheatSimulateFixture(gameState, f, playerTeamId)
+                            if report and applyFn then
+                                applyFn(gameState, f, report)
+                                Settings._recordPlayerFixture(gameState, f)
+                                simulatedAny = true
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        if checkAdvanceFn then
+            pcall(checkAdvanceFn, gameState)
+        end
+
+        if not simulatedAny and not _cheatContinentalHasScheduledFixtures(tournament) then
+            break
+        end
+    end
+end
+
+function Settings._completeDomesticCups(gameState, favoredTeamId)
+    local DomesticCup = require("scripts/systems/domestic_cup")
+    if not gameState.domesticCups then return end
+
+    favoredTeamId = favoredTeamId or gameState.playerTeamId
+
+    for _ = 1, 30 do
+        if DomesticCup.allCompleted(gameState) then break end
+
+        local simulatedAny = false
+        for leagueKey, cup in pairs(gameState.domesticCups) do
+            if cup.phase == "completed" then goto next_cup end
+            for _, roundFixtures in ipairs(cup.rounds or {}) do
+                for _, fixture in ipairs(roundFixtures) do
+                    if fixture.status ~= "finished" then
+                        fixture._isDomesticCup = true
+                        fixture._cupLeague = fixture._cupLeague or cup.leagueKey or leagueKey
+                        local report = Settings._cheatSimulateFixture(gameState, fixture, favoredTeamId)
+                        if report then
+                            DomesticCup.applyResult(gameState, fixture, report)
+                            Settings._recordPlayerFixture(gameState, fixture)
+                            simulatedAny = true
+                        end
+                    end
+                end
+            end
+            ::next_cup::
+        end
+
+        DomesticCup.checkPhaseAdvance(gameState)
+        if not simulatedAny and not DomesticCup.allCompleted(gameState) then
+            break
+        end
+    end
+
+    DomesticCup.invalidateFixtureCaches(gameState)
+end
+
+------------------------------------------------------
+-- 快速完成所有联赛/杯赛/洲际赛（赛季末作弊快进用）
 ------------------------------------------------------
 -- 辅助：将比赛结果写入个人履历和声望（作弊模式用）
 ------------------------------------------------------
@@ -1235,41 +1387,25 @@ function Settings._completeAllLeagues(gameState)
             end
         end
     end
-    -- 也完成欧冠
-    if gameState.championsLeague then
-        local ucl = gameState.championsLeague
-        if ucl.leaguePhase and ucl.leaguePhase.fixtures then
-            for _, f in ipairs(ucl.leaguePhase.fixtures) do
-                if f.status ~= "finished" then
-                    local isPlayerHome = (f.homeTeamId == playerTeamId)
-                    local isPlayerAway = (f.awayTeamId == playerTeamId)
-                    if isPlayerHome then
-                        f.homeGoals = randInt(1, 3)
-                        f.awayGoals = randInt(0, 1)
-                    elseif isPlayerAway then
-                        f.homeGoals = randInt(0, 1)
-                        f.awayGoals = randInt(1, 3)
-                    else
-                        -- AI vs AI：用真实引擎决定比分，尊重球队战力
-                        local ok, report = pcall(MatchEngine.simulate, gameState, f)
-                        if ok and report then
-                            f.homeGoals = report.homeGoals
-                            f.awayGoals = report.awayGoals
-                        else
-                            f.homeGoals = randInt(0, 3)
-                            f.awayGoals = randInt(0, 3)
-                        end
-                    end
-                    f.status = "finished"
-                    pcall(function() ucl:updateLeagueStanding(f) end)
-                    -- 写入个人履历和声望
-                    Settings._recordPlayerFixture(gameState, f)
-                end
-            end
-        end
-        -- 标记完成
-        ucl.phase = "completed"
-    end
+    -- 国内杯赛 + 欧冠/欧联（含淘汰赛）
+    Settings._completeDomesticCups(gameState, playerTeamId)
+
+    local TurnProcessor = require("scripts/core/turn_processor")
+    local ChampionsLeague = require("scripts/systems/champions_league")
+    local EuropaLeague = require("scripts/systems/europa_league")
+
+    Settings._completeContinentalCompetition(gameState, gameState.championsLeague, {
+        flag = "_isUCL",
+        applyFn = TurnProcessor._applyUCLResult,
+        checkAdvanceFn = ChampionsLeague.checkPhaseAdvance,
+        favoredTeamId = playerTeamId,
+    })
+    Settings._completeContinentalCompetition(gameState, gameState.europaLeague, {
+        flag = "_isUEL",
+        applyFn = TurnProcessor._applyUELResult,
+        checkAdvanceFn = EuropaLeague.checkPhaseAdvance,
+        favoredTeamId = playerTeamId,
+    })
 end
 
 ------------------------------------------------------
@@ -1279,60 +1415,82 @@ function Settings._completeInternationalTournaments(gameState)
     local WorldCup = require("scripts/systems/world_cup")
     local EuroCup = require("scripts/systems/euro_cup")
 
-    -- 完成世界杯
     if gameState.worldCup and gameState.worldCup.phase ~= "completed" and gameState.worldCup.phase ~= "not_started" then
         Settings._completeTournamentFully(gameState, gameState.worldCup, WorldCup)
     end
 
-    -- 完成欧洲杯
     if gameState.euroCup and gameState.euroCup.phase ~= "completed" and gameState.euroCup.phase ~= "not_started" then
         Settings._completeTournamentFully(gameState, gameState.euroCup, EuroCup)
     end
 end
 
 function Settings._completeTournamentFully(gameState, tournament, module)
-    -- 安全阀：防止无限循环
-    local maxIterations = 20
-    local iteration = 0
+    local MatchEngine = require("scripts/match/match_engine")
+    local TurnProcessor = require("scripts/core/turn_processor")
+    local WorldCup = require("scripts/systems/world_cup")
+    local EuroCup = require("scripts/systems/euro_cup")
+    local isWorldCup = (module == WorldCup)
+    local knockoutPhases = isWorldCup
+        and {"r32", "r16", "qf", "sf", "third", "final"}
+        or {"r16", "qf", "sf", "final"}
 
-    while tournament.phase ~= "completed" and iteration < maxIterations do
-        iteration = iteration + 1
+    local function favoredNationFor(fixture)
+        if not gameState._cheatAutoPlay then return nil end
+        if isWorldCup and WorldCup.isPlayerNationMatch(gameState, fixture) then
+            return gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation
+        end
+        if not isWorldCup and EuroCup.isPlayerNationMatch(gameState, fixture) then
+            return gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation
+        end
+        return nil
+    end
 
-        -- 1) 模拟小组赛所有未完成比赛
+    local function applyIntlResult(fixture, report)
+        if isWorldCup then
+            fixture._isWC = true
+            TurnProcessor._applyWCResult(gameState, fixture, report)
+        else
+            fixture._isWC = true
+            fixture._isEuro = true
+            TurnProcessor._applyEuroResult(gameState, fixture, report)
+        end
+    end
+
+    for iteration = 1, 40 do
+        if tournament.phase == "completed" then break end
+
+        local simulatedAny = false
+
         if tournament.phase == "group" and tournament.groups then
             for groupName, group in pairs(tournament.groups) do
                 for _, f in ipairs(group.fixtures or {}) do
                     if f.status ~= "finished" then
-                        f.homeGoals = randInt(0, 3)
-                        f.awayGoals = randInt(0, 3)
-                        f.status = "finished"
-                        pcall(function()
-                            tournament:updateGroupStanding(groupName, f)
-                        end)
+                        local favored = favoredNationFor(f)
+                        local report = favored
+                            and Settings._cheatBiasedWinReport(f, favored)
+                            or MatchEngine.simulate(gameState, f)
+                        if report then
+                            applyIntlResult(f, report)
+                            simulatedAny = true
+                        end
                     end
                 end
             end
         end
 
-        -- 2) 模拟淘汰赛所有未完成比赛
         if tournament.knockout then
-            local phases = {"r32", "r16", "qf", "sf", "final"}
-            for _, phase in ipairs(phases) do
+            for _, phase in ipairs(knockoutPhases) do
                 local fixtures = tournament.knockout[phase]
                 if fixtures then
                     for _, f in ipairs(fixtures) do
                         if f.status ~= "finished" then
-                            f.homeGoals = randInt(0, 3)
-                            f.awayGoals = randInt(0, 3)
-                            f.status = "finished"
-                            -- 淘汰赛不能平局，需要产生胜者
-                            if f.homeGoals == f.awayGoals then
-                                -- 模拟点球大战
-                                if Random() < 0.5 then
-                                    f._penaltyWinner = f.homeTeamId
-                                else
-                                    f._penaltyWinner = f.awayTeamId
-                                end
+                            local favored = favoredNationFor(f)
+                            local report = favored
+                                and Settings._cheatBiasedWinReport(f, favored)
+                                or MatchEngine.simulate(gameState, f)
+                            if report then
+                                applyIntlResult(f, report)
+                                simulatedAny = true
                             end
                         end
                     end
@@ -1340,8 +1498,11 @@ function Settings._completeTournamentFully(gameState, tournament, module)
             end
         end
 
-        -- 3) 推进阶段
         pcall(module.checkPhaseAdvance, gameState)
+
+        if not simulatedAny and tournament.phase ~= "completed" then
+            break
+        end
     end
 end
 

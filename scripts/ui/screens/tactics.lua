@@ -11,8 +11,18 @@ local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local WorldCup = require("scripts/systems/world_cup")
 local Team = require("scripts/domain/team")
+local MatchSession = require("scripts/match/match_session")
 
 local Tactics = {}
+
+---@type table|nil
+local _liveTacticsContext = nil
+---@type string
+local _activeTab = "formation" -- formation | bench
+
+-- 局部 ScrollView 引用，用于局部刷新避免整页重建
+---@type any
+local _formationScrollView = nil
 
 local function _isNationalTeamMode(gameState)
     return gameState.currentRole == "national_team"
@@ -20,20 +30,105 @@ local function _isNationalTeamMode(gameState)
         and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
 end
 
+local function _cloneStartingXI(xi)
+    return MatchSession._cloneStartingXI(xi)
+end
+
+local function _buildLiveTacticsContext(gameState, params)
+    local session = params and params.session
+    if not gameState or not session or not session.fixture then return nil end
+
+    local fixture = params.fixture or session.fixture
+    local teamId
+    if session._isWC then
+        local NT = fixture and fixture._isEuro and require("scripts/systems/euro_cup") or WorldCup
+        teamId = NT._getPlayerNation(gameState)
+    else
+        teamId = gameState.playerTeamId
+    end
+    if not teamId then return nil end
+
+    local side
+    if teamId == fixture.homeTeamId then
+        side = "home"
+    elseif teamId == fixture.awayTeamId then
+        side = "away"
+    else
+        return nil
+    end
+
+    local context = side == "home" and session.homeContext or session.awayContext
+    if not context or not context.team then return nil end
+
+    return {
+        session = session,
+        fixture = fixture,
+        teamId = teamId,
+        side = side,
+        context = context,
+        team = context.team,
+    }
+end
+
+local function _syncLiveTeamFromSession()
+    local live = _liveTacticsContext
+    if not live or not live.team or not live.session then return end
+    local shadow = live.session.shadowLineup and live.session.shadowLineup[live.side]
+    if shadow then
+        live.team.startingXI = _cloneStartingXI(shadow)
+    end
+    local benchIds = {}
+    for _, p in ipairs(live.session.bench or {}) do
+        benchIds[#benchIds + 1] = p.id
+    end
+    live.team.benchIds = benchIds
+end
+
+local function _routeParams(tab)
+    local params = { tab = tab or _activeTab }
+    if _liveTacticsContext then
+        params.liveMatch = true
+        params.session = _liveTacticsContext.session
+        params.fixture = _liveTacticsContext.fixture
+    end
+    return params
+end
+
+local function _replaceTactics(tab)
+    Router.replaceWith("tactics", _routeParams(tab))
+end
+
+local function _returnFromTactics()
+    if _liveTacticsContext then
+        Router.replaceWith("match_live", {
+            session = _liveTacticsContext.session,
+            fixture = _liveTacticsContext.fixture,
+            mode = "normal",
+        })
+    else
+        Router.back()
+    end
+end
+
 local function _saveTeamSettings(gameState, team)
+    if _liveTacticsContext and team == _liveTacticsContext.team then
+        local live = _liveTacticsContext
+        if live.session.shadowLineup and live.side then
+            live.session.shadowLineup[live.side] = _cloneStartingXI(team.startingXI)
+        end
+        if live.context then
+            live.context.team = team
+            live.session:_recalculateContext(live.context, live.side)
+        end
+        return
+    end
+
     if _isNationalTeamMode(gameState) and gameState.nationalTeamCoach then
         WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
     else
         Team.saveActiveLineupPreset(team)
     end
 end
-
----@type string
-local _activeTab = "formation" -- formation | bench
-
--- 局部 ScrollView 引用，用于局部刷新避免整页重建
----@type any
-local _formationScrollView = nil
 
 --- 体力颜色与展示组件（与比赛换人面板一致：名字下方长条 + 百分比）
 local function _fitnessColor(fitness)
@@ -85,11 +180,18 @@ function Tactics.create(params)
         }
     end
 
+    _liveTacticsContext = _buildLiveTacticsContext(gameState, params)
+    if _liveTacticsContext then
+        _syncLiveTeamFromSession()
+    end
+
     -- 判断当前身份：国家队模式 vs 俱乐部模式
-    local isNTMode = _isNationalTeamMode(gameState)
+    local isNTMode = (not _liveTacticsContext) and _isNationalTeamMode(gameState)
 
     local team
-    if isNTMode then
+    if _liveTacticsContext then
+        team = _liveTacticsContext.team
+    elseif isNTMode then
         local nationCode = gameState.nationalTeamCoach.nation
         team = WorldCup.buildNationalTeam(gameState, nationCode)
     else
@@ -107,6 +209,9 @@ function Tactics.create(params)
     -- 读取 params 中的 tab
     if params and params.tab then
         _activeTab = params.tab == "setpiece" and "formation" or params.tab
+    end
+    if _liveTacticsContext and _activeTab == "bench" then
+        _activeTab = "formation"
     end
 
     local content
@@ -130,10 +235,10 @@ function Tactics.create(params)
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14,
                         color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.back() end,
+                        onClick = function() _returnFromTactics() end,
                     },
                     UI.Label {
-                        text = "战术设置",
+                        text = _liveTacticsContext and "临场战术" or "战术设置",
                         fontSize = 18,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold",
@@ -145,7 +250,7 @@ function Tactics.create(params)
             },
 
             -- 二级导航
-            Theme.SquadSubNav("tactics"),
+            (not _liveTacticsContext) and Theme.SquadSubNav("tactics") or nil,
 
             -- 内部 tab 切换
             Tactics._buildTabBar(),
@@ -166,7 +271,7 @@ function Tactics.create(params)
             end)(),
 
             -- 底部导航
-            Theme.MainNav("squad"),
+            (not _liveTacticsContext) and Theme.MainNav("squad") or nil,
         }
     }
 end
@@ -175,8 +280,10 @@ end
 function Tactics._buildTabBar()
     local tabs = {
         { key = "formation", label = "阵型与球场" },
-        { key = "bench",     label = "替补席" },
     }
+    if not _liveTacticsContext then
+        table.insert(tabs, { key = "bench", label = "替补席" })
+    end
     local children = {}
     for _, t in ipairs(tabs) do
         local isActive = t.key == _activeTab
@@ -194,7 +301,7 @@ function Tactics._buildTabBar()
             onClick = function()
                 if not isActive then
                     _activeTab = t.key
-                    Router.replaceWith("tactics", { tab = t.key })
+                    _replaceTactics(t.key)
                 end
             end,
         })
@@ -281,9 +388,18 @@ local function _buildFormationChildren(gameState, team, isNTMode)
             onClick = function()
                 if fmt == team.formation then return end
                 applyWithCustomizationConfirm(function()
-                    team.formation = fmt
-                    team.formationVariant = Constants.getDefaultVariant(fmt)
-                    AIManager.rearrangeForFormation(gameState, team)
+                    if _liveTacticsContext then
+                        _liveTacticsContext.session:applyCommand({
+                            type = MatchSession.COMMAND.CHANGE_FORMATION,
+                            formation = fmt,
+                            teamId = _liveTacticsContext.teamId,
+                        })
+                        _syncLiveTeamFromSession()
+                    else
+                        team.formation = fmt
+                        team.formationVariant = Constants.getDefaultVariant(fmt)
+                        AIManager.rearrangeForFormation(gameState, team)
+                    end
                 end, "切换阵型")
             end,
         })
@@ -313,7 +429,9 @@ local function _buildFormationChildren(gameState, team, isNTMode)
                 if layoutKey == team.formationVariant then return end
                 applyWithCustomizationConfirm(function()
                     FormationShape.applyLayoutPreset(team, layoutKey)
-                    AIManager.rearrangeForFormation(gameState, team)
+                    if not _liveTacticsContext then
+                        AIManager.rearrangeForFormation(gameState, team)
+                    end
                 end, "切换中场布局")
             end,
         })
@@ -429,10 +547,8 @@ local SET_PIECE_KINDS = {
 function Tactics._buildSetPieceCard(gameState, team, isNTMode)
     local SetPieceResolver = require("scripts/match/set_piece_resolver")
 
-    local function saveNTSettings()
-        if isNTMode and gameState.nationalTeamCoach then
-            WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
-        end
+    local function saveSettings()
+        _saveTeamSettings(gameState, team)
     end
 
     local rows = {}
@@ -455,7 +571,7 @@ function Tactics._buildSetPieceCard(gameState, team, isNTMode)
             borderBottomWidth = (idx < #SET_PIECE_KINDS) and 1 or 0,
             borderColor = Theme.COLORS.BORDER,
             onClick = function()
-                Tactics._showSetPieceTakerSheet(gameState, team, entry, saveNTSettings)
+                Tactics._showSetPieceTakerSheet(gameState, team, entry, saveSettings)
             end,
             children = {
                 UI.Label {
@@ -490,8 +606,8 @@ function Tactics._buildSetPieceCard(gameState, team, isNTMode)
                         fontSize = 11, color = Theme.COLORS.ACCENT,
                         onClick = function()
                             SetPieceResolver.autoAssign(gameState, team)
-                            saveNTSettings()
-                            Router.replaceWith("tactics", { tab = "formation" })
+                            saveSettings()
+                            _replaceTactics("formation")
                         end,
                     },
                 },
@@ -539,7 +655,7 @@ function Tactics._showSetPieceTakerSheet(gameState, team, entry, saveNTSettings)
             team[entry.field] = nil
             saveNTSettings()
             BottomSheet.close()
-            Router.replaceWith("tactics", { tab = "formation" })
+            _replaceTactics("formation")
         end,
     })
 
@@ -566,7 +682,7 @@ function Tactics._showSetPieceTakerSheet(gameState, team, entry, saveNTSettings)
                 team[entry.field] = p.id
                 saveNTSettings()
                 BottomSheet.close()
-                Router.replaceWith("tactics", { tab = "formation" })
+                _replaceTactics("formation")
             end,
         })
     end
@@ -1002,12 +1118,23 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
         if pid then startingSet[pid] = true end
     end
 
-    -- 板凳球员（不在首发中）
-    for _, pid in ipairs(team.playerIds) do
-        local p = gameState.players[pid]
-        if p and not startingSet[pid] and not p.injured and not p.suspended then
-            local score = AIManager._playerPositionScore(p, slotPos)
-            table.insert(benchCandidates, { player = p, score = score, source = "bench" })
+    -- 板凳球员（不在首发中）；live 模式只能使用本场替补席
+    if _liveTacticsContext then
+        if (_liveTacticsContext.session.subsRemaining or 0) > 0 then
+            for _, p in ipairs(_liveTacticsContext.session.bench or {}) do
+                if p and not startingSet[p.id] and not p.injured and not p.suspended then
+                    local score = AIManager._playerPositionScore(p, slotPos)
+                    table.insert(benchCandidates, { player = p, score = score, source = "bench" })
+                end
+            end
+        end
+    else
+        for _, pid in ipairs(team.playerIds) do
+            local p = gameState.players[pid]
+            if p and not startingSet[pid] and not p.injured and not p.suspended then
+                local score = AIManager._playerPositionScore(p, slotPos)
+                table.insert(benchCandidates, { player = p, score = score, source = "bench" })
+            end
         end
     end
 
@@ -1164,7 +1291,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
                         FormationShape.setSlotPosition(team, slotIdx, pos)
                         saveAfterChange()
                         BottomSheet.close()
-                        Router.replaceWith("tactics", { tab = "formation" })
+                        _replaceTactics("formation")
                     end,
                 })
             end
@@ -1219,7 +1346,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
                         end
                         saveAfterChange()
                         BottomSheet.close()
-                        Router.replaceWith("tactics", { tab = "formation" })
+                        _replaceTactics("formation")
                     end,
                 })
             end
@@ -1249,7 +1376,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
                 FormationShape.nudgeSlot(team, slotIdx, direction)
                 saveAfterChange()
                 BottomSheet.close()
-                Router.replaceWith("tactics", { tab = "formation" })
+                _replaceTactics("formation")
             end
             local nudgeBtns = {
                 UI.Button { text = "前移", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
@@ -1295,7 +1422,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
                             FormationShape.setSlotPosition(team, slotIdx, defaultPos)
                             saveAfterChange()
                             BottomSheet.close()
-                            Router.replaceWith("tactics", { tab = "formation" })
+                            _replaceTactics("formation")
                         end,
                     },
                 }
@@ -1308,7 +1435,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
         })
         if #benchCandidates == 0 then
             table.insert(children, UI.Label {
-                text = "没有可用替补球员。",
+                text = _liveTacticsContext and "没有可用替补球员，或本场换人次数已用尽。" or "没有可用替补球员。",
                 fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
             })
         else
@@ -1326,10 +1453,24 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
                     fontSize = 12, textAlign = "left", paddingLeft = 10,
                     color = scoreColor,
                     onClick = function()
-                        team.startingXI[slotIdx] = p.id
-                        saveAfterChange()
+                        if _liveTacticsContext then
+                            local ok, err = _liveTacticsContext.session:applyCommand({
+                                type = MatchSession.COMMAND.SUBSTITUTE,
+                                offPlayerId = currentPid,
+                                onPlayerId = p.id,
+                                teamId = _liveTacticsContext.teamId,
+                            })
+                            if not ok then
+                                print("[Tactics] live substitution failed: " .. tostring(err))
+                            else
+                                _syncLiveTeamFromSession()
+                            end
+                        else
+                            team.startingXI[slotIdx] = p.id
+                            saveAfterChange()
+                        end
                         BottomSheet.close()
-                        Router.replaceWith("tactics", { tab = "formation" })
+                        _replaceTactics("formation")
                     end,
                 })
             end
@@ -1371,7 +1512,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
                         team.startingXI[c.index] = tmp
                         saveAfterChange()
                         BottomSheet.close()
-                        Router.replaceWith("tactics", { tab = "formation" })
+                        _replaceTactics("formation")
                     end,
                 })
             end
@@ -1671,7 +1812,7 @@ function Tactics._buildBenchContent(gameState, team)
                         end
                         team.benchIds = newIds
                         _saveTeamSettings(gameState, team)
-                        Router.replaceWith("tactics", { tab = "bench" })
+                        _replaceTactics("bench")
                     end,
                 },
             },
@@ -1729,7 +1870,7 @@ function Tactics._buildBenchContent(gameState, team)
                         end
                         table.insert(team.benchIds, p.id)
                         _saveTeamSettings(gameState, team)
-                        Router.replaceWith("tactics", { tab = "bench" })
+                        _replaceTactics("bench")
                     end,
                 },
             },
@@ -1784,7 +1925,7 @@ function Tactics._buildBenchContent(gameState, team)
                             onClick = function()
                                 _autoFullSquad(gameState, team)
                                 _saveTeamSettings(gameState, team)
-                                Router.replaceWith("tactics", { tab = "bench" })
+                                _replaceTactics("bench")
                             end,
                         },
                         -- 清空（恢复自动）
@@ -1799,7 +1940,7 @@ function Tactics._buildBenchContent(gameState, team)
                             onClick = function()
                                 team.benchIds = {}
                                 _saveTeamSettings(gameState, team)
-                                Router.replaceWith("tactics", { tab = "bench" })
+                                _replaceTactics("bench")
                             end,
                         } or UI.Panel { width = 0 },
                     },

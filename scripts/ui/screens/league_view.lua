@@ -1,5 +1,5 @@
 -- ui/screens/league_view.lua
--- 联赛积分榜和赛程页面（支持切换查看五大联赛 + 欧冠 + 世界杯）
+-- 联赛积分榜和赛程页面（支持切换查看五大联赛 + 欧冠 + 欧联 + 世界杯）
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
@@ -7,10 +7,11 @@ local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local TeamIcon = require("scripts/ui/components/team_icon")
 local ChampionsLeague = require("scripts/systems/champions_league")
+local EuropaLeague = require("scripts/systems/europa_league")
 
 local LeagueView = {}
 
--- 当前查看的联赛key（模块级状态），"UCL" 表示欧冠，"WC" 表示世界杯
+-- 当前查看的联赛key（模块级状态），"UCL"/"UEL" 表示欧冠/欧联，"WC" 表示世界杯
 ---@type string?
 local currentLeagueKey = nil
 
@@ -30,6 +31,8 @@ function LeagueView.create(params)
     if not needReset then
         if currentLeagueKey == "UCL" then
             needReset = gameState.championsLeague == nil
+        elseif currentLeagueKey == "UEL" then
+            needReset = gameState.europaLeague == nil
         elseif currentLeagueKey == "WC" then
             needReset = not gameState.worldCup or gameState.worldCup.phase == "completed"
         elseif currentLeagueKey == "EURO" then
@@ -54,6 +57,7 @@ function LeagueView.create(params)
     local RealDataLoader = require("scripts/data/real_data_loader")
     local leagueOrder = RealDataLoader.getLeagueDisplayOrder(gameState)
     table.insert(leagueOrder, "UCL")
+    table.insert(leagueOrder, "UEL")
     table.insert(leagueOrder, "WC")
     table.insert(leagueOrder, "EURO")
     for _, key in ipairs(leagueOrder) do
@@ -63,6 +67,9 @@ function LeagueView.create(params)
         if key == "UCL" then
             hasData = gameState.championsLeague ~= nil
             tabName = "欧冠"
+        elseif key == "UEL" then
+            hasData = gameState.europaLeague ~= nil
+            tabName = "欧联"
         elseif key == "WC" then
             hasData = gameState.worldCup ~= nil and gameState.worldCup.phase ~= "completed"
             tabName = "世界杯"
@@ -97,6 +104,11 @@ function LeagueView.create(params)
     -- 如果当前选中欧冠，显示欧冠专用视图
     if currentLeagueKey == "UCL" then
         return LeagueView._createUCLView(gameState, leagueTabs)
+    end
+
+    -- 如果当前选中欧联，显示欧联专用视图
+    if currentLeagueKey == "UEL" then
+        return LeagueView._createUELView(gameState, leagueTabs)
     end
 
     -- 如果当前选中世界杯，显示世界杯专用视图
@@ -384,6 +396,265 @@ function LeagueView.create(params)
 end
 
 ------------------------------------------------------
+-- 欧冠 / 欧联 共用辅助
+------------------------------------------------------
+
+local TOURNAMENT_PHASE_NAMES = {
+    not_started = "未开始",
+    league = "联赛阶段",
+    playoff = "附加赛",
+    group = "小组赛",
+    r16 = "1/8 决赛",
+    qf = "1/4 决赛",
+    sf = "半决赛",
+    final = "决赛",
+    completed = "已结束",
+}
+
+local function _appendKnockoutContent(contentChildren, gameState, tournament)
+    local knockoutPhases = {
+        {key = "playoff", name = "附加赛"},
+        {key = "r16", name = "1/8 决赛"},
+        {key = "qf", name = "1/4 决赛"},
+        {key = "sf", name = "半决赛"},
+        {key = "final", name = "决赛"},
+    }
+
+    for _, kp in ipairs(knockoutPhases) do
+        local fixtures = tournament.knockout[kp.key]
+        if fixtures and #fixtures > 0 then
+            table.insert(contentChildren, UI.Panel {
+                width = "100%", paddingLeft = 10, paddingTop = 14, paddingBottom = 4,
+                children = {
+                    UI.Label { text = kp.name, fontSize = 14, color = Theme.COLORS.GOLD, fontWeight = "bold" },
+                }
+            })
+
+            if kp.key == "final" then
+                local f = fixtures[1]
+                if f then
+                    local home = gameState.teams[f.homeTeamId]
+                    local away = gameState.teams[f.awayTeamId]
+                    local scoreText = f.status == "finished"
+                        and (f.homeGoals .. " - " .. f.awayGoals)
+                        or "vs"
+                    local isPlayer = f.homeTeamId == gameState.playerTeamId or f.awayTeamId == gameState.playerTeamId
+                    table.insert(contentChildren, UI.Panel {
+                        width = "100%", height = 40,
+                        flexDirection = "row", alignItems = "center",
+                        paddingLeft = 10, paddingRight = 10,
+                        backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
+                        borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                        children = {
+                            UI.Label { text = home and home.name or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
+                            UI.Label { text = scoreText, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50, textAlign = "center" },
+                            UI.Label { text = away and away.name or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
+                        },
+                    })
+                end
+            else
+                local pairings = {}
+                for _, f in ipairs(fixtures) do
+                    if not pairings[f.matchIndex] then
+                        pairings[f.matchIndex] = {}
+                    end
+                    table.insert(pairings[f.matchIndex], f)
+                end
+
+                local pairKeys = {}
+                for k, _ in pairs(pairings) do table.insert(pairKeys, k) end
+                table.sort(pairKeys)
+
+                for _, pairIdx in ipairs(pairKeys) do
+                    local pair = pairings[pairIdx]
+                    local leg1, leg2
+                    for _, f in ipairs(pair) do
+                        if f.leg == 1 then leg1 = f else leg2 = f end
+                    end
+
+                    if leg1 then
+                        local team1 = gameState.teams[leg1.homeTeamId]
+                        local team2 = gameState.teams[leg1.awayTeamId]
+                        local isPlayer = leg1.homeTeamId == gameState.playerTeamId or leg1.awayTeamId == gameState.playerTeamId
+
+                        local leg1Score = leg1.status == "finished" and (leg1.homeGoals .. "-" .. leg1.awayGoals) or "-"
+                        local leg2Score = leg2 and leg2.status == "finished" and (leg2.homeGoals .. "-" .. leg2.awayGoals) or "-"
+
+                        local aggText = ""
+                        if leg1.status == "finished" and leg2 and leg2.status == "finished" then
+                            local agg1 = leg1.homeGoals + leg2.awayGoals
+                            local agg2 = leg1.awayGoals + leg2.homeGoals
+                            aggText = string.format("(%d-%d)", agg1, agg2)
+                            if leg2.extraTime and leg2.extraTime.played then
+                                local etHome = leg2.extraTime.homeExtraGoals or 0
+                                local etAway = leg2.extraTime.awayExtraGoals or 0
+                                if etHome > 0 or etAway > 0 then
+                                    aggText = aggText .. string.format(" 加:%d-%d", etHome, etAway)
+                                end
+                            end
+                            if leg2._penaltyWinner or (leg2.penalties and leg2.penalties.winner) then
+                                local pen = leg2.penalties or (leg2.extraTime and leg2.extraTime.penalties)
+                                if pen then
+                                    aggText = aggText .. string.format(" 点:%d-%d",
+                                        pen.homeScore or pen.homeScored or 0,
+                                        pen.awayScore or pen.awayScored or 0)
+                                else
+                                    aggText = aggText .. " 点球"
+                                end
+                            end
+                        end
+
+                        table.insert(contentChildren, UI.Panel {
+                            width = "100%", height = 38,
+                            flexDirection = "row", alignItems = "center",
+                            paddingLeft = 10, paddingRight = 10,
+                            backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
+                            borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                            children = {
+                                UI.Label { text = team1 and team1.name or "?", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
+                                UI.Label { text = leg1Score, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 30, textAlign = "center" },
+                                UI.Label { text = leg2Score, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 30, textAlign = "center" },
+                                UI.Label { text = aggText, fontSize = 11, color = Theme.COLORS.SECONDARY, width = 40, textAlign = "center" },
+                                UI.Label { text = team2 and team2.name or "?", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
+                            },
+                        })
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function _buildContinentalPage(gameState, leagueTabs, titleText, contentChildren)
+    return UI.Panel {
+        width = "100%",
+        height = "100%",
+        backgroundColor = Theme.COLORS.BG_DARK,
+        children = {
+            Theme.TopBar {
+                children = {
+                    UI.Button {
+                        text = "返回", width = 50, height = 36,
+                        backgroundColor = Theme.COLORS.TRANSPARENT,
+                        fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
+                        onClick = function() Router.back() end,
+                    },
+                    UI.Label {
+                        text = titleText,
+                        fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold", flexGrow = 1, textAlign = "center",
+                    },
+                    UI.Panel { width = 50 },
+                }
+            },
+            UI.ScrollView {
+                width = "100%", height = 42,
+                scrollX = true, scrollY = false,
+                flexDirection = "row", alignItems = "center",
+                paddingLeft = 10, paddingRight = 10,
+                paddingTop = 4, paddingBottom = 4,
+                backgroundColor = Theme.COLORS.BG_CARD,
+                children = leagueTabs,
+            },
+            UI.ScrollView {
+                flexGrow = 1,
+                flexBasis = 0,
+                scrollY = true,
+                children = contentChildren,
+            },
+            Theme.MainNav("league"),
+        }
+    }
+end
+
+local function _appendLeaguePhaseStandings(contentChildren, gameState, tournament, opts)
+    local lp = tournament.leaguePhase
+    if not lp or not lp.standings then return end
+
+    local directCount = opts.directCount or lp.directAdvanceCount or 8
+    local playoffEnd = opts.playoffEnd or lp.playoffEndRank or 24
+    local subtitle = opts.subtitle or "瑞士制"
+
+    table.insert(contentChildren, UI.Panel {
+        width = "100%", paddingLeft = 10, paddingTop = 10, paddingBottom = 4,
+        children = {
+            UI.Label { text = "联赛阶段积分榜", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+            UI.Label { text = subtitle, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
+        }
+    })
+
+    table.insert(contentChildren, UI.Panel {
+        width = "100%", height = 24,
+        flexDirection = "row", alignItems = "center",
+        paddingLeft = 10, paddingRight = 10,
+        backgroundColor = Theme.COLORS.BG_HEADER,
+        children = {
+            UI.Label { text = "#", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+            UI.Label { text = "球队", flexGrow = 1, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+            UI.Label { text = "场", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 22 },
+            UI.Label { text = "胜", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+            UI.Label { text = "平", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+            UI.Label { text = "负", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+            UI.Label { text = "净胜", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 28 },
+            UI.Label { text = "积分", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 28 },
+        }
+    })
+
+    local sorted = tournament:getLeaguePhaseSortedStandings()
+    for i, s in ipairs(sorted) do
+        local team = gameState.teams[s.teamId]
+        local isPlayer = s.teamId == gameState.playerTeamId
+        local teamId = s.teamId
+        local bgColor = {0, 0, 0, 0}
+        if isPlayer then
+            bgColor = {26, 51, 89, 255}
+        elseif i <= directCount then
+            bgColor = {20, 60, 20, 255}
+        elseif i <= playoffEnd then
+            bgColor = {20, 40, 60, 255}
+        end
+
+        table.insert(contentChildren, UI.Panel {
+            width = "100%", height = 36,
+            flexDirection = "row", alignItems = "center",
+            paddingLeft = 10, paddingRight = 10,
+            backgroundColor = bgColor,
+            borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+            onClick = function()
+                Router.navigate("team_detail", { teamId = teamId })
+            end,
+            children = {
+                UI.Label { text = tostring(i), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                TeamIcon { team = team, size = 20, marginRight = 5 },
+                UI.Label { text = team and team.name or "???", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = isPlayer and "bold" or "normal", flexGrow = 1, flexShrink = 1 },
+                UI.Label { text = tostring(s.played), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 22 },
+                UI.Label { text = tostring(s.wins), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = tostring(s.draws), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = tostring(s.losses), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = tostring(s.goalDifference), fontSize = 11, color = s.goalDifference >= 0 and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER, width = 28 },
+                UI.Label { text = tostring(s.points), fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 28 },
+            },
+        })
+    end
+
+    local legendChildren = {
+        UI.Panel { width = 10, height = 10, backgroundColor = {20, 60, 20, 255}, borderRadius = 2, marginRight = 4 },
+        UI.Label { text = opts.directLegend or ("直接晋级16强(1-" .. directCount .. ")"), fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 10 },
+        UI.Panel { width = 10, height = 10, backgroundColor = {20, 40, 60, 255}, borderRadius = 2, marginRight = 4 },
+        UI.Label { text = opts.playoffLegend or ("附加赛(" .. (directCount + 1) .. "-" .. playoffEnd .. ")"), fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 10 },
+    }
+    if opts.eliminatedLegend then
+        table.insert(legendChildren, UI.Label { text = opts.eliminatedLegend, fontSize = 9, color = Theme.COLORS.TEXT_MUTED })
+    end
+
+    table.insert(contentChildren, UI.Panel {
+        width = "100%", paddingLeft = 10, paddingTop = 8, paddingBottom = 8,
+        flexDirection = "row", alignItems = "center",
+        children = legendChildren,
+    })
+end
+
+------------------------------------------------------
 -- 欧冠专用视图
 ------------------------------------------------------
 
@@ -396,103 +667,15 @@ function LeagueView._createUCLView(gameState, leagueTabs)
         return UI.Panel { width = "100%", height = "100%", backgroundColor = Theme.COLORS.BG_DARK }
     end
 
-    -- 阶段显示文字
-    local phaseNames = {
-        not_started = "未开始",
-        league = "联赛阶段",
-        playoff = "附加赛",
-        group = "小组赛",
-        r16 = "1/8 决赛",
-        qf = "1/4 决赛",
-        sf = "半决赛",
-        final = "决赛",
-        completed = "已结束",
-    }
-    local phaseText = phaseNames[ucl.phase] or ucl.phase
-
-    -- 构建内容
+    local phaseText = TOURNAMENT_PHASE_NAMES[ucl.phase] or ucl.phase
     local contentChildren = {}
 
-    -- 联赛阶段积分榜（瑞士制 36队单一积分榜）
-    if ucl.leaguePhase and ucl.leaguePhase.standings then
-        table.insert(contentChildren, UI.Panel {
-            width = "100%", paddingLeft = 10, paddingTop = 10, paddingBottom = 4,
-            children = {
-                UI.Label { text = "联赛阶段积分榜", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
-                UI.Label { text = "36队瑞士制 · 每队8场", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
-            }
-        })
-
-        -- 表头
-        table.insert(contentChildren, UI.Panel {
-            width = "100%", height = 24,
-            flexDirection = "row", alignItems = "center",
-            paddingLeft = 10, paddingRight = 10,
-            backgroundColor = Theme.COLORS.BG_HEADER,
-            children = {
-                UI.Label { text = "#", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-                UI.Label { text = "球队", flexGrow = 1, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-                UI.Label { text = "场", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 22 },
-                UI.Label { text = "胜", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-                UI.Label { text = "平", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-                UI.Label { text = "负", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-                UI.Label { text = "净胜", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 28 },
-                UI.Label { text = "积分", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 28 },
-            }
-        })
-
-        -- 积分榜（显示全部36队，标注出线区/附加赛区/淘汰区）
-        local sorted = ucl:getLeaguePhaseSortedStandings()
-        for i, s in ipairs(sorted) do
-            local team = gameState.teams[s.teamId]
-            local isPlayer = s.teamId == gameState.playerTeamId
-            local teamId = s.teamId
-            -- 1-8: 直接晋级16强（绿色）; 9-24: 附加赛（蓝色）; 25-36: 淘汰（默认）
-            local bgColor = {0, 0, 0, 0}
-            if isPlayer then
-                bgColor = {26, 51, 89, 255}
-            elseif i <= 8 then
-                bgColor = {20, 60, 20, 255}
-            elseif i <= 24 then
-                bgColor = {20, 40, 60, 255}
-            end
-
-            table.insert(contentChildren, UI.Panel {
-                width = "100%", height = 36,
-                flexDirection = "row", alignItems = "center",
-                paddingLeft = 10, paddingRight = 10,
-                backgroundColor = bgColor,
-                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
-                onClick = function()
-                    Router.navigate("team_detail", { teamId = teamId })
-                end,
-                children = {
-                    UI.Label { text = tostring(i), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-                    TeamIcon { team = team, size = 20, marginRight = 5 },
-                    UI.Label { text = team and team.name or "???", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = isPlayer and "bold" or "normal", flexGrow = 1, flexShrink = 1 },
-                    UI.Label { text = tostring(s.played), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 22 },
-                    UI.Label { text = tostring(s.wins), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-                    UI.Label { text = tostring(s.draws), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-                    UI.Label { text = tostring(s.losses), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-                    UI.Label { text = tostring(s.goalDifference), fontSize = 11, color = s.goalDifference >= 0 and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER, width = 28 },
-                    UI.Label { text = tostring(s.points), fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 28 },
-                },
-            })
-        end
-
-        -- 图例
-        table.insert(contentChildren, UI.Panel {
-            width = "100%", paddingLeft = 10, paddingTop = 8, paddingBottom = 8,
-            flexDirection = "row", alignItems = "center",
-            children = {
-                UI.Panel { width = 10, height = 10, backgroundColor = {20, 60, 20, 255}, borderRadius = 2, marginRight = 4 },
-                UI.Label { text = "直接晋级16强(1-8)", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 10 },
-                UI.Panel { width = 10, height = 10, backgroundColor = {20, 40, 60, 255}, borderRadius = 2, marginRight = 4 },
-                UI.Label { text = "附加赛(9-24)", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 10 },
-                UI.Label { text = "淘汰(25-36)", fontSize = 9, color = Theme.COLORS.TEXT_MUTED },
-            }
-        })
-    end
+    _appendLeaguePhaseStandings(contentChildren, gameState, ucl, {
+        subtitle = "36队瑞士制 · 每队8场",
+        directCount = 8,
+        playoffEnd = 24,
+        eliminatedLegend = "淘汰(25-36)",
+    })
 
     -- 小组赛积分榜（传统模式，世界杯用）
     if ucl.groups and next(ucl.groups) then
@@ -562,125 +745,8 @@ function LeagueView._createUCLView(gameState, leagueTabs)
         end
     end
 
-    -- 淘汰赛结果
-    local knockoutPhases = {
-        {key = "playoff", name = "附加赛"},
-        {key = "r16", name = "1/8 决赛"},
-        {key = "qf", name = "1/4 决赛"},
-        {key = "sf", name = "半决赛"},
-        {key = "final", name = "决赛"},
-    }
+    _appendKnockoutContent(contentChildren, gameState, ucl)
 
-    for _, kp in ipairs(knockoutPhases) do
-        local fixtures = ucl.knockout[kp.key]
-        if fixtures and #fixtures > 0 then
-            -- 标题
-            table.insert(contentChildren, UI.Panel {
-                width = "100%", paddingLeft = 10, paddingTop = 14, paddingBottom = 4,
-                children = {
-                    UI.Label { text = kp.name, fontSize = 14, color = Theme.COLORS.GOLD, fontWeight = "bold" },
-                }
-            })
-
-            if kp.key == "final" then
-                -- 决赛单场
-                local f = fixtures[1]
-                if f then
-                    local home = gameState.teams[f.homeTeamId]
-                    local away = gameState.teams[f.awayTeamId]
-                    local scoreText = f.status == "finished"
-                        and (f.homeGoals .. " - " .. f.awayGoals)
-                        or "vs"
-                    local isPlayer = f.homeTeamId == gameState.playerTeamId or f.awayTeamId == gameState.playerTeamId
-                    table.insert(contentChildren, UI.Panel {
-                        width = "100%", height = 40,
-                        flexDirection = "row", alignItems = "center",
-                        paddingLeft = 10, paddingRight = 10,
-                        backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
-                        borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
-                        children = {
-                            UI.Label { text = home and home.name or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
-                            UI.Label { text = scoreText, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50, textAlign = "center" },
-                            UI.Label { text = away and away.name or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
-                        },
-                    })
-                end
-            else
-                -- 两回合制：按 matchIndex 分组展示
-                local pairings = {}
-                for _, f in ipairs(fixtures) do
-                    if not pairings[f.matchIndex] then
-                        pairings[f.matchIndex] = {}
-                    end
-                    table.insert(pairings[f.matchIndex], f)
-                end
-
-                local pairKeys = {}
-                for k, _ in pairs(pairings) do table.insert(pairKeys, k) end
-                table.sort(pairKeys)
-
-                for _, pairIdx in ipairs(pairKeys) do
-                    local pair = pairings[pairIdx]
-                    local leg1, leg2
-                    for _, f in ipairs(pair) do
-                        if f.leg == 1 then leg1 = f else leg2 = f end
-                    end
-
-                    if leg1 then
-                        local team1 = gameState.teams[leg1.homeTeamId]
-                        local team2 = gameState.teams[leg1.awayTeamId]
-                        local isPlayer = leg1.homeTeamId == gameState.playerTeamId or leg1.awayTeamId == gameState.playerTeamId
-
-                        -- 比分文字
-                        local leg1Score = leg1.status == "finished" and (leg1.homeGoals .. "-" .. leg1.awayGoals) or "-"
-                        local leg2Score = leg2 and leg2.status == "finished" and (leg2.homeGoals .. "-" .. leg2.awayGoals) or "-"
-
-                        -- 总比分
-                        local aggText = ""
-                        if leg1.status == "finished" and leg2 and leg2.status == "finished" then
-                            local agg1 = leg1.homeGoals + leg2.awayGoals
-                            local agg2 = leg1.awayGoals + leg2.homeGoals
-                            aggText = string.format("(%d-%d)", agg1, agg2)
-                            if leg2.extraTime and leg2.extraTime.played then
-                                local etHome = leg2.extraTime.homeExtraGoals or 0
-                                local etAway = leg2.extraTime.awayExtraGoals or 0
-                                if etHome > 0 or etAway > 0 then
-                                    aggText = aggText .. string.format(" 加:%d-%d", etHome, etAway)
-                                end
-                            end
-                            if leg2._penaltyWinner or (leg2.penalties and leg2.penalties.winner) then
-                                local pen = leg2.penalties or (leg2.extraTime and leg2.extraTime.penalties)
-                                if pen then
-                                    aggText = aggText .. string.format(" 点:%d-%d",
-                                        pen.homeScore or pen.homeScored or 0,
-                                        pen.awayScore or pen.awayScored or 0)
-                                else
-                                    aggText = aggText .. " 点球"
-                                end
-                            end
-                        end
-
-                        table.insert(contentChildren, UI.Panel {
-                            width = "100%", height = 38,
-                            flexDirection = "row", alignItems = "center",
-                            paddingLeft = 10, paddingRight = 10,
-                            backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
-                            borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
-                            children = {
-                                UI.Label { text = team1 and team1.name or "?", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
-                                UI.Label { text = leg1Score, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 30, textAlign = "center" },
-                                UI.Label { text = leg2Score, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 30, textAlign = "center" },
-                                UI.Label { text = aggText, fontSize = 11, color = Theme.COLORS.SECONDARY, width = 40, textAlign = "center" },
-                                UI.Label { text = team2 and team2.name or "?", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
-                            },
-                        })
-                    end
-                end
-            end
-        end
-    end
-
-    -- 冠军显示
     if ucl.champion then
         local champion = gameState.teams[ucl.champion]
         table.insert(contentChildren, UI.Panel {
@@ -693,52 +759,55 @@ function LeagueView._createUCLView(gameState, leagueTabs)
         })
     end
 
-    return UI.Panel {
-        width = "100%",
-        height = "100%",
-        backgroundColor = Theme.COLORS.BG_DARK,
-        children = {
-            -- 标题栏
-            Theme.TopBar {
-                children = {
-                    UI.Button {
-                        text = "返回", width = 50, height = 36,
-                        backgroundColor = Theme.COLORS.TRANSPARENT,
-                        fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.back() end,
-                    },
-                    UI.Label {
-                        text = "欧冠 " .. ucl.season .. "-" .. (ucl.season + 1) .. " (" .. phaseText .. ")",
-                        fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY,
-                        fontWeight = "bold", flexGrow = 1, textAlign = "center",
-                    },
-                    UI.Panel { width = 50 },
-                }
-            },
+    return _buildContinentalPage(
+        gameState,
+        leagueTabs,
+        "欧冠 " .. ucl.season .. "-" .. (ucl.season + 1) .. " (" .. phaseText .. ")",
+        contentChildren
+    )
+end
 
-            -- 联赛切换标签栏
-            UI.ScrollView {
-                width = "100%", height = 42,
-                scrollX = true, scrollY = false,
-                flexDirection = "row", alignItems = "center",
-                paddingLeft = 10, paddingRight = 10,
-                paddingTop = 4, paddingBottom = 4,
-                backgroundColor = Theme.COLORS.BG_CARD,
-                children = leagueTabs,
-            },
+------------------------------------------------------
+-- 欧联杯专用视图
+------------------------------------------------------
 
-            -- 内容区
-            UI.ScrollView {
-                flexGrow = 1,
-                flexBasis = 0,
-                scrollY = true,
-                children = contentChildren,
-            },
+function LeagueView._createUELView(gameState, leagueTabs)
+    EuropaLeague.migrateIfNeeded(gameState)
 
-            -- 底部导航
-            Theme.MainNav("league"),
-        }
-    }
+    local uel = gameState.europaLeague
+    if not uel then
+        return UI.Panel { width = "100%", height = "100%", backgroundColor = Theme.COLORS.BG_DARK }
+    end
+
+    local phaseText = TOURNAMENT_PHASE_NAMES[uel.phase] or uel.phase
+    local contentChildren = {}
+
+    _appendLeaguePhaseStandings(contentChildren, gameState, uel, {
+        subtitle = "24队瑞士制 · 每队6场",
+        directCount = 8,
+        playoffEnd = 24,
+    })
+
+    _appendKnockoutContent(contentChildren, gameState, uel)
+
+    if uel.champion then
+        local champion = gameState.teams[uel.champion]
+        table.insert(contentChildren, UI.Panel {
+            width = "100%", paddingTop = 16, paddingBottom = 16,
+            alignItems = "center",
+            children = {
+                UI.Label { text = "冠军", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = champion and champion.name or "?", fontSize = 18, color = {255, 215, 0, 255}, fontWeight = "bold" },
+            }
+        })
+    end
+
+    return _buildContinentalPage(
+        gameState,
+        leagueTabs,
+        "欧联杯 " .. uel.season .. "-" .. (uel.season + 1) .. " (" .. phaseText .. ")",
+        contentChildren
+    )
 end
 
 ------------------------------------------------------

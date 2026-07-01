@@ -1795,7 +1795,7 @@ function Dashboard._buildClubSnapshot(gameState, team)
             backgroundColor = Theme.COLORS.BG_CARD,
             borderRadius = 12,
             padding = 12, marginLeft = 4,
-            onClick = function() Router.navigate("league", { tab = "UCL" }) end,
+            onClick = function() Router.navigate("league", { tab = uclInfo.tab or "UCL" }) end,
             children = {
                 -- 排名行（与联赛对称）
                 UI.Panel {
@@ -2406,6 +2406,7 @@ function Dashboard._getUCLInfo(gameState)
         end
         return {
             name = "欧冠",
+            tab = "UCL",
             phase = phaseNames[ucl.phase] or ucl.phase,
             posText = posText,
             color = Theme.COLORS.INFO_BLUE,
@@ -2428,6 +2429,7 @@ function Dashboard._getUCLInfo(gameState)
             end
             return {
                 name = "欧联杯",
+                tab = "UEL",
                 phase = phaseNames[uel.phase] or uel.phase,
                 posText = posText,
                 color = {80, 140, 220, 255},
@@ -2439,6 +2441,7 @@ function Dashboard._getUCLInfo(gameState)
         local euro = gameState.euroCup
         return {
             name = "欧洲杯",
+            tab = "EURO",
             phase = phaseNames[euro.phase] or euro.phase,
             posText = "",
             color = {100, 180, 255, 255},
@@ -2449,6 +2452,7 @@ function Dashboard._getUCLInfo(gameState)
         local wc = gameState.worldCup
         return {
             name = "世界杯",
+            tab = "WC",
             phase = phaseNames[wc.phase] or wc.phase,
             posText = "",
             color = {255, 200, 50, 255},

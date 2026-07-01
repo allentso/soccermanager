@@ -197,7 +197,19 @@ end
 function MatchLive._getTacticsSummary(session, gameState)
     local team = getControlledTeam(session, gameState or _G.gameState)
     local formation = team and team.formation or "4-4-2"
-    return "阵型：" .. formation .. " · 指示：" .. MatchLive._getInstructionLabel(session and session.tacticalInstruction)
+    local playStyle = team and team.playStyle or "Balanced"
+    local playStyleName = Constants.PLAY_STYLE_NAMES[playStyle] or playStyle
+    return "阵型：" .. formation .. " · 打法：" .. playStyleName
+        .. " · 指示：" .. MatchLive._getInstructionLabel(session and session.tacticalInstruction)
+end
+
+local function openLiveTactics(session, fixture)
+    Router.replaceWith("tactics", {
+        liveMatch = true,
+        session = session,
+        fixture = fixture,
+        tab = "formation",
+    })
 end
 
 function MatchLive.create(params)
@@ -527,7 +539,7 @@ function MatchLive.create(params)
                             color = Theme.COLORS.TEXT_PRIMARY,
                             onClick = function()
                                 autoPlay.running = false
-                                Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "tactics" })
+                                openLiveTactics(session, fixture)
                             end,
                         },
                         (function()
@@ -1044,6 +1056,7 @@ function MatchLive._buildTacticsPanel(session, fixture)
     local gameState = _G.gameState
     local controlledTeam, tactTeamId = getControlledTeam(session, gameState)
     local currentFormation = controlledTeam and controlledTeam.formation or "4-4-2"
+    local currentPlayStyle = controlledTeam and controlledTeam.playStyle or "Balanced"
     local currentInstruction = session.tacticalInstruction
     local formationRows = {}
     for i = 1, #Constants.FORMATIONS, 3 do
@@ -1073,6 +1086,42 @@ function MatchLive._buildTacticsPanel(session, fixture)
             })
         end
         table.insert(formationRows, UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            justifyContent = "space-between",
+            marginBottom = 8,
+            children = rowChildren,
+        })
+    end
+
+    local styleRows = {}
+    for i = 1, #Constants.PLAY_STYLES, 3 do
+        local rowChildren = {}
+        for j = i, math.min(i + 2, #Constants.PLAY_STYLES) do
+            local style = Constants.PLAY_STYLES[j]
+            local isActive = style == currentPlayStyle
+            table.insert(rowChildren, UI.Button {
+                text = Constants.PLAY_STYLE_NAMES[style] or style,
+                width = "32%", height = 38,
+                backgroundColor = isActive and {45, 100, 70, 255} or Theme.COLORS.BG_CARD,
+                borderRadius = 8,
+                borderWidth = isActive and 2 or 1,
+                borderColor = isActive and Theme.COLORS.SECONDARY or Theme.COLORS.BORDER,
+                fontSize = 13,
+                color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                fontWeight = isActive and "bold" or "normal",
+                onClick = function()
+                    if isActive or not tactTeamId then return end
+                    session:applyCommand({
+                        type = MatchSession.COMMAND.CHANGE_PLAY_STYLE,
+                        playStyle = style,
+                        teamId = tactTeamId,
+                    })
+                    Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
+                end,
+            })
+        end
+        table.insert(styleRows, UI.Panel {
             width = "100%",
             flexDirection = "row",
             justifyContent = "space-between",
@@ -1130,13 +1179,21 @@ function MatchLive._buildTacticsPanel(session, fixture)
                 }
             },
             UI.Label {
-                text = "换阵会保留当前场上球员，并立即影响后续比赛模拟。", fontSize = 12,
+                text = "换阵和打法只作用于本场临场副本，并立即影响后续比赛模拟。", fontSize = 12,
                 color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
             },
             Theme.Card {
                 children = {
                     Theme.Subtitle { text = "当前阵型：" .. currentFormation },
                     UI.Panel { width = "100%", marginTop = 8, children = formationRows },
+                }
+            },
+            Theme.Card {
+                children = {
+                    Theme.Subtitle {
+                        text = "当前打法：" .. (Constants.PLAY_STYLE_NAMES[currentPlayStyle] or currentPlayStyle)
+                    },
+                    UI.Panel { width = "100%", marginTop = 8, children = styleRows },
                 }
             },
             Theme.Card {
@@ -1208,7 +1265,7 @@ function MatchLive._buildHalftimePanel(gameState, session, fixture)
                                 borderRadius = 8, fontSize = 14, marginBottom = 8,
                                 color = Theme.COLORS.TEXT_PRIMARY,
                                 onClick = function()
-                                    Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "tactics" })
+                                    openLiveTactics(session, fixture)
                                 end,
                             },
                             -- 半场训话
@@ -1325,7 +1382,7 @@ function MatchLive._buildExtraHalftimePanel(gameState, session, fixture)
                                 borderRadius = 8, fontSize = 14, marginBottom = 8,
                                 color = Theme.COLORS.TEXT_PRIMARY,
                                 onClick = function()
-                                    Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "tactics" })
+                                    openLiveTactics(session, fixture)
                                 end,
                             },
                             UI.Button {
