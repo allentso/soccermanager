@@ -287,7 +287,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         local competingBids = TransferManager.getCompetingBids(gameState, p.id)
 
         -- ???????
-        local attitudeText = attitude == "eager" and "积极" or (attitude == "open" and "开放" or (attitude == "reluctant" and "犹豫" or "拒绝"))
+        local attitudeText = attitude == "eager" and "???" or (attitude == "open" and "???" or (attitude == "reluctant" and "???" or "??"))
         if attitude == "refusing" and attitudeDesc and attitudeDesc ~= "" then
             attitudeText = attitudeDesc
         end
