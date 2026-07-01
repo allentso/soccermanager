@@ -29,6 +29,7 @@ local LegendGachaCloud = require("scripts/persistence/legend_gacha_cloud")
 
 
 local Youth = {}
+local refreshLegendTab
 
 local function showLegendCloudSyncingToast()
     UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
@@ -178,7 +179,7 @@ local function buildLegendCloudSyncBanner(gameState)
     }
 end
 
-local function refreshLegendTab()
+refreshLegendTab = function()
     Router.replaceWith("youth", { tab = "legend", _softRefresh = true })
 end
 
