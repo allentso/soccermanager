@@ -24,12 +24,27 @@ return function(YouthManager)
     local LEGEND_UNLOCK_ADS = 10        -- 看10次广告解锁传奇池
     local LEGEND_PULL_PER_AD = 3        -- 解锁后每次广告获得3次抽取
     local LEGEND_TEN_PULL_ADS = 3       -- 3次广告 = +15抽
-    local LEGEND_BASE_RATE = 0.047      -- 单抽传奇基础概率 4.7%（十连实际≈38%）
-    local LEGEND_RATE_INCREMENT = 0.01  -- 每次未出传奇十连 +1.0%（第5次到封顶，第6次硬保底）
-    local LEGEND_RATE_CAP = 0.088       -- 概率上限8.8%（十连实际≈60%封顶）
-    local LEGEND_PITY_COUNT = 6         -- 6次十连保底出传奇
+    local LEGEND_PITY_COUNT = 8         -- 8次十连（80抽）硬保底
     local LEGEND_FIRST_GUARANTEED = true -- 首次十连保底一个传奇
     local LEGEND_MAX_PER_PULL = 1       -- 每次十连最多出1个传奇
+    -- 保底档位单槽概率（前缓后陡；十连≈1-(1-r)^10）
+    -- 曲线：38%→40%→43%→47%→51%→54%→55%→100%(硬保底)
+    local LEGEND_PITY_RATES = {
+        0.0470,  -- 第2次十连 ≈38%
+        0.0508,  -- ≈40%
+        0.0554,  -- ≈43%
+        0.0610,  -- ≈47%
+        0.0670,  -- ≈51%
+        0.0725,  -- ≈54%
+        0.0813,  -- ≈55% 封顶
+    }
+
+    ---@param pityLevel integer 0=保底重置后首次，递增
+    local function _legendRateForPityLevel(pityLevel)
+        pityLevel = math.max(0, pityLevel)
+        local idx = math.min(pityLevel + 1, #LEGEND_PITY_RATES)
+        return LEGEND_PITY_RATES[idx]
+    end
 
     -- 英文完整位置名 → 游戏简写位置映射（wonderkids JSON 使用完整英文）
     local POSITION_MAP = {
@@ -604,8 +619,7 @@ return function(YouthManager)
                 -- 首次保底：第10次单抽（刚归零时）触发
                 isLegend = true
             else
-                local rate = LEGEND_BASE_RATE + (state.pityCounter) * LEGEND_RATE_INCREMENT
-                rate = math.min(rate, LEGEND_RATE_CAP)
+                local rate = _legendRateForPityLevel(state.pityCounter)
                 if Random() < rate then
                     isLegend = true
                 end
@@ -696,8 +710,7 @@ return function(YouthManager)
                 isLegend = true
             elseif legendCount < LEGEND_MAX_PER_PULL then
                 -- 尚未出传奇时才按概率判定（每次十连最多1个传奇）
-                local rate = LEGEND_BASE_RATE + (state.pityCounter - 1) * LEGEND_RATE_INCREMENT
-                rate = math.min(rate, LEGEND_RATE_CAP)
+                local rate = _legendRateForPityLevel(state.pityCounter - 1)
                 if Random() < rate then
                     isLegend = true
                 end

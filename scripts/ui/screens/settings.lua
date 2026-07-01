@@ -2062,8 +2062,8 @@ function Settings._cheatForceLegend()
         state.pulls = math.max(state.pulls or 0, 10)
     end
 
-    -- 设置保底计数为9，下次十连必触发保底
-    state.pityCounter = 9
+    -- 设置保底计数为7，下次十连递增到8即触发硬保底
+    state.pityCounter = 7
     -- 确保有足够抽取次数
     if (state.pulls or 0) < 10 then
         state.pulls = 10
