@@ -731,11 +731,33 @@ function SeasonEnd.create(params)
                     width = "100%", height = 28, flexDirection = "row", alignItems = "center", paddingHorizontal = 8,
                     onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
                     children = {
-                        UI.Label { text = "📋", width = 20, fontSize = 10 },
+                        UI.Label { text = "📋", width = 20, fontSize = 10, flexShrink = 0 },
                         ---@diagnostic disable-next-line: param-type-mismatch
-                        UI.Label { text = p.displayName, flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
-                        UI.Label { text = "OVR " .. tostring(p.overall or 0), width = 50, fontSize = 11, color = COLORS.TEXT_MUTED },
-                        UI.Label { text = formatMoney(p.wage) .. "/周", width = 60, fontSize = 10, color = COLORS.TEXT_SECONDARY },
+                        UI.Label { text = p.displayName, flexGrow = 1, flexShrink = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                        UI.Panel {
+                            flexDirection = "row",
+                            alignItems = "center",
+                            flexShrink = 0,
+                            children = {
+                                UI.Label {
+                                    text = "OVR " .. tostring(p.overall or 0),
+                                    width = 54,
+                                    fontSize = 11,
+                                    color = COLORS.TEXT_MUTED,
+                                    textAlign = "right",
+                                    flexShrink = 0,
+                                },
+                                UI.Label {
+                                    text = formatMoney(p.wage) .. "/周",
+                                    width = 88,
+                                    fontSize = 10,
+                                    color = COLORS.TEXT_SECONDARY,
+                                    textAlign = "right",
+                                    flexShrink = 0,
+                                    marginLeft = 8,
+                                },
+                            },
+                        },
                     }
                 })
             end

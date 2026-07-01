@@ -11,8 +11,80 @@ local COLORS = Theme.COLORS
 local HallOfFame = {}
 
 -- 模块级状态
-local _activeTab = "champions"
+local _activeTab = "yearbook"
 local _selectedYearbookSeason = nil
+local _selectedChampionsSeason = nil
+local _selectedAwardsSeason = nil
+
+--- 赛季列表：最新在前
+local function getSortedSeasonsFromHistory(gameState)
+    local history = HistoryManager.getWorldHistory(gameState)
+    local seasons = {}
+    for _, record in ipairs(history or {}) do
+        if record.season then
+            seasons[#seasons + 1] = record.season
+        end
+    end
+    table.sort(seasons, function(a, b) return a > b end)
+    return seasons
+end
+
+local function resolveSelectedSeason(seasons, current)
+    if #seasons == 0 then return nil end
+    if current then
+        for _, s in ipairs(seasons) do
+            if s == current then return current end
+        end
+    end
+    return seasons[1]
+end
+
+--- 横向赛季选择条（年鉴 / 冠军榜 / 奖项榜共用）
+local function buildSeasonSelector(tabKey, seasons, selectedSeason)
+    selectedSeason = resolveSelectedSeason(seasons, selectedSeason)
+    if not selectedSeason then return nil, nil end
+
+    local seasonButtons = {}
+    for _, season in ipairs(seasons) do
+        local isActive = season == selectedSeason
+        table.insert(seasonButtons, UI.Button {
+            text = "第" .. tostring(season) .. "季",
+            height = 30,
+            paddingLeft = 10,
+            paddingRight = 10,
+            backgroundColor = isActive and COLORS.PRIMARY or COLORS.BG_SURFACE,
+            borderRadius = 15,
+            fontSize = 11,
+            color = isActive and COLORS.TEXT_PRIMARY or COLORS.TEXT_SECONDARY,
+            fontWeight = isActive and "bold" or "normal",
+            marginRight = 6,
+            flexShrink = 0,
+            onClick = function()
+                Router.replaceWith("hall_of_fame", { tab = tabKey, season = season })
+            end,
+        })
+    end
+
+    return UI.ScrollView {
+        width = "100%",
+        height = 42,
+        scrollX = true,
+        scrollY = false,
+        flexDirection = "row",
+        children = seasonButtons,
+    }, selectedSeason
+end
+
+local function applyRouteSeason(params)
+    if not params or not params.tab or not params.season then return end
+    if params.tab == "yearbook" then
+        _selectedYearbookSeason = params.season
+    elseif params.tab == "champions" then
+        _selectedChampionsSeason = params.season
+    elseif params.tab == "awards" then
+        _selectedAwardsSeason = params.season
+    end
+end
 
 ------------------------------------------------------------
 -- 赛季年鉴（按 worldHistory 浏览）
@@ -24,55 +96,20 @@ local function buildYearbookTab(gameState)
         return { Theme.Card { children = { UI.Label { text = "暂无赛季年鉴（完成第一个赛季后解锁）", fontSize = 13, color = COLORS.TEXT_MUTED } } } }
     end
 
-    local sorted = {}
-    for _, record in ipairs(history) do table.insert(sorted, record) end
-    table.sort(sorted, function(a, b) return (a.season or 0) > (b.season or 0) end)
+    local seasons = getSortedSeasonsFromHistory(gameState)
+    _selectedYearbookSeason = resolveSelectedSeason(seasons, _selectedYearbookSeason)
 
-    if not _selectedYearbookSeason then
-        _selectedYearbookSeason = sorted[1].season
+    local selected = HistoryManager.getSeasonHistory(gameState, _selectedYearbookSeason)
+    if not selected then
+        selected = HistoryManager.getSeasonHistory(gameState, seasons[1])
+        _selectedYearbookSeason = selected and selected.season or seasons[1]
+    end
+    if not selected then
+        return { Theme.Card { children = { UI.Label { text = "暂无赛季年鉴", fontSize = 13, color = COLORS.TEXT_MUTED } } } }
     end
 
-    local selected = nil
-    for _, record in ipairs(sorted) do
-        if record.season == _selectedYearbookSeason then
-            selected = record
-            break
-        end
-    end
-    selected = selected or sorted[1]
-    _selectedYearbookSeason = selected.season
-
-    local seasonButtons = {}
-    for _, record in ipairs(sorted) do
-        local isActive = record.season == _selectedYearbookSeason
-        table.insert(seasonButtons, UI.Button {
-            text = "第" .. tostring(record.season or "?") .. "季",
-            height = 30,
-            paddingLeft = 10,
-            paddingRight = 10,
-            backgroundColor = isActive and COLORS.PRIMARY or COLORS.BG_SURFACE,
-            borderRadius = 15,
-            fontSize = 11,
-            color = isActive and COLORS.TEXT_PRIMARY or COLORS.TEXT_SECONDARY,
-            fontWeight = isActive and "bold" or "normal",
-            marginRight = 6,
-            onClick = function()
-                _selectedYearbookSeason = record.season
-                Router.replaceWith("hall_of_fame", { tab = "yearbook" })
-            end,
-        })
-    end
-
-    local cards = {
-        UI.ScrollView {
-            width = "100%",
-            height = 42,
-            scrollX = true,
-            scrollY = false,
-            flexDirection = "row",
-            children = seasonButtons,
-        },
-    }
+    local seasonBar, _ = buildSeasonSelector("yearbook", seasons, _selectedYearbookSeason)
+    local cards = { seasonBar }
 
     local leagueCount, cupCount, continentalCount = 0, 0, 0
     for _, leagueRecord in pairs(selected.leagues or {}) do
@@ -239,70 +276,90 @@ local function buildChampionsTab(gameState)
         return { Theme.Card { children = { UI.Label { text = "暂无冠军记录（完成第一个赛季后解锁）", fontSize = 13, color = COLORS.TEXT_MUTED } } } }
     end
 
-    local cards = {}
-    -- 按赛季倒序
-    for i = #champions, 1, -1 do
-        local sc = champions[i]
-        local rows = {}
-        for leagueKey, info in pairs(sc.leagues) do
-            table.insert(rows, UI.Panel {
-                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
-                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                onClick = info.teamId and function()
-                    Router.navigate("team_detail", { teamId = info.teamId })
-                end or nil,
-                children = {
-                    UI.Label { text = info.leagueName or leagueKey, flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
-                    UI.Label { text = info.teamName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.WARNING },
-                    UI.Label { text = tostring(info.points or 0) .. "分", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
-                }
-            })
+    local bySeason = {}
+    local seasons = {}
+    for _, sc in ipairs(champions) do
+        if sc.season then
+            bySeason[sc.season] = sc
+            seasons[#seasons + 1] = sc.season
         end
-        for _, info in ipairs(sc.continental or {}) do
-            table.insert(rows, UI.Panel {
-                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
-                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                onClick = info.teamId and function()
-                    Router.navigate("team_detail", { teamId = info.teamId })
-                end or nil,
-                children = {
-                    UI.Label { text = info.competitionName or "洲际赛事", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
-                    UI.Label { text = info.teamName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.PRIMARY },
-                    UI.Label { text = "冠军", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
-                }
-            })
-        end
-        for _, info in ipairs(sc.cups or {}) do
-            table.insert(rows, UI.Panel {
-                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
-                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                onClick = info.teamId and function()
-                    Router.navigate("team_detail", { teamId = info.teamId })
-                end or nil,
-                children = {
-                    UI.Label { text = info.competitionName or "杯赛", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
-                    UI.Label { text = info.teamName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.WARNING },
-                    UI.Label { text = "冠军", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
-                }
-            })
-        end
-        for _, info in ipairs(sc.international or {}) do
-            table.insert(rows, UI.Panel {
-                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
-                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-                children = {
-                    UI.Label { text = info.competitionName or "国际赛事", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
-                    UI.Label { text = info.championName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.ACCENT },
-                    UI.Label { text = "冠军", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
-                }
-            })
-        end
-        if #rows > 0 then
-            table.insert(cards, Theme.Card { children = {
-                Theme.Subtitle { text = "第 " .. tostring(sc.season) .. " 赛季 (" .. tostring(sc.year or "?") .. ")" },
-                table.unpack(rows)
-            }})
-        end
+    end
+    table.sort(seasons, function(a, b) return a > b end)
+
+    _selectedChampionsSeason = resolveSelectedSeason(seasons, _selectedChampionsSeason)
+    local sc = bySeason[_selectedChampionsSeason]
+    if not sc then
+        return { Theme.Card { children = { UI.Label { text = "暂无冠军记录", fontSize = 13, color = COLORS.TEXT_MUTED } } } }
+    end
+
+    local seasonBar, _ = buildSeasonSelector("champions", seasons, _selectedChampionsSeason)
+    local cards = { seasonBar }
+
+    local rows = {}
+    for leagueKey, info in pairs(sc.leagues or {}) do
+        table.insert(rows, UI.Panel {
+            width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            onClick = info.teamId and function()
+                Router.navigate("team_detail", { teamId = info.teamId })
+            end or nil,
+            children = {
+                UI.Label { text = info.leagueName or leagueKey, flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                UI.Label { text = info.teamName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.WARNING },
+                UI.Label { text = tostring(info.points or 0) .. "分", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
+            }
+        })
+    end
+    for _, info in ipairs(sc.continental or {}) do
+        table.insert(rows, UI.Panel {
+            width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            onClick = info.teamId and function()
+                Router.navigate("team_detail", { teamId = info.teamId })
+            end or nil,
+            children = {
+                UI.Label { text = info.competitionName or "洲际赛事", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                UI.Label { text = info.teamName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.PRIMARY },
+                UI.Label { text = "冠军", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
+            }
+        })
+    end
+    for _, info in ipairs(sc.cups or {}) do
+        table.insert(rows, UI.Panel {
+            width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            onClick = info.teamId and function()
+                Router.navigate("team_detail", { teamId = info.teamId })
+            end or nil,
+            children = {
+                UI.Label { text = info.competitionName or "杯赛", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                UI.Label { text = info.teamName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.WARNING },
+                UI.Label { text = "冠军", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
+            }
+        })
+    end
+    for _, info in ipairs(sc.international or {}) do
+        table.insert(rows, UI.Panel {
+            width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            children = {
+                UI.Label { text = info.competitionName or "国际赛事", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                UI.Label { text = info.championName or "?", fontSize = 12, fontWeight = "bold", color = COLORS.ACCENT },
+                UI.Label { text = "冠军", width = 42, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "right" },
+            }
+        })
+    end
+
+    if #rows > 0 then
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "第 " .. tostring(sc.season) .. " 赛季冠军 (" .. tostring(sc.year or "?") .. ")" },
+            table.unpack(rows),
+        }})
+    else
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "第 " .. tostring(sc.season) .. " 赛季冠军" },
+            UI.Label { text = "该赛季暂无冠军记录", fontSize = 12, color = COLORS.TEXT_MUTED },
+        }})
     end
 
     return cards
@@ -313,58 +370,68 @@ end
 ------------------------------------------------------------
 
 local function buildAwardsTab(gameState)
-    -- 奖项数据的唯一权威来源是 worldHistory[].awards（详见 AwardsManager 顶部字段契约说明），
-    -- 这样读档后与运行时展示的是同一份数据，不会出现"当前赛季有、读档后没有"的情况。
-    local allAwards = {}
+    local awardsBySeason = {}
+    local seasons = {}
     for _, record in ipairs(gameState.worldHistory or {}) do
-        if record.awards then
-            table.insert(allAwards, record.awards)
+        if record.awards and record.season then
+            awardsBySeason[record.season] = record.awards
+            seasons[#seasons + 1] = record.season
         end
     end
-    if #allAwards == 0 then
+    if #seasons == 0 then
+        return { Theme.Card { children = { UI.Label { text = "暂无奖项记录", fontSize = 13, color = COLORS.TEXT_MUTED } } } }
+    end
+    table.sort(seasons, function(a, b) return a > b end)
+
+    _selectedAwardsSeason = resolveSelectedSeason(seasons, _selectedAwardsSeason)
+    local seasonAward = awardsBySeason[_selectedAwardsSeason]
+    if not seasonAward then
         return { Theme.Card { children = { UI.Label { text = "暂无奖项记录", fontSize = 13, color = COLORS.TEXT_MUTED } } } }
     end
 
-    local cards = {}
-    for i = #allAwards, 1, -1 do
-        local seasonAward = allAwards[i]
-        local rows = {}
+    local seasonBar, _ = buildSeasonSelector("awards", seasons, _selectedAwardsSeason)
+    local cards = { seasonBar }
+    local rows = {}
 
-        if seasonAward.ballonDor and seasonAward.ballonDor[1] then
-            local bd = seasonAward.ballonDor[1]
-            table.insert(rows, HallOfFame._awardRow("金球奖", bd.playerName, (bd.teamName or "?") .. " · " .. string.format("%.1f分", bd.score or 0)))
-        end
+    if seasonAward.ballonDor and seasonAward.ballonDor[1] then
+        local bd = seasonAward.ballonDor[1]
+        table.insert(rows, HallOfFame._awardRow("金球奖", bd.playerName, (bd.teamName or "?") .. " · " .. string.format("%.1f分", bd.score or 0)))
+    end
 
-        for leagueKey, la in pairs(seasonAward.leagues or {}) do
-            if la.goldenBoot then
-                table.insert(rows, HallOfFame._awardRow("金靴", la.goldenBoot.playerName, tostring(la.goldenBoot.goals or 0) .. "球"))
-            end
-            if la.bestPlayer then
-                local score = la.bestPlayer.score or la.bestPlayer.rating or la.bestPlayer.overall or 0
-                table.insert(rows, HallOfFame._awardRow("MVP", la.bestPlayer.playerName, string.format("%.1f分", score)))
-            end
-            if la.bestYoungPlayer then
-                table.insert(rows, HallOfFame._awardRow("新秀", la.bestYoungPlayer.playerName, tostring(la.bestYoungPlayer.age or 0) .. "岁"))
-            end
-            local assistAward = la.topAssists or la.bestAssist
-            if assistAward then
-                table.insert(rows, HallOfFame._awardRow("助攻王", assistAward.playerName, tostring(assistAward.assists or 0) .. "次"))
-            end
-            local goldenGlove = la.goldenGlove or la.bestGoalkeeper
-            if goldenGlove then
-                table.insert(rows, HallOfFame._awardRow("金手套", goldenGlove.playerName, tostring(goldenGlove.cleanSheets or 0) .. "次零封"))
-            end
+    for _, la in pairs(seasonAward.leagues or {}) do
+        if la.goldenBoot then
+            table.insert(rows, HallOfFame._awardRow("金靴", la.goldenBoot.playerName, tostring(la.goldenBoot.goals or 0) .. "球"))
         end
-        if seasonAward.bestManager then
-            table.insert(rows, HallOfFame._awardRow("最佳教练", seasonAward.bestManager.name or "?", ""))
+        if la.bestPlayer then
+            local score = la.bestPlayer.score or la.bestPlayer.rating or la.bestPlayer.overall or 0
+            table.insert(rows, HallOfFame._awardRow("MVP", la.bestPlayer.playerName, string.format("%.1f分", score)))
         end
+        if la.bestYoungPlayer then
+            table.insert(rows, HallOfFame._awardRow("新秀", la.bestYoungPlayer.playerName, tostring(la.bestYoungPlayer.age or 0) .. "岁"))
+        end
+        local assistAward = la.topAssists or la.bestAssist
+        if assistAward then
+            table.insert(rows, HallOfFame._awardRow("助攻王", assistAward.playerName, tostring(assistAward.assists or 0) .. "次"))
+        end
+        local goldenGlove = la.goldenGlove or la.bestGoalkeeper
+        if goldenGlove then
+            table.insert(rows, HallOfFame._awardRow("金手套", goldenGlove.playerName, tostring(goldenGlove.cleanSheets or 0) .. "次零封"))
+        end
+    end
+    if seasonAward.bestManager then
+        table.insert(rows, HallOfFame._awardRow("最佳教练", seasonAward.bestManager.name or "?", ""))
+    end
 
-        if #rows > 0 then
-            table.insert(cards, Theme.Card { children = {
-                Theme.Subtitle { text = "第 " .. tostring(seasonAward.season) .. " 赛季奖项" },
-                table.unpack(rows)
-            }})
-        end
+    if #rows > 0 then
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "第 " .. tostring(seasonAward.season or _selectedAwardsSeason) .. " 赛季奖项" },
+            table.unpack(rows),
+        }})
+    else
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "第 " .. tostring(_selectedAwardsSeason) .. " 赛季奖项" },
+            UI.Label { text = "该赛季暂无奖项记录", fontSize = 12, color = COLORS.TEXT_MUTED },
+        }})
     end
 
     return cards
@@ -545,6 +612,7 @@ function HallOfFame.create(params)
 
     HistoryManager._ensureData(gameState)
     if params and params.tab then _activeTab = params.tab end
+    applyRouteSeason(params)
 
     local tabs = {
         { key = "yearbook",  label = "年鉴" },
@@ -564,7 +632,7 @@ function HallOfFame.create(params)
             borderColor = isActive and COLORS.PRIMARY or COLORS.TRANSPARENT,
             onClick = function()
                 _activeTab = t.key
-                Router.replaceWith("hall_of_fame", params)
+                Router.replaceWith("hall_of_fame", { tab = t.key })
             end,
             children = {
                 UI.Label {

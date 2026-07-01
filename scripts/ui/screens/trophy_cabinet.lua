@@ -709,13 +709,7 @@ function TrophyCabinet.create(params)
                 UI.Panel { width = 60, height = 32, justifyContent = "center", onClick = function() Router.back() end,
                     children = { UI.Label { text = "← 返回", fontSize = 12, color = COLORS.TEXT_SECONDARY } } },
                 UI.Label { text = "荣誉陈列室", fontSize = 15, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, flex = 1, textAlign = "center" },
-                UI.Panel {
-                    width = 72, height = 32, justifyContent = "center", alignItems = "center",
-                    onClick = function() Router.navigate("hall_of_fame") end,
-                    children = {
-                        UI.Label { text = "名人堂", fontSize = 11, color = COLORS.PRIMARY },
-                    },
-                },
+                UI.Panel { width = 60 },
             }},
             -- 标签栏
             UI.Panel {
