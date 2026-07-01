@@ -567,19 +567,6 @@ function Settings._showCheatMenu()
                     Settings._cheatAddPulls()
                 end,
             },
-            UI.Button {
-                text = "开启传奇云存档灰度（复制名单上云）",
-                width = "100%", height = 44,
-                backgroundColor = "#154360",
-                color = "#FFFFFF",
-                fontSize = 14, borderRadius = 8, marginBottom = 10,
-                onClick = function()
-                    BottomSheet.close()
-                    Settings._cheatEnableLegendCloudSave()
-                end,
-            },
-
-
             -- 模拟解雇
             UI.Button {
                 text = "🚪 模拟被解雇",
@@ -1775,9 +1762,121 @@ function Settings._saveSettings()
 end
 
 ------------------------------------------------------
--- 作弊：开启传奇云存档灰度（复制当前存档名单上云，一次性）
+-- 传奇云存档（设置页公开入口）
 ------------------------------------------------------
-function Settings._cheatEnableLegendCloudSave()
+
+function Settings._getLegendCloudSaveUiState()
+    if LegendGachaCloud.isEnabled() then
+        return {
+            hint = "传奇抽卡进度已绑定账号，换设备登录后可恢复",
+            buttonText = "传奇云存档已开启",
+            enabled = false,
+            action = "enabled",
+        }
+    end
+    if LegendGachaCloud.hasPendingConflict() then
+        return {
+            hint = "检测到本地与云端账本不一致，请前往青训-传奇处理",
+            buttonText = "处理云存档冲突",
+            enabled = true,
+            action = "conflict",
+        }
+    end
+    if YouthManager.getLegendGachaPendingAccountAttach() then
+        return {
+            hint = "检测到账号已有传奇存档，可同步到当前存档",
+            buttonText = "同步账号传奇存档",
+            enabled = true,
+            action = "attach",
+        }
+    end
+
+    local canSeed, reason = LegendGachaCloud.canSeedFromCurrentSave()
+    if canSeed then
+        return {
+            hint = "将当前存档的传奇抽卡进度与名单绑定到账号（仅可设置一次）",
+            buttonText = "开启传奇云存档",
+            enabled = true,
+            action = "seed",
+        }
+    end
+
+    if reason == "already_used" then
+        return {
+            hint = "已完成首次上云初始化",
+            buttonText = "传奇云存档已设置",
+            enabled = false,
+            action = "used",
+        }
+    end
+    if reason == "cloud_ledger_exists" or reason == "cloud_seed_locked" then
+        return {
+            hint = "账号云端已有传奇账本，请前往青训-传奇同步",
+            buttonText = "前往传奇页同步",
+            enabled = true,
+            action = "attach",
+        }
+    end
+
+    return {
+        hint = "当前无法开启云存档",
+        buttonText = "传奇云存档",
+        enabled = false,
+        action = "blocked",
+    }
+end
+
+function Settings._onLegendCloudSaveClick()
+    local uiState = Settings._getLegendCloudSaveUiState()
+    if uiState.action == "enabled" then
+        UI.Toast.Show({ message = "传奇云存档已开启", variant = "info" })
+        return
+    end
+    if uiState.action == "used" then
+        UI.Toast.Show({ message = "该存档已完成首次上云", variant = "info" })
+        return
+    end
+    if uiState.action == "blocked" then
+        UI.Toast.Show({ message = "当前无法开启云存档", variant = "warning" })
+        return
+    end
+    if uiState.action == "attach" or uiState.action == "conflict" then
+        Router.navigate("youth", { tab = "legend" })
+        return
+    end
+    Settings._enableLegendCloudSave()
+end
+
+function Settings._buildLegendCloudSaveControls()
+    local uiState = Settings._getLegendCloudSaveUiState()
+    local btnBg = uiState.enabled and Theme.COLORS.PRIMARY or Theme.COLORS.BG_CARD_ELEVATED
+    local btnColor = uiState.enabled and "#FFFFFF" or Theme.COLORS.TEXT_MUTED
+
+    return {
+        UI.Label {
+            text = uiState.hint,
+            fontSize = 10,
+            color = Theme.COLORS.TEXT_MUTED,
+            marginTop = 12,
+            marginBottom = 8,
+        },
+        UI.Button {
+            text = uiState.buttonText,
+            width = "100%",
+            height = 36,
+            backgroundColor = btnBg,
+            borderRadius = 6,
+            fontSize = 13,
+            fontWeight = uiState.enabled and "bold" or "normal",
+            color = btnColor,
+            onClick = function()
+                Settings._onLegendCloudSaveClick()
+            end,
+        },
+    }
+end
+
+function Settings._enableLegendCloudSave()
     local gameState = _G.gameState
     if not gameState then return end
 
@@ -1800,8 +1899,8 @@ function Settings._cheatEnableLegendCloudSave()
         end
 
         ConfirmDialog.show({
-            title = "开启传奇云存档灰度",
-            message = "将把当前存档的传奇抽卡状态与已拥有传奇名单复制到账号级云存档，并开启云同步。\n\n为保证云存档的安全与干净，该功能只能使用一次，请慎重考虑后再确认。",
+            title = "开启传奇云存档",
+            message = "将把当前存档的传奇抽卡状态与已拥有传奇名单复制到账号级云存档，并开启云同步。\n\n该操作只能使用一次，请确认当前存档是你希望绑定账号的存档。",
             confirmText = "继续确认",
             confirmColor = Theme.COLORS.DANGER,
             onConfirm = function()
@@ -1838,13 +1937,13 @@ function Settings._cheatEnableLegendCloudSave()
                         end
                         gameState:sendMessage({
                             category = "youth",
-                            title = "传奇云存档灰度已开启",
+                            title = "传奇云存档已开启",
                             body = string.format(
-                                "开发者工具：已将当前存档传奇名单（%d 条记录）复制上云。后续传奇抽卡状态走账号级云存档。",
+                                "已将当前存档传奇名单（%d 条记录）复制上云。后续传奇抽卡进度将跟随账号同步。",
                                 legendCount),
                             priority = "high",
                         })
-                        Router.replaceWith("dashboard")
+                        Router.replaceWith("settings")
                     end,
                 })
             end,
@@ -2277,6 +2376,10 @@ function Settings._buildDifficultyAndSaveCard()
                                 onClick = function()
                                     Settings._confirmNewGame()
                                 end,
+                            },
+                            UI.Panel {
+                                width = "100%",
+                                children = Settings._buildLegendCloudSaveControls(),
                             },
                         },
                     },
