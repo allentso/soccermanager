@@ -30,7 +30,7 @@ local randInt = Helpers.randInt
 local YOUTH_REFRESH_INTERVAL = 3   -- 每3个月刷新一批（processMonthly每月调用一次）
 local YOUTH_POOL_SIZE = 10         -- 每次刷新10名候选
 local MAX_YOUTH_SQUAD = 18         -- AI 球队青训上限
-local MAX_YOUTH_SQUAD_PLAYER = 30  -- 玩家球队青训上限
+local MAX_YOUTH_SQUAD_PLAYER = 23  -- 玩家球队青训上限
 local MAX_CUSTOM_YOUTH = 3         -- 玩家自建青训球员上限
 local MAX_CUSTOM_YOUTH_NAME_CHARS = 12  -- 自建球员姓名上限（按字符计，非字节）
 local INITIAL_YOUTH_COUNT = 10     -- 每队初始青训人数
@@ -80,7 +80,7 @@ YouthManager.YOUTH_WAGE = YOUTH_WAGE
 YouthManager.YOUTH_MIN_AGE = YOUTH_MIN_AGE
 YouthManager.YOUTH_MAX_AGE = YOUTH_MAX_AGE
 
---- 获取指定球队的青训名额上限（玩家 30，AI 18）
+--- 获取指定球队的青训名额上限（玩家 23，AI 18）
 function YouthManager.getMaxYouthSquad(gameState, teamOrId)
     if not gameState then return MAX_YOUTH_SQUAD end
     local teamId = teamOrId

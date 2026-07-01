@@ -203,7 +203,7 @@ function Tab._showYouthActions(player, gameState)
                 if paRating >= 10.0 then
                     UI.Toast.Show({ message = "该球员潜力已达到上限", variant = "info" })
                 else
-                    Tab._watchAdForCustomPaBoost(player, gameState)
+                    _youth()._watchAdForCustomPaBoost(player, gameState)
                 end
             end,
         })

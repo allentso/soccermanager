@@ -71,6 +71,100 @@ end
 ------------------------------------------------------
 -- 自建球员
 ------------------------------------------------------
+
+function Tab._buildCustomPlayerRow(player, gameState)
+    local posColor = Theme.posColor(player.position)
+    local effectivePot = player.actualPotential or player.potential or 0
+    local scoutAccuracy = _youth()._getTeamScoutAccuracy(gameState)
+    local _, potStarText = _youth()._getPotentialStars(effectivePot, scoutAccuracy)
+    local age = player.birthYear and math.floor(gameState.date.year - player.birthYear) or 0
+    local paRating = player.paRating or PotentialSystem.rawToRating(player.potential or player.actualPotential or 60)
+    local atCap = paRating >= 10.0
+
+    return UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        alignItems = "center",
+        paddingTop = 8,
+        paddingBottom = 8,
+        borderBottomWidth = 1,
+        borderColor = Theme.COLORS.BORDER,
+        children = {
+            UI.Panel {
+                flexGrow = 1,
+                flexShrink = 1,
+                flexDirection = "row",
+                alignItems = "center",
+                onClick = function()
+                    _youth()._showYouthActions(player, gameState)
+                end,
+                children = {
+                    UI.Panel {
+                        backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
+                        borderRadius = 3,
+                        paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
+                        marginRight = 8,
+                        flexShrink = 0,
+                        children = {
+                            UI.Label {
+                                text = Constants.POSITION_NAMES[player.position] or player.position,
+                                fontSize = 10, color = posColor, fontWeight = "bold",
+                            },
+                        },
+                    },
+                    UI.Panel {
+                        flexGrow = 1,
+                        flexShrink = 1,
+                        children = {
+                            UI.Label {
+                                text = player.displayName or (player.firstName .. " " .. player.lastName),
+                                fontSize = 13,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                fontWeight = "bold",
+                            },
+                            UI.Label {
+                                text = string.format(
+                                    "%d岁 | 能力%d | 潜力%s | PA %.1f%s%s",
+                                    age,
+                                    math.min(Constants.ABILITY_MAX, player.overall or 0),
+                                    potStarText,
+                                    paRating,
+                                    player.isCustomYouth and not player.isYouth and " | 一线队" or "",
+                                    player.listedForSale and " | 挂牌中" or ""
+                                ),
+                                fontSize = 11,
+                                color = player.listedForSale and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED,
+                            },
+                        },
+                    },
+                },
+            },
+            UI.Button {
+                text = atCap and "PA已满" or string.format("看广告 +%.1f", 0.5),
+                width = 78,
+                height = 32,
+                flexShrink = 0,
+                marginLeft = 8,
+                paddingLeft = 6,
+                paddingRight = 6,
+                backgroundColor = atCap and Theme.COLORS.BG_SURFACE or Theme.COLORS.ACCENT,
+                borderRadius = 8,
+                fontSize = 10,
+                fontWeight = "bold",
+                color = atCap and Theme.COLORS.TEXT_MUTED or Theme.COLORS.TEXT_PRIMARY,
+                disabled = atCap,
+                onClick = function()
+                    if atCap then
+                        UI.Toast.Show({ message = "该球员潜力已达到上限", variant = "info" })
+                    else
+                        Tab._watchAdForCustomPaBoost(player, gameState)
+                    end
+                end,
+            },
+        },
+    }
+end
+
 function Tab.build(customSquad, gameState)
     local maxCustom = YouthManager.getMaxCustomYouthSlots()
     local canCreate, createReason = YouthManager.canCreateCustomYouthPlayer(gameState)
@@ -135,7 +229,7 @@ function Tab.build(customSquad, gameState)
         })
     else
         for _, player in ipairs(customSquad) do
-            table.insert(rows, _youth()._buildYouthPlayerRow(player, gameState))
+            table.insert(rows, Tab._buildCustomPlayerRow(player, gameState))
         end
     end
 
