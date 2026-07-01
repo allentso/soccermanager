@@ -711,15 +711,152 @@ end
 
 --- 队史传奇展示用的奖项图标/文案元数据，UI 层统一从这里取，避免各处硬编码不一致。
 HistoryManager.LEGEND_AWARD_META = {
-    { key = "ballonDor",       label = "金球奖",  icon = "🏆" },
-    { key = "goldenBoot",      label = "金靴奖",  icon = "⚽" },
-    { key = "mvp",             label = "最佳球员", icon = "🌟" },
-    { key = "bestYoungPlayer", label = "最佳新秀", icon = "🌱" },
-    { key = "topAssists",      label = "助攻王",  icon = "🎯" },
-    { key = "goldenGlove",     label = "金手套",  icon = "🧤" },
+    { key = "ballonDor",       label = "金球奖",  icon = "🏆", score = 100 },
+    { key = "goldenBoot",      label = "金靴奖",  icon = "⚽", score = 40 },
+    { key = "mvp",             label = "最佳球员", icon = "🌟", score = 30 },
+    { key = "bestYoungPlayer", label = "最佳新秀", icon = "🌱", score = 20 },
+    { key = "topAssists",      label = "助攻王",  icon = "🎯", score = 25 },
+    { key = "goldenGlove",     label = "金手套",  icon = "🧤", score = 35 },
 }
 
---- 查询某球队的队史球星榜（默认按总进球数降序排列，取 Top10）。
+--- 队史功勋综合分：位置加权 + 冠军/奖项 + 长期效力。
+HistoryManager.LEGEND_SCORE_WEIGHTS = {
+    appearance = 1,
+    teamTitle = 50,
+    season = 5,
+    byGroup = {
+        GK = { goals = 0.5, assists = 0.3, cleanSheets = 4.0 },
+        DEF = { goals = 0.8, assists = 1.0, cleanSheets = 3.0 },
+        MID = { goals = 1.2, assists = 1.5, cleanSheets = 0.5 },
+        FWD = { goals = 2.0, assists = 1.2, cleanSheets = 0 },
+    },
+}
+
+local function _legendPositionGroup(position)
+    local Constants = require("scripts/app/constants")
+    local pos = Constants.normalizePosition(position) or "CM"
+    for grp, positions in pairs(Constants.POSITION_GROUPS) do
+        for _, p in ipairs(positions) do
+            if p == pos then return grp end
+        end
+    end
+    return "MID"
+end
+
+function HistoryManager._sumIndividualAwardScore(entry)
+    local total = 0
+    for _, meta in ipairs(HistoryManager.LEGEND_AWARD_META) do
+        local count = entry.individualAwards and entry.individualAwards[meta.key] or 0
+        if count > 0 then
+            total = total + count * (meta.score or 0)
+        end
+    end
+    return total
+end
+
+function HistoryManager.computeLegendScore(entry)
+    if not entry then return 0 end
+    local weights = HistoryManager.LEGEND_SCORE_WEIGHTS
+    local grp = _legendPositionGroup(entry.position)
+    local posW = weights.byGroup[grp] or weights.byGroup.MID
+
+    local score = (entry.appearances or 0) * weights.appearance
+        + (entry.goals or 0) * posW.goals
+        + (entry.assists or 0) * posW.assists
+        + (entry.cleanSheets or 0) * posW.cleanSheets
+        + (entry.teamTitles or 0) * weights.teamTitle
+        + (entry.seasons or 0) * weights.season
+        + HistoryManager._sumIndividualAwardScore(entry)
+
+    return math.floor(score + 0.5)
+end
+
+--- 功勋榜右侧主数据行：突出该球员最有代表性的贡献类型。
+function HistoryManager.formatLegendPrimaryStat(entry)
+    if not entry then return "0场" end
+
+    for _, meta in ipairs(HistoryManager.LEGEND_AWARD_META) do
+        local count = entry.individualAwards and entry.individualAwards[meta.key]
+        if count and count > 0 then
+            local suffix = count > 1 and ("x" .. tostring(count)) or ""
+            return meta.icon .. suffix .. " · " .. tostring(entry.appearances or 0) .. "场"
+        end
+    end
+
+    local grp = _legendPositionGroup(entry.position)
+    local goals = entry.goals or 0
+    local assists = entry.assists or 0
+    local cleanSheets = entry.cleanSheets or 0
+
+    if grp == "GK" and cleanSheets >= 5 then
+        return tostring(cleanSheets) .. "零封 · " .. tostring(entry.appearances or 0) .. "场"
+    end
+    if grp == "DEF" and cleanSheets >= 5 and cleanSheets * 2 >= goals then
+        return tostring(cleanSheets) .. "零封 · " .. tostring(goals) .. "球"
+    end
+    if assists > goals and assists >= 8 then
+        return tostring(assists) .. "助 · " .. tostring(goals) .. "球"
+    end
+    return tostring(goals) .. "球 · " .. tostring(assists) .. "助"
+end
+
+function HistoryManager.formatLegendSecondaryStat(entry)
+    if not entry then return "" end
+    local parts = { tostring(entry.appearances or 0) .. "场" }
+    if (entry.seasons or 0) > 1 then
+        table.insert(parts, tostring(entry.seasons) .. "季")
+    end
+    if (entry.teamTitles or 0) > 0 then
+        table.insert(parts, "🏆x" .. tostring(entry.teamTitles))
+    end
+    return table.concat(parts, " · ")
+end
+
+--- 球员是否仍在该队效力（离队/退役功勋仍保留在 _teamLegendStats 中）。
+function HistoryManager.isLegendActiveAtTeam(gameState, teamId, playerId)
+    local player = gameState.players[playerId]
+    return player ~= nil and player.teamId == teamId
+end
+
+--- 队史单项数据纪录（进球/助攻/出场/零封王）。
+function HistoryManager.getTeamLegendRecords(gameState, teamId)
+    HistoryManager._ensureData(gameState)
+    local teamMap = gameState._teamLegendStats[teamId]
+    if not teamMap then return {} end
+
+    local defs = {
+        { key = "goals",       label = "队史进球王", icon = "⚽", suffix = "球" },
+        { key = "assists",     label = "队史助攻王", icon = "🎯", suffix = "助" },
+        { key = "appearances", label = "队史出场王", icon = "👟", suffix = "场" },
+        { key = "cleanSheets", label = "队史零封王", icon = "🧤", suffix = "零封" },
+    }
+
+    local records = {}
+    for _, def in ipairs(defs) do
+        local bestEntry, bestValue = nil, 0
+        for _, entry in pairs(teamMap) do
+            local value = entry[def.key] or 0
+            if value > bestValue then
+                bestValue = value
+                bestEntry = entry
+            end
+        end
+        if bestEntry and bestValue > 0 then
+            table.insert(records, {
+                key = def.key,
+                label = def.label,
+                icon = def.icon,
+                suffix = def.suffix,
+                value = bestValue,
+                playerId = bestEntry.playerId,
+                playerName = bestEntry.playerName,
+            })
+        end
+    end
+    return records
+end
+
+--- 查询某球队的队史功勋榜（按综合贡献分降序，取 Top N）。
 function HistoryManager.getTeamLegendStats(gameState, teamId, limit)
     HistoryManager._ensureData(gameState)
     local teamMap = gameState._teamLegendStats[teamId]
@@ -727,13 +864,22 @@ function HistoryManager.getTeamLegendStats(gameState, teamId, limit)
 
     local list = {}
     for _, entry in pairs(teamMap) do
-        table.insert(list, entry)
+        local copy = {}
+        for k, v in pairs(entry) do copy[k] = v end
+        copy.legendScore = HistoryManager.computeLegendScore(entry)
+        table.insert(list, copy)
     end
 
     table.sort(list, function(a, b)
-        if (a.goals or 0) ~= (b.goals or 0) then return (a.goals or 0) > (b.goals or 0) end
-        if (a.appearances or 0) ~= (b.appearances or 0) then return (a.appearances or 0) > (b.appearances or 0) end
-        if (a.teamTitles or 0) ~= (b.teamTitles or 0) then return (a.teamTitles or 0) > (b.teamTitles or 0) end
+        if (a.legendScore or 0) ~= (b.legendScore or 0) then
+            return (a.legendScore or 0) > (b.legendScore or 0)
+        end
+        if (a.teamTitles or 0) ~= (b.teamTitles or 0) then
+            return (a.teamTitles or 0) > (b.teamTitles or 0)
+        end
+        if (a.appearances or 0) ~= (b.appearances or 0) then
+            return (a.appearances or 0) > (b.appearances or 0)
+        end
         return (a.playerName or "") < (b.playerName or "")
     end)
 

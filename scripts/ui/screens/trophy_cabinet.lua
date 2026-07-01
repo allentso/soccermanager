@@ -661,6 +661,47 @@ function TrophyCabinet.create(params)
         tabContent = buildTrophiesTab(gameState)
     end
 
+    local hallOfFameEntry = Theme.Card {
+        marginBottom = 10,
+        children = {
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                alignItems = "center",
+                onClick = function()
+                    Router.navigate("hall_of_fame")
+                end,
+                children = {
+                    UI.Label { text = "🌍", fontSize = 26, marginRight = 12 },
+                    UI.Panel {
+                        flexGrow = 1,
+                        flexShrink = 1,
+                        children = {
+                            UI.Label {
+                                text = "世界名人堂",
+                                fontSize = 14,
+                                fontWeight = "bold",
+                                color = COLORS.TEXT_PRIMARY,
+                            },
+                            UI.Label {
+                                text = "历届冠军、赛季年鉴、全球标王与奖项榜",
+                                fontSize = 11,
+                                color = COLORS.TEXT_MUTED,
+                                marginTop = 4,
+                            },
+                        },
+                    },
+                    UI.Label { text = "→", fontSize = 18, color = COLORS.PRIMARY },
+                },
+            },
+        },
+    }
+
+    local scrollChildren = { hallOfFameEntry }
+    for _, item in ipairs(tabContent) do
+        scrollChildren[#scrollChildren + 1] = item
+    end
+
     return UI.Panel {
         width = "100%", height = "100%", backgroundColor = COLORS.BG_DARK,
         children = {
@@ -668,7 +709,13 @@ function TrophyCabinet.create(params)
                 UI.Panel { width = 60, height = 32, justifyContent = "center", onClick = function() Router.back() end,
                     children = { UI.Label { text = "← 返回", fontSize = 12, color = COLORS.TEXT_SECONDARY } } },
                 UI.Label { text = "荣誉陈列室", fontSize = 15, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, flex = 1, textAlign = "center" },
-                UI.Panel { width = 60 },
+                UI.Panel {
+                    width = 72, height = 32, justifyContent = "center", alignItems = "center",
+                    onClick = function() Router.navigate("hall_of_fame") end,
+                    children = {
+                        UI.Label { text = "名人堂", fontSize = 11, color = COLORS.PRIMARY },
+                    },
+                },
             }},
             -- 标签栏
             UI.Panel {
@@ -681,7 +728,7 @@ function TrophyCabinet.create(params)
             UI.ScrollView {
                 width = "100%", flex = 1,
                 children = {
-                    UI.Panel { width = "100%", padding = 12, children = tabContent }
+                    UI.Panel { width = "100%", padding = 12, children = scrollChildren }
                 }
             },
         }

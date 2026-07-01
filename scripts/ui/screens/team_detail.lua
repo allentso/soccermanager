@@ -506,12 +506,12 @@ local function buildLegendsTab(team, gameState, teamId)
         }})
     end
 
-    -- 队史球星 Top10：按总进球数降序，数据来自 HistoryManager._teamLegendStats
-    -- （赛季末增量累加，不受 careerHistory 5季裁剪和退役球员清理影响）
+    -- 队史功勋 Top10：综合贡献分排序，数据来自 HistoryManager._teamLegendStats
+    -- （赛季末增量累加；离队/退役球员仍保留，UI 以灰色「已离队」标注）
     local legends = HistoryManager.getTeamLegendStats(gameState, teamId, 10)
     if #legends == 0 then
         table.insert(children, Theme.Card { children = {
-            Theme.Subtitle { text = "队史球星 Top10" },
+            Theme.Subtitle { text = "队史功勋榜" },
             UI.Label { text = "完成多个赛季后，这里会记录球队功勋球员。", fontSize = 12, color = COLORS.TEXT_MUTED, marginTop = 6 },
         }})
         return children
@@ -519,7 +519,7 @@ local function buildLegendsTab(team, gameState, teamId)
 
     local legendRows = {}
     for i, entry in ipairs(legends) do
-        local playerExists = gameState.players[entry.playerId] ~= nil
+        local isActive = HistoryManager.isLegendActiveAtTeam(gameState, teamId, entry.playerId)
         local rankColor = COLORS.TEXT_MUTED
         if i == 1 then rankColor = COLORS.WARNING
         elseif i <= 3 then rankColor = COLORS.PRIMARY end
@@ -534,9 +534,15 @@ local function buildLegendsTab(team, gameState, teamId)
         local nameRowChildren = {
             UI.Label {
                 text = entry.playerName or "?", fontSize = 13, fontWeight = "bold",
-                color = playerExists and COLORS.TEXT_PRIMARY or COLORS.TEXT_MUTED,
+                color = isActive and COLORS.TEXT_PRIMARY or COLORS.TEXT_MUTED,
             },
         }
+        if not isActive then
+            table.insert(nameRowChildren, UI.Label {
+                text = "已离队",
+                fontSize = 10, marginLeft = 6, color = COLORS.TEXT_MUTED,
+            })
+        end
         for _, meta in ipairs(HistoryManager.LEGEND_AWARD_META) do
             local count = entry.individualAwards and entry.individualAwards[meta.key]
             if count and count > 0 then
@@ -547,10 +553,11 @@ local function buildLegendsTab(team, gameState, teamId)
             end
         end
 
+        local canNavigate = gameState.players[entry.playerId] ~= nil
         table.insert(legendRows, UI.Panel {
             width = "100%", minHeight = 54, flexDirection = "row", alignItems = "center",
             paddingHorizontal = 8, paddingVertical = 6, borderBottomWidth = 1, borderColor = COLORS.BORDER,
-            onClick = playerExists and function() Router.navigate("player_detail", { playerId = entry.playerId }) end or nil,
+            onClick = canNavigate and function() Router.navigate("player_detail", { playerId = entry.playerId }) end or nil,
             children = {
                 UI.Label { text = tostring(i), width = 22, fontSize = 13, fontWeight = "bold", color = rankColor },
                 UI.Panel {
@@ -567,12 +574,11 @@ local function buildLegendsTab(team, gameState, teamId)
                     alignItems = "flex-end",
                     children = {
                         UI.Label {
-                            text = tostring(entry.goals or 0) .. "球 " .. tostring(entry.assists or 0) .. "助",
+                            text = HistoryManager.formatLegendPrimaryStat(entry),
                             fontSize = 12, fontWeight = "bold", color = COLORS.SECONDARY,
                         },
                         UI.Label {
-                            text = tostring(entry.appearances or 0) .. "场"
-                                .. ((entry.teamTitles or 0) > 0 and ("  🏆x" .. tostring(entry.teamTitles)) or ""),
+                            text = HistoryManager.formatLegendSecondaryStat(entry),
                             fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 2,
                         },
                     }
@@ -582,9 +588,51 @@ local function buildLegendsTab(team, gameState, teamId)
     end
 
     table.insert(children, Theme.Card { children = {
-        Theme.Subtitle { text = "队史球星 Top10（按总进球数排序）" },
+        Theme.Subtitle { text = "队史功勋榜 Top10" },
+        UI.Label {
+            text = "综合出场、数据、随队夺冠与个人奖项；已离队球员仍计入队史。",
+            fontSize = 11, color = COLORS.TEXT_MUTED, marginTop = 4, marginBottom = 8,
+        },
         table.unpack(legendRows)
     }})
+
+    -- 队史单项纪录墙
+    local records = HistoryManager.getTeamLegendRecords(gameState, teamId)
+    if #records > 0 then
+        local recordRows = {}
+        for _, rec in ipairs(records) do
+            local isActive = HistoryManager.isLegendActiveAtTeam(gameState, teamId, rec.playerId)
+            table.insert(recordRows, UI.Panel {
+                width = "100%", height = 40, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                onClick = gameState.players[rec.playerId] and function()
+                    Router.navigate("player_detail", { playerId = rec.playerId })
+                end or nil,
+                children = {
+                    UI.Label { text = rec.icon, width = 24, fontSize = 14 },
+                    UI.Label { text = rec.label, width = 88, fontSize = 11, color = COLORS.TEXT_SECONDARY },
+                    UI.Label {
+                        text = rec.playerName or "?",
+                        flexGrow = 1, flexShrink = 1, fontSize = 12, fontWeight = "bold",
+                        color = isActive and COLORS.TEXT_PRIMARY or COLORS.TEXT_MUTED,
+                    },
+                    UI.Label {
+                        text = tostring(rec.value) .. rec.suffix,
+                        width = 56, fontSize = 12, fontWeight = "bold",
+                        color = COLORS.ACCENT, textAlign = "right",
+                    },
+                }
+            })
+        end
+        table.insert(children, Theme.Card { children = {
+            Theme.Subtitle { text = "队史纪录" },
+            UI.Label {
+                text = "单项数据之王（进球 / 助攻 / 出场 / 零封）。",
+                fontSize = 11, color = COLORS.TEXT_MUTED, marginTop = 4, marginBottom = 6,
+            },
+            table.unpack(recordRows)
+        }})
+    end
 
     return children
 end
