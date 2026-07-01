@@ -287,7 +287,7 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
         local competingBids = TransferManager.getCompetingBids(gameState, p.id)
 
         -- ???????
-        local attitudeText = attitude == "eager" and "???" or (attitude == "open" and "???" or (attitude == "reluctant" and "???" or "??"))
+        local attitudeText = attitude == "eager" and "想转会" or (attitude == "open" and "愿考虑" or (attitude == "reluctant" and "不情愿" or "拒绝"))
         if attitude == "refusing" and attitudeDesc and attitudeDesc ~= "" then
             attitudeText = attitudeDesc
         end
@@ -413,11 +413,11 @@ function Tab.build(gameState, posFilter, searchQuery, ovrRange, ageRange)
                             text = (team and team.name or "自由球员"),
                             fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexShrink = 1,
                         },
-                        UI.Label { text = " / ", fontSize = 11, color = Theme.COLORS.BORDER },
+                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
                         UI.Label { text = p:getAge(gameState.date.year) .. "岁", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
-                        UI.Label { text = " / ", fontSize = 11, color = Theme.COLORS.BORDER },
+                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
                         UI.Label { text = _market()._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
-                        UI.Label { text = " / ", fontSize = 11, color = Theme.COLORS.BORDER },
+                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
                         UI.Label { text = attitudeText, fontSize = 11, color = attitudeColor },
                         UI.Panel { flexGrow = 1 },
                         table.unpack(extraTags),
