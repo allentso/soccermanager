@@ -36,9 +36,10 @@ end
 
 local function _buildLiveTacticsContext(gameState, params)
     local session = params and params.session
-    if not gameState or not session or not session.fixture then return nil end
+    if not gameState or not session then return nil end
 
     local fixture = params.fixture or session.fixture
+    if not fixture then return nil end
     local teamId
     if session._isWC then
         local NT = fixture and fixture._isEuro and require("scripts/systems/euro_cup") or WorldCup
@@ -224,6 +225,7 @@ function Tactics.create(params)
     return UI.Panel {
         width = "100%",
         height = "100%",
+        flexDirection = "column",
         backgroundColor = Theme.COLORS.BG_DARK,
         children = {
             -- 顶部栏
@@ -249,8 +251,8 @@ function Tactics.create(params)
                 }
             },
 
-            -- 二级导航
-            (not _liveTacticsContext) and Theme.SquadSubNav("tactics") or nil,
+            -- 二级导航（临场模式占位，避免 children 中出现 nil 导致后续节点不渲染）
+            (not _liveTacticsContext) and Theme.SquadSubNav("tactics") or UI.Panel { width = "100%", height = 0 },
 
             -- 内部 tab 切换
             Tactics._buildTabBar(),
@@ -260,6 +262,7 @@ function Tactics.create(params)
                 local sv = UI.ScrollView {
                     flexGrow = 1,
                     flexBasis = 0,
+                    flexShrink = 1,
                     scrollY = true,
                     padding = 14,
                     children = content,
@@ -270,8 +273,8 @@ function Tactics.create(params)
                 return sv
             end)(),
 
-            -- 底部导航
-            (not _liveTacticsContext) and Theme.MainNav("squad") or nil,
+            -- 底部导航（临场模式占位）
+            (not _liveTacticsContext) and Theme.MainNav("squad") or UI.Panel { width = "100%", height = 0 },
         }
     }
 end
