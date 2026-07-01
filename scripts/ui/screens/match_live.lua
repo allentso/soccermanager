@@ -276,7 +276,7 @@ function MatchLive.create(params)
     local isHalfTime = session:isHalfTime()
     local needsPenalties = session:needsPenalties()
 
-    -- 显示模式: normal | subs | sub_pick | tactics | halftime | extra_halftime | penalties
+    -- 显示模式: normal | subs | sub_pick | tactics | instructions | halftime | extra_halftime | penalties
     local displayMode = (params and params.mode) or "normal"
     -- 半场时自动进入半场模式（区分常规中场与加时中场）
     if isHalfTime and displayMode == "normal" then
@@ -335,6 +335,8 @@ function MatchLive.create(params)
         mainContent = MatchLive._buildSubPickPanel(gameState, session, fixture)
     elseif displayMode == "tactics" then
         mainContent = MatchLive._buildTacticsPanel(session, fixture)
+    elseif displayMode == "instructions" then
+        mainContent = MatchLive._buildInstructionsPanel(session, fixture)
     elseif displayMode == "halftime" then
         mainContent = MatchLive._buildHalftimePanel(gameState, session, fixture)
     elseif displayMode == "extra_halftime" then
@@ -520,7 +522,7 @@ function MatchLive.create(params)
                     children = {
                         UI.Button {
                             text = "换人(" .. tostring(subsRemaining) .. ")",
-                            width = "31%", height = 40,
+                            width = "23%", height = 40,
                             backgroundColor = subsRemaining > 0 and {55, 35, 110, 255} or {35, 40, 55, 255},
                             borderRadius = 10, fontSize = 12, fontWeight = "bold",
                             color = subsRemaining > 0 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
@@ -532,8 +534,8 @@ function MatchLive.create(params)
                             end,
                         },
                         UI.Button {
-                            text = "阵型/战术",
-                            width = "31%", height = 40,
+                            text = "阵型",
+                            width = "23%", height = 40,
                             backgroundColor = {30, 70, 110, 255},
                             borderRadius = 10, fontSize = 12, fontWeight = "bold",
                             color = Theme.COLORS.TEXT_PRIMARY,
@@ -542,12 +544,23 @@ function MatchLive.create(params)
                                 openLiveTactics(session, fixture)
                             end,
                         },
+                        UI.Button {
+                            text = "指示",
+                            width = "23%", height = 40,
+                            backgroundColor = {35, 85, 70, 255},
+                            borderRadius = 10, fontSize = 12, fontWeight = "bold",
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            onClick = function()
+                                autoPlay.running = false
+                                Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "instructions" })
+                            end,
+                        },
                         (function()
                             local lastTalk = session.lastTalkMinute or -15
                             local canTalk = (currentMinute - lastTalk) >= 15
                             return UI.Button {
                                 text = canTalk and "喊话" or ("喊话(" .. tostring(15 - (currentMinute - lastTalk)) .. ")"),
-                                width = "31%", height = 40,
+                                width = "23%", height = 40,
                                 backgroundColor = canTalk and {100, 60, 30, 255} or {35, 40, 55, 255},
                                 borderRadius = 10, fontSize = 12, fontWeight = "bold",
                                 color = canTalk and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
@@ -1052,6 +1065,79 @@ end
 ---------------------------------------------------------------------------
 -- 战术指示面板
 ---------------------------------------------------------------------------
+function MatchLive._buildInstructionRows(session, fixture, tactTeamId, currentInstruction)
+    local rows = {}
+    for _, inst in ipairs(TACTICAL_INSTRUCTIONS) do
+        local isActive = inst.key == currentInstruction
+        table.insert(rows, UI.Button {
+            width = "100%", height = 52,
+            backgroundColor = isActive and {40, 100, 60, 255} or Theme.COLORS.BG_CARD,
+            borderRadius = 8, borderWidth = isActive and 2 or 1,
+            borderColor = isActive and Theme.COLORS.SECONDARY or Theme.COLORS.BORDER,
+            marginBottom = 8, paddingLeft = 14, paddingRight = 14,
+            flexDirection = "row", alignItems = "center",
+            onClick = function()
+                if not tactTeamId then return end
+                session:applyCommand({
+                    type = MatchSession.COMMAND.CHANGE_INSTRUCTION,
+                    instruction = inst.key,
+                    teamId = tactTeamId,
+                })
+                Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
+            end,
+            children = {
+                UI.Panel {
+                    flexGrow = 1,
+                    children = {
+                        UI.Label { text = inst.label, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = isActive and "bold" or "normal" },
+                        UI.Label { text = inst.desc, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
+                    }
+                },
+                isActive and UI.Label { text = "✓", fontSize = 18, color = Theme.COLORS.SECONDARY, width = 24 } or nil,
+            },
+        })
+    end
+    return rows
+end
+
+function MatchLive._buildInstructionsPanel(session, fixture)
+    local gameState = _G.gameState
+    local _, tactTeamId = getControlledTeam(session, gameState)
+    local currentInstruction = session.tacticalInstruction
+
+    return UI.ScrollView {
+        flexGrow = 1, flexBasis = 0, scrollY = true, padding = 14,
+        children = {
+            UI.Panel {
+                width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 10,
+                children = {
+                    UI.Label { text = "战术指示", fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                    UI.Button {
+                        text = "返回", width = 60, height = 30, borderRadius = 6,
+                        backgroundColor = Theme.COLORS.BG_CARD, fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
+                        onClick = function()
+                            Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
+                        end,
+                    },
+                }
+            },
+            UI.Label {
+                text = "临场指示会立即影响后续模拟；更改阵型请使用下方“阵型”按钮。", fontSize = 12,
+                color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
+            },
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "当前指示：" .. MatchLive._getInstructionLabel(currentInstruction) },
+                    UI.Panel {
+                        width = "100%", marginTop = 8,
+                        children = MatchLive._buildInstructionRows(session, fixture, tactTeamId, currentInstruction),
+                    },
+                }
+            },
+        }
+    }
+end
+
 function MatchLive._buildTacticsPanel(session, fixture)
     local gameState = _G.gameState
     local controlledTeam, tactTeamId = getControlledTeam(session, gameState)
@@ -1130,37 +1216,7 @@ function MatchLive._buildTacticsPanel(session, fixture)
         })
     end
 
-    local rows = {}
-    for _, inst in ipairs(TACTICAL_INSTRUCTIONS) do
-        local isActive = inst.key == currentInstruction
-        table.insert(rows, UI.Button {
-            width = "100%", height = 52,
-            backgroundColor = isActive and {40, 100, 60, 255} or Theme.COLORS.BG_CARD,
-            borderRadius = 8, borderWidth = isActive and 2 or 1,
-            borderColor = isActive and Theme.COLORS.SECONDARY or Theme.COLORS.BORDER,
-            marginBottom = 8, paddingLeft = 14, paddingRight = 14,
-            flexDirection = "row", alignItems = "center",
-            onClick = function()
-                -- 应用真实战术指令（影响后续模拟）
-                session:applyCommand({
-                    type = MatchSession.COMMAND.CHANGE_INSTRUCTION,
-                    instruction = inst.key,
-                    teamId = tactTeamId,
-                })
-                Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
-            end,
-            children = {
-                UI.Panel {
-                    flexGrow = 1,
-                    children = {
-                        UI.Label { text = inst.label, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = isActive and "bold" or "normal" },
-                        UI.Label { text = inst.desc, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
-                    }
-                },
-                isActive and UI.Label { text = "✓", fontSize = 18, color = Theme.COLORS.SECONDARY, width = 24 } or nil,
-            },
-        })
-    end
+    local rows = MatchLive._buildInstructionRows(session, fixture, tactTeamId, currentInstruction)
 
     return UI.ScrollView {
         flexGrow = 1, flexBasis = 0, scrollY = true, padding = 14,
