@@ -36,6 +36,13 @@ local _cheatLastTap = 0
 local CHEAT_TAP_THRESHOLD = 7
 local CHEAT_TAP_TIMEOUT = 3.0  -- 3秒内连续点击
 
+-- 连点「规则定制」计数
+local _rulesTapCount = 0
+local _rulesLastTap = 0
+local RULES_TAP_THRESHOLD = 5
+local RULES_TAP_BONUS_ROUND = 2
+local RULES_TAP_PULL_BONUS = 500
+
 -- 默认设置
 local _defaults = {
     masterVolume = 80,
@@ -290,13 +297,19 @@ end
 ------------------------------------------------------
 -- 组件工厂
 ------------------------------------------------------
-function Settings._sectionTitle(text)
-    return UI.Label {
+function Settings._sectionTitle(text, onClick)
+    local label = UI.Label {
         text = text,
         fontSize = 14,
         color = Theme.COLORS.TEXT_PRIMARY,
         fontWeight = "bold",
         marginBottom = 10,
+    }
+    if not onClick then return label end
+    return UI.Panel {
+        width = "100%",
+        onClick = onClick,
+        children = { label },
     }
 end
 
@@ -467,6 +480,73 @@ function Settings._handleCheatTap()
         _cheatTapCount = 0
         Settings._showCheatMenu()
     end
+end
+
+function Settings._getRulesTapBonusClaimedRound(gachaState)
+    if not gachaState then return 0 end
+    local round = tonumber(gachaState.rulesTapBonusClaimedRound) or 0
+    if round > 0 then return round end
+    -- 旧档仅 rulesTapBonusClaimed=true，表示已领过第 1 轮（1000 次）
+    if gachaState.rulesTapBonusClaimed == true then return 1 end
+    return 0
+end
+
+function Settings._canClaimRulesTapBonus(gachaState)
+    return Settings._getRulesTapBonusClaimedRound(gachaState) < RULES_TAP_BONUS_ROUND
+end
+
+function Settings._handleRulesTap()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local gachaState = YouthManager.getLegendGachaState(gameState)
+    if not Settings._canClaimRulesTapBonus(gachaState) then return end
+
+    local now = os.clock()
+    if now - _rulesLastTap > CHEAT_TAP_TIMEOUT then
+        _rulesTapCount = 0
+    end
+    _rulesLastTap = now
+    _rulesTapCount = _rulesTapCount + 1
+
+    if _rulesTapCount >= RULES_TAP_THRESHOLD then
+        _rulesTapCount = 0
+        Settings._grantRulesTapPullBonus()
+    end
+end
+
+function Settings._grantRulesTapPullBonus()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    if not YouthManager.canMutateLegendGacha() then
+        if YouthManager.getLegendGachaPendingConflict() then
+            UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
+        else
+            UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        end
+        return
+    end
+
+    local state = YouthManager.getLegendGachaState(gameState)
+    if not Settings._canClaimRulesTapBonus(state) then
+        UI.Toast.Show({ message = "该奖励已领取过", variant = "info" })
+        return
+    end
+    if not state.unlocked then
+        state.unlocked = true
+        state.adsWatched = YouthManager.getUnlockAdsRequired()
+    end
+
+    state.pulls = (state.pulls or 0) + RULES_TAP_PULL_BONUS
+    state.rulesTapBonusClaimed = true
+    state.rulesTapBonusClaimedRound = RULES_TAP_BONUS_ROUND
+    LegendGachaCloud.markDirty(gameState)
+    SaveManager.save(gameState, "auto")
+    UI.Toast.Show({
+        message = string.format("已获得 %d 次传奇抽取，当前可用 %d 次", RULES_TAP_PULL_BONUS, state.pulls or 0),
+        variant = "success",
+    })
 end
 
 function Settings._showCheatMenu()
@@ -1854,14 +1934,6 @@ function Settings._promptLegendCloudConflict(gameState)
 end
 
 function Settings._getLegendCloudSaveUiState()
-    if LegendGachaCloud.isEnabled() then
-        return {
-            hint = "传奇抽卡进度已绑定账号，换设备登录后可恢复",
-            buttonText = "传奇云存档已开启",
-            enabled = false,
-            action = "enabled",
-        }
-    end
     if LegendGachaCloud.hasPendingConflict() then
         return {
             hint = "检测到本地与云端账本不一致，请前往青训-传奇处理",
@@ -1876,6 +1948,31 @@ function Settings._getLegendCloudSaveUiState()
             buttonText = "同步账号传奇存档",
             enabled = true,
             action = "attach",
+        }
+    end
+    if LegendGachaCloud.isEnabled() then
+        local canReseed, reseedReason = LegendGachaCloud.canReseedFromCurrentSave()
+        if canReseed then
+            return {
+                hint = "传奇抽卡进度已绑定账号；可用当前存档本地镜像清零并覆盖云端",
+                buttonText = "用当前存档覆盖云端",
+                enabled = true,
+                action = "reseed",
+            }
+        end
+        if reseedReason == "legend_cloud_syncing" then
+            return {
+                hint = "传奇抽卡进度已绑定账号，云同步完成后可重新上云",
+                buttonText = "传奇云存档已开启",
+                enabled = false,
+                action = "enabled",
+            }
+        end
+        return {
+            hint = "传奇抽卡进度已绑定账号，换设备登录后可恢复",
+            buttonText = "传奇云存档已开启",
+            enabled = false,
+            action = "enabled",
         }
     end
 
@@ -1936,6 +2033,10 @@ function Settings._onLegendCloudSaveClick()
         Settings._promptLegendCloudConflict(_G.gameState)
         return
     end
+    if uiState.action == "reseed" then
+        Settings._reseedLegendCloudSave()
+        return
+    end
     Settings._enableLegendCloudSave()
 end
 
@@ -1966,6 +2067,67 @@ function Settings._buildLegendCloudSaveControls()
             end,
         },
     }
+end
+
+function Settings._showLegendCloudReseedSecondConfirm(gameState)
+    ConfirmDialog.show({
+        title = "确认覆盖云端账本",
+        message = "请再次确认：将以你当前正在打开的这个存档的本地传奇账本，完整替换账号级云存档。\n\n云端现有数据会被清零并以本地镜像为准；其他设备同步后将看到新数据。",
+        confirmText = "确认覆盖云端",
+        confirmColor = Theme.COLORS.DANGER,
+        onConfirm = function()
+            local ok, err = LegendGachaCloud.reseedFromCurrentSave(gameState, {
+                ok = function()
+                    UI.Toast.Show({ message = "已用当前存档覆盖云端账本", variant = "success" })
+                end,
+                error = function(_, syncErr)
+                    UI.Toast.Show({
+                        message = "云同步失败，已写入本地缓存: " .. tostring(syncErr),
+                        variant = "warning",
+                    })
+                end,
+                timeout = function()
+                    UI.Toast.Show({ message = "云同步超时，已写入本地缓存", variant = "warning" })
+                end,
+            })
+            if not ok then
+                UI.Toast.Show({ message = "覆盖失败: " .. tostring(err), variant = "error" })
+                return
+            end
+
+            SaveManager.save(gameState, "auto")
+            Router.replaceWith("settings")
+        end,
+    })
+end
+
+function Settings._reseedLegendCloudSave()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local canReseed, reason = LegendGachaCloud.canReseedFromCurrentSave()
+    if not canReseed then
+        if reason == "legend_cloud_syncing" then
+            UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
+        elseif reason == "legend_cloud_conflict" then
+            UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
+        else
+            UI.Toast.Show({ message = "当前无法覆盖云端账本", variant = "warning" })
+        end
+        return
+    end
+
+    ConfirmDialog.show({
+        title = "用当前存档覆盖云端",
+        message = "将把当前存档的本地传奇账本（抽卡次数、已抽名单、标签池等）清零云端并以本地为准覆盖。\n\n不会合并场上传奇球员实体；云端原有数据会被完全替换。请确认当前存档是你希望绑定的来源。",
+        confirmText = "继续确认",
+        confirmColor = Theme.COLORS.DANGER,
+        onConfirm = function()
+            deferNextFrame(function()
+                Settings._showLegendCloudReseedSecondConfirm(gameState)
+            end)
+        end,
+    })
 end
 
 function Settings._showLegendCloudSeedSecondConfirm(gameState)
@@ -2423,7 +2585,9 @@ function Settings._buildDifficultyAndSaveCard()
 
     return Theme.Card {
         children = {
-            Settings._sectionTitle("规则定制"),
+            Settings._sectionTitle("规则定制", function()
+                Settings._handleRulesTap()
+            end),
             UI.Label {
                 text = "六项独立调节，默认均为「正常」。除转会外，其余影响整个联赛环境。",
                 fontSize = 10,

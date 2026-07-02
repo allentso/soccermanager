@@ -249,6 +249,7 @@ local GACHA_SCALAR_KEYS = {
     "unlocked", "adsWatched", "pulls", "tenPullCount", "pityCounter",
     "firstTenPull", "singlePullCounter", "pullAdProgress", "selectedPoolId",
     "compensationClaimedRound", "compensationClaimed", "compensation300PullClaimed",
+    "rulesTapBonusClaimed", "rulesTapBonusClaimedRound",
 }
 
 local function addUniqueValue(arr, seen, value)
@@ -899,6 +900,42 @@ function LegendGachaCloud.enableAndSeedFromCurrentSave(gameState, events)
     cache.ledgerId = generateLedgerId()
     cache.revision = 0
     cache.baselineRevision = 0
+    applyStateInPlace(cache.state, seedState)
+    bootstrapped_ = true
+    bootstrapping_ = false
+    ready_ = true
+    if gameState then
+        LegendGachaCloud.syncMirrorToSave(gameState, cache.state)
+    end
+    LegendGachaCloud.saveLocal()
+    return LegendGachaCloud.syncToCloud(events)
+end
+
+--- 是否可用当前存档覆盖已开启的云端账本（非首次 seed 入口）
+---@return boolean ok
+---@return string|nil reason not_enabled|legend_cloud_conflict|legend_cloud_syncing
+function LegendGachaCloud.canReseedFromCurrentSave()
+    local cache = ensureLoaded()
+    if not cache.enabled then return false, "not_enabled" end
+    if cache.pendingConflict then return false, "legend_cloud_conflict" end
+    if syncInFlight_ or bootstrapping_ then return false, "legend_cloud_syncing" end
+    return true
+end
+
+--- 用当前存档本地 _legendGacha 镜像清零并覆盖云端账本（不合并场上传奇实体）
+function LegendGachaCloud.reseedFromCurrentSave(gameState, events)
+    local canReseed, reason = LegendGachaCloud.canReseedFromCurrentSave()
+    if not canReseed then return false, reason end
+
+    local seedState = buildStateFromSaveGacha(gameState and gameState._legendGacha)
+    seedState.updatedAt = nowSeconds()
+
+    local cache = ensureLoaded()
+    cache.pendingConflict = false
+    cache.pendingAccountAttach = false
+    pendingRemoteEnvelope_ = nil
+    cache.dirty = true
+    cache.seedFromSaveUsed = true
     applyStateInPlace(cache.state, seedState)
     bootstrapped_ = true
     bootstrapping_ = false
