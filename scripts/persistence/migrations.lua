@@ -814,6 +814,14 @@ function Migrations.v14_to_v15(gameStateData)
     end
 end
 
+--- v15 → v16: 队史功勋榜键名归一化（JSON 读档后 teamId/playerId 变字符串导致查询失败）
+function Migrations.v15_to_v16(gameStateData)
+    if not gameStateData or not gameStateData._teamLegendStats then return end
+    local HistoryManager = require("scripts/systems/history_manager")
+    gameStateData._teamLegendStats = HistoryManager.normalizeTeamLegendStatsKeys(gameStateData._teamLegendStats)
+    print("[SaveMigration] v15→v16: 已归一化队史功勋榜 ID 键")
+end
+
 --- 迁移路由：根据存档版本逐级升级
 --- @param saveData table 完整的存档顶层数据 {version, game_state, saved_at}
 --- @return number 迁移后的最终版本号
@@ -888,6 +896,11 @@ function Migrations.run(saveData)
     if version < 15 then
         Migrations.v14_to_v15(saveData.game_state)
         version = 15
+    end
+
+    if version < 16 then
+        Migrations.v15_to_v16(saveData.game_state)
+        version = 16
     end
 
     saveData.version = version

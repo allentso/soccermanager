@@ -299,6 +299,7 @@ function GameState:serialize()
         _transferHistory = self._transferHistory,
         _managerHistory = self._managerHistory,
         _teamLegendStats = self._teamLegendStats,
+        _teamLegendStatsBackfilled = self._teamLegendStatsBackfilled,
         _managerSaleHistory = self._managerSaleHistory,
         _globalTopTransfers = self._globalTopTransfers,
         _worldCupHistory = self._worldCupHistory,
@@ -379,7 +380,13 @@ function GameState:deserialize(data)
     self.records = data.records
     self._transferHistory = data._transferHistory
     self._managerHistory = data._managerHistory
-    self._teamLegendStats = data._teamLegendStats
+    if data._teamLegendStats then
+        local HistoryManager = require("scripts/systems/history_manager")
+        self._teamLegendStats = HistoryManager.normalizeTeamLegendStatsKeys(data._teamLegendStats)
+    else
+        self._teamLegendStats = nil
+    end
+    self._teamLegendStatsBackfilled = data._teamLegendStatsBackfilled
     self._managerSaleHistory = data._managerSaleHistory
     self._globalTopTransfers = data._globalTopTransfers
     self._worldCupHistory = data._worldCupHistory

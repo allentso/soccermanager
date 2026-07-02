@@ -6,7 +6,7 @@ local Constants = {}
 -- 游戏版本
 Constants.VERSION = "4.4.1"
 Constants.VERSION_MAJOR = "v" .. Constants.VERSION:match("^(%d+)")
-Constants.SAVE_VERSION = 15
+Constants.SAVE_VERSION = 16
 Constants.LEGEND_GACHA_COMPENSATION_ROUND = "4.2.1"  -- 300抽版本补偿标记（与旧版领3球员 compensationClaimed 分离）
 Constants.LEGEND_GACHA_COMPENSATION_PULLS = 300
 

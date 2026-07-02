@@ -59,6 +59,14 @@ function HistoryManager._ensureData(gameState)
     end
     if not gameState._teamLegendStats then
         gameState._teamLegendStats = {}
+    else
+        gameState._teamLegendStats = HistoryManager.normalizeTeamLegendStatsKeys(gameState._teamLegendStats)
+    end
+    if not gameState._teamLegendStatsBackfilled
+        and HistoryManager._countLegendEntries(gameState._teamLegendStats) == 0
+        and #(gameState.worldHistory or {}) > 0 then
+        HistoryManager.rebuildTeamLegendStatsFromCareerHistory(gameState)
+        gameState._teamLegendStatsBackfilled = true
     end
     if not gameState._managerSaleHistory then
         gameState._managerSaleHistory = {}
@@ -703,6 +711,118 @@ function HistoryManager.getTeamHistory(gameState, teamId)
     end
 
     return history
+end
+
+--- JSON 读档后 teamId/playerId 键会变成字符串，导致 numeric teamId 查不到队史榜。
+function HistoryManager.normalizeTeamLegendStatsKeys(stats)
+    if type(stats) ~= "table" then return {} end
+    local out = {}
+    for teamKey, teamMap in pairs(stats) do
+        if type(teamMap) == "table" then
+            local teamId = tonumber(teamKey) or teamKey
+            local bucket = out[teamId]
+            if not bucket then
+                bucket = {}
+                out[teamId] = bucket
+            end
+            for playerKey, entry in pairs(teamMap) do
+                if type(entry) == "table" then
+                    local playerId = tonumber(entry.playerId or playerKey) or entry.playerId or playerKey
+                    entry.playerId = playerId
+                    bucket[playerId] = entry
+                end
+            end
+        end
+    end
+    return out
+end
+
+function HistoryManager._countLegendEntries(stats)
+    local n = 0
+    for _, teamMap in pairs(stats or {}) do
+        for _ in pairs(teamMap or {}) do
+            n = n + 1
+        end
+    end
+    return n
+end
+
+function HistoryManager._buildTrophyCountByTeamSeason(gameState)
+    local map = {}
+    local function add(teamId, season)
+        teamId = tonumber(teamId) or teamId
+        if not teamId or not season then return end
+        map[teamId] = map[teamId] or {}
+        map[teamId][season] = (map[teamId][season] or 0) + 1
+    end
+    for _, wh in ipairs(gameState.worldHistory or {}) do
+        local season = wh.season
+        for _, lg in pairs(wh.leagues or {}) do
+            if lg.champion and lg.champion.teamId then
+                add(lg.champion.teamId, season)
+            end
+        end
+        for _, cup in pairs(wh.domesticCups or {}) do
+            if cup.winnerId then add(cup.winnerId, season) end
+        end
+        if wh.uclChampion and wh.uclChampion.teamId then
+            add(wh.uclChampion.teamId, season)
+        end
+        if wh.uelChampion and wh.uelChampion.teamId then
+            add(wh.uelChampion.teamId, season)
+        end
+    end
+    return map
+end
+
+--- 旧档 _teamLegendStats 为空时，从 careerHistory + worldHistory 重建队史榜。
+function HistoryManager.rebuildTeamLegendStatsFromCareerHistory(gameState)
+    if not gameState._teamLegendStats then
+        gameState._teamLegendStats = {}
+    end
+    local trophyByTeamSeason = HistoryManager._buildTrophyCountByTeamSeason(gameState)
+
+    for _, player in pairs(gameState.players or {}) do
+        for _, rec in ipairs(player.careerHistory or {}) do
+            local teamId = tonumber(rec.teamId) or rec.teamId
+            if teamId then
+                local teamMap = gameState._teamLegendStats[teamId]
+                if not teamMap then
+                    teamMap = {}
+                    gameState._teamLegendStats[teamId] = teamMap
+                end
+                local entry = teamMap[player.id]
+                if not entry then
+                    entry = {
+                        playerId = player.id,
+                        playerName = player.displayName,
+                        position = player.position,
+                        firstSeason = rec.season,
+                        lastSeason = rec.season,
+                        seasons = 0,
+                        appearances = 0,
+                        goals = 0,
+                        assists = 0,
+                        cleanSheets = 0,
+                        teamTitles = 0,
+                        individualAwards = {},
+                    }
+                    teamMap[player.id] = entry
+                end
+                entry.playerName = player.displayName or entry.playerName
+                entry.position = player.position or entry.position
+                if rec.season < (entry.firstSeason or rec.season) then entry.firstSeason = rec.season end
+                if rec.season > (entry.lastSeason or rec.season) then entry.lastSeason = rec.season end
+                entry.seasons = entry.seasons + 1
+                entry.appearances = entry.appearances + (rec.appearances or 0)
+                entry.goals = entry.goals + (rec.goals or 0)
+                entry.assists = entry.assists + (rec.assists or 0)
+                entry.cleanSheets = entry.cleanSheets + (rec.cleanSheets or 0)
+                local trophies = trophyByTeamSeason[teamId]
+                entry.teamTitles = entry.teamTitles + ((trophies and trophies[rec.season]) or 0)
+            end
+        end
+    end
 end
 
 ------------------------------------------------------
