@@ -36,13 +36,6 @@ local _cheatLastTap = 0
 local CHEAT_TAP_THRESHOLD = 7
 local CHEAT_TAP_TIMEOUT = 3.0  -- 3秒内连续点击
 
--- 连点「规则定制」计数
-local _rulesTapCount = 0
-local _rulesLastTap = 0
-local RULES_TAP_THRESHOLD = 5
-local RULES_TAP_BONUS_ROUND = 2
-local RULES_TAP_PULL_BONUS = 500
-
 -- 默认设置
 local _defaults = {
     masterVolume = 80,
@@ -297,19 +290,13 @@ end
 ------------------------------------------------------
 -- 组件工厂
 ------------------------------------------------------
-function Settings._sectionTitle(text, onClick)
-    local label = UI.Label {
+function Settings._sectionTitle(text)
+    return UI.Label {
         text = text,
         fontSize = 14,
         color = Theme.COLORS.TEXT_PRIMARY,
         fontWeight = "bold",
         marginBottom = 10,
-    }
-    if not onClick then return label end
-    return UI.Panel {
-        width = "100%",
-        onClick = onClick,
-        children = { label },
     }
 end
 
@@ -480,73 +467,6 @@ function Settings._handleCheatTap()
         _cheatTapCount = 0
         Settings._showCheatMenu()
     end
-end
-
-function Settings._getRulesTapBonusClaimedRound(gachaState)
-    if not gachaState then return 0 end
-    local round = tonumber(gachaState.rulesTapBonusClaimedRound) or 0
-    if round > 0 then return round end
-    -- 旧档仅 rulesTapBonusClaimed=true，表示已领过第 1 轮（1000 次）
-    if gachaState.rulesTapBonusClaimed == true then return 1 end
-    return 0
-end
-
-function Settings._canClaimRulesTapBonus(gachaState)
-    return Settings._getRulesTapBonusClaimedRound(gachaState) < RULES_TAP_BONUS_ROUND
-end
-
-function Settings._handleRulesTap()
-    local gameState = _G.gameState
-    if not gameState then return end
-
-    local gachaState = YouthManager.getLegendGachaState(gameState)
-    if not Settings._canClaimRulesTapBonus(gachaState) then return end
-
-    local now = os.clock()
-    if now - _rulesLastTap > CHEAT_TAP_TIMEOUT then
-        _rulesTapCount = 0
-    end
-    _rulesLastTap = now
-    _rulesTapCount = _rulesTapCount + 1
-
-    if _rulesTapCount >= RULES_TAP_THRESHOLD then
-        _rulesTapCount = 0
-        Settings._grantRulesTapPullBonus()
-    end
-end
-
-function Settings._grantRulesTapPullBonus()
-    local gameState = _G.gameState
-    if not gameState then return end
-
-    if not YouthManager.canMutateLegendGacha() then
-        if YouthManager.getLegendGachaPendingConflict() then
-            UI.Toast.Show({ message = "传奇云存档冲突待处理，请先同步云端", variant = "warning" })
-        else
-            UI.Toast.Show({ message = "传奇云存档同步中，请稍候", variant = "info" })
-        end
-        return
-    end
-
-    local state = YouthManager.getLegendGachaState(gameState)
-    if not Settings._canClaimRulesTapBonus(state) then
-        UI.Toast.Show({ message = "该奖励已领取过", variant = "info" })
-        return
-    end
-    if not state.unlocked then
-        state.unlocked = true
-        state.adsWatched = YouthManager.getUnlockAdsRequired()
-    end
-
-    state.pulls = (state.pulls or 0) + RULES_TAP_PULL_BONUS
-    state.rulesTapBonusClaimed = true
-    state.rulesTapBonusClaimedRound = RULES_TAP_BONUS_ROUND
-    LegendGachaCloud.markDirty(gameState)
-    SaveManager.save(gameState, "auto")
-    UI.Toast.Show({
-        message = string.format("已获得 %d 次传奇抽取，当前可用 %d 次", RULES_TAP_PULL_BONUS, state.pulls or 0),
-        variant = "success",
-    })
 end
 
 function Settings._showCheatMenu()
@@ -2353,8 +2273,8 @@ function Settings._cheatForceLegend()
         state.pulls = math.max(state.pulls or 0, 10)
     end
 
-    -- 设置保底计数为7，下次十连递增到8即触发硬保底
-    state.pityCounter = 7
+    -- 设置保底计数为5，下次十连递增到6即触发硬保底
+    state.pityCounter = 5
     -- 确保有足够抽取次数
     if (state.pulls or 0) < 10 then
         state.pulls = 10
@@ -2619,9 +2539,7 @@ function Settings._buildDifficultyAndSaveCard()
 
     return Theme.Card {
         children = {
-            Settings._sectionTitle("规则定制", function()
-                Settings._handleRulesTap()
-            end),
+            Settings._sectionTitle("规则定制"),
             UI.Label {
                 text = "六项独立调节，默认均为「正常」。除转会外，其余影响整个联赛环境。",
                 fontSize = 10,

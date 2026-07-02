@@ -24,11 +24,11 @@ return function(YouthManager)
     local LEGEND_UNLOCK_ADS = 10        -- 看10次广告解锁传奇池
     local LEGEND_PULL_PER_AD = 3        -- 解锁后每次广告获得3次抽取
     local LEGEND_TEN_PULL_ADS = 3       -- 3次广告 = +15抽
-    local LEGEND_PITY_COUNT = 8         -- 8次十连（80抽）硬保底
+    local LEGEND_PITY_COUNT = 6         -- 6次十连（60抽）硬保底
     local LEGEND_FIRST_GUARANTEED = true -- 首次十连保底一个传奇
     local LEGEND_MAX_PER_PULL = 1       -- 每次十连最多出1个传奇
     -- 保底档位单槽概率（前缓后陡；十连≈1-(1-r)^10）
-    -- 曲线：38%→40%→43%→47%→51%→54%→55%→100%(硬保底)
+    -- 曲线：38%→40%→43%→47%→51%→100%(硬保底)
     local LEGEND_PITY_RATES = {
         0.0470,  -- 第2次十连 ≈38%
         0.0508,  -- ≈40%
