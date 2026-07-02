@@ -19,6 +19,20 @@ local WorldCup = require("scripts/systems/world_cup")
 
 local Squad = {}
 
+local function _isNationalTeamMode(gameState)
+    return gameState.currentRole == "national_team"
+        and gameState.nationalTeamCoach ~= nil
+        and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
+end
+
+local function _saveSquadLineup(gameState, team)
+    if _isNationalTeamMode(gameState) then
+        WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
+    else
+        Team.saveActiveLineupPreset(team)
+    end
+end
+
 -- 筛选和排序状态（在路由切换间保留）
 local _filterPos = "ALL"  -- ALL / GK / DEF / MID / FWD
 local _sortBy = "position" -- position / overall / age / wage / fitness
@@ -54,9 +68,7 @@ function Squad.create(params)
     if not gameState then return UI.Panel { width = "100%", height = "100%" } end
 
     -- 判断当前身份：国家队模式 vs 俱乐部模式
-    local isNTMode = gameState.currentRole == "national_team"
-        and gameState.nationalTeamCoach ~= nil
-        and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
+    local isNTMode = _isNationalTeamMode(gameState)
 
     local team
     if isNTMode then
@@ -618,7 +630,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                         -- 无可用替补，清空该槽位但不压缩阵型槽位
                         team.startingXI[slotIdx] = nil
                     end
-                    Team.saveActiveLineupPreset(team)
+                    _saveSquadLineup(gameState, team)
                 end
                 Router.replaceWith("squad")
             end,
@@ -656,7 +668,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                     if bestSlotIdx then
                         team.startingXI = team.startingXI or {}
                         team.startingXI[bestSlotIdx] = player.id
-                        Team.saveActiveLineupPreset(team)
+                        _saveSquadLineup(gameState, team)
                     end
                     Router.replaceWith("squad")
                 else
@@ -944,7 +956,7 @@ function Squad._showSwapStarter(player, team, gameState)
             action = function()
                 -- 原位替换：直接赋值到该槽位索引
                 team.startingXI[c.index] = player.id
-                Team.saveActiveLineupPreset(team)
+                _saveSquadLineup(gameState, team)
                 Router.replaceWith("squad")
             end,
         })

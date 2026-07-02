@@ -1470,6 +1470,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots, section)
                             end
                         else
                             team.startingXI[slotIdx] = p.id
+                            Team.syncBenchOnStarterSwap(team, currentPid, p.id)
                             saveAfterChange()
                         end
                         BottomSheet.close()
@@ -1715,6 +1716,10 @@ end
 
 --- 获取当前替补席球员列表（手动 or 自动）
 local function _getEffectiveBench(gameState, team)
+    if team.benchIds and #team.benchIds > 0 then
+        Team.sanitizeBenchIds(team)
+    end
+
     local startingSet = {}
     for _, pid in pairs(team.startingXI or {}) do
         startingSet[pid] = true
@@ -1863,6 +1868,7 @@ function Tactics._buildBenchContent(gameState, team)
                     disabled = #benchPlayers >= 7,
                     marginLeft = 8,
                     onClick = function()
+                        Team.sanitizeBenchIds(team)
                         if #(team.benchIds or {}) >= 7 then return end
                         -- 如果 benchIds 为空，先初始化已有的
                         if not team.benchIds or #team.benchIds == 0 then

@@ -241,6 +241,47 @@ function Team.fillStartingGaps(gameState, team)
     return team.startingXI
 end
 
+--- 清理 benchIds：移除已在首发中的球员及重复项（自动模式 benchIds 为空时不做处理）
+function Team.sanitizeBenchIds(team)
+    if not team.benchIds or #team.benchIds == 0 then return end
+    local startingSet = {}
+    for _, pid in pairs(team.startingXI or {}) do
+        if pid then startingSet[pid] = true end
+    end
+    local newIds = {}
+    local seen = {}
+    for _, pid in ipairs(team.benchIds) do
+        if pid and not startingSet[pid] and not seen[pid] then
+            seen[pid] = true
+            table.insert(newIds, pid)
+        end
+    end
+    team.benchIds = newIds
+end
+
+--- 阵型页替补↔首发换人后同步 benchIds（仅手动替补模式）
+function Team.syncBenchOnStarterSwap(team, offPlayerId, onPlayerId)
+    if not team.benchIds or #team.benchIds == 0 then return end
+    Team.sanitizeBenchIds(team)
+    if onPlayerId then
+        local newIds = {}
+        for _, pid in ipairs(team.benchIds) do
+            if pid ~= onPlayerId then table.insert(newIds, pid) end
+        end
+        team.benchIds = newIds
+    end
+    if offPlayerId then
+        local inBench = false
+        for _, pid in ipairs(team.benchIds) do
+            if pid == offPlayerId then inBench = true break end
+        end
+        if not inBench and #team.benchIds < 7 then
+            table.insert(team.benchIds, offPlayerId)
+        end
+    end
+    Team.sanitizeBenchIds(team)
+end
+
 function Team.new(data)
     local self = setmetatable({}, Team)
     -- 基础信息
