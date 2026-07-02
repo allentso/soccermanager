@@ -255,7 +255,7 @@ function Tab.build(gameState, listedSubTab)
     for _, playerId in ipairs(TransferManager.getPlayersWithActiveIncomingSales(gameState, team.id)) do
         if not listedPlayerIds[playerId] then
             local p = gameState.players[playerId]
-            if _playerStillOnTeam(p, playerId) then
+            if _playerStillOnTeam(p, playerId) and p.squadRole ~= "loaned" then
                 table.insert(poachedPlayers, p)
             end
         end

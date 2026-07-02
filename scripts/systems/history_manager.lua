@@ -561,6 +561,115 @@ function HistoryManager.getTeamHonors(gameState, teamId)
     return honors
 end
 
+--- 联赛个人奖项字段 → LEGEND_AWARD_META key 映射（读 worldHistory.awards 用）
+local _PLAYER_LEAGUE_AWARD_SPECS = {
+    { field = "goldenBoot",      key = "goldenBoot",      detailKey = "goals",       suffix = "球" },
+    { field = "bestPlayer",      key = "mvp",             detailKey = "score",       suffix = "分", altDetailKeys = { "rating", "overall" } },
+    { field = "bestYoungPlayer", key = "bestYoungPlayer", detailKey = "age",         suffix = "岁" },
+    { field = "topAssists",      key = "topAssists",      detailKey = "assists",     suffix = "助攻", altField = "bestAssist" },
+    { field = "goldenGlove",     key = "goldenGlove",     detailKey = "cleanSheets", suffix = "零封", altField = "bestGoalkeeper" },
+}
+
+local function _legendAwardMetaByKey()
+    local map = {}
+    for _, meta in ipairs(HistoryManager.LEGEND_AWARD_META) do
+        map[meta.key] = meta
+    end
+    return map
+end
+
+local function _awardDetailText(data, spec)
+    if not data then return nil end
+    local value = data[spec.detailKey]
+    if value == nil and spec.altDetailKeys then
+        for _, key in ipairs(spec.altDetailKeys) do
+            if data[key] ~= nil then value = data[key]; break end
+        end
+    end
+    if value == nil then return nil end
+    if spec.suffix then
+        return tostring(value) .. spec.suffix
+    end
+    return tostring(value)
+end
+
+--- 从 worldHistory 聚合某球员的全部个人赛季奖项（金球/金靴/MVP 等），按赛季倒序。
+---@return table[] { season, key, label, icon, leagueName?, teamName?, detailText?, rank? }
+function HistoryManager.getPlayerIndividualAwards(gameState, playerId)
+    HistoryManager._ensureData(gameState)
+    if not playerId then return {} end
+
+    local metaByKey = _legendAwardMetaByKey()
+    local awards = {}
+
+    for i = #(gameState.worldHistory or {}), 1, -1 do
+        local record = gameState.worldHistory[i]
+        local seasonAwards = record and record.awards
+        if not seasonAwards then goto continueSeason end
+        local season = record.season or seasonAwards.season
+
+        if seasonAwards.ballonDor then
+            for rank, bd in ipairs(seasonAwards.ballonDor) do
+                if bd and bd.playerId == playerId then
+                    local meta = metaByKey.ballonDor or { label = "金球奖", icon = "🏆" }
+                    local label = meta.label
+                    if rank > 1 then
+                        label = label .. " · 第" .. tostring(rank)
+                    end
+                    table.insert(awards, {
+                        season = season,
+                        key = "ballonDor",
+                        label = label,
+                        icon = meta.icon,
+                        rank = rank,
+                        teamName = bd.teamName,
+                        detailText = bd.score and string.format("%.1f分", bd.score) or nil,
+                    })
+                end
+            end
+        end
+
+        for leagueKey, la in pairs(seasonAwards.leagues or {}) do
+            local leagueName = la.name or la.leagueName or tostring(leagueKey)
+            for _, spec in ipairs(_PLAYER_LEAGUE_AWARD_SPECS) do
+                local data = la[spec.field] or (spec.altField and la[spec.altField])
+                if data and data.playerId == playerId then
+                    local meta = metaByKey[spec.key] or { label = spec.key, icon = "🏅" }
+                    table.insert(awards, {
+                        season = season,
+                        key = spec.key,
+                        label = meta.label,
+                        icon = meta.icon,
+                        leagueName = leagueName,
+                        teamName = data.teamName,
+                        detailText = _awardDetailText(data, spec),
+                    })
+                end
+            end
+        end
+
+        ::continueSeason::
+    end
+
+    table.sort(awards, function(a, b)
+        if (a.season or 0) ~= (b.season or 0) then
+            return (a.season or 0) > (b.season or 0)
+        end
+        local function weight(entry)
+            if entry.key == "ballonDor" then
+                return (entry.rank or 1) * 10
+            end
+            local order = {
+                goldenBoot = 15, mvp = 16, goldenGlove = 17,
+                topAssists = 18, bestYoungPlayer = 19,
+            }
+            return order[entry.key] or 30
+        end
+        return weight(a) < weight(b)
+    end)
+    return awards
+end
+
 --- 获取某球队的历史成绩
 function HistoryManager.getTeamHistory(gameState, teamId)
     HistoryManager._ensureData(gameState)

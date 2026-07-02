@@ -2,6 +2,20 @@
 -- 完成转会所需的通用 helper，从 transfer_manager.lua 拆分。
 
 return function(TransferManager)
+    --- 球员当前处于租借身份（租入方无永久所有权）
+    function TransferManager.isPlayerOnLoan(player)
+        return player and player.squadRole == "loaned"
+    end
+
+    --- 永久转会/出售前置校验：租借身份球员不可由现俱乐部永久出售
+    function TransferManager._canPermanentlySellPlayer(player)
+        if not player then return false, "无效球员" end
+        if TransferManager.isPlayerOnLoan(player) then
+            return false, "租借球员无法永久出售"
+        end
+        return true
+    end
+
     function TransferManager._getBidEffectiveValue(bid, player)
         local value = bid._effectiveValue or bid.amount or 0
         if bid.appearanceBonus then

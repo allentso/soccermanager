@@ -379,7 +379,8 @@ return function(TransferManager)
             if bid.sellerTeamId == teamId and bid.isIncomingBid
                 and (bid.status == "pending" or bid.status == "counter_pending"
                     or bid.status == "awaiting_sale_confirmation" or bid.status == "player_considering_sale") then
-                if not seen[bid.playerId] then
+                local player = gameState.players[bid.playerId]
+                if player and not TransferManager.isPlayerOnLoan(player) and not seen[bid.playerId] then
                     seen[bid.playerId] = true
                     table.insert(result, bid.playerId)
                 end
@@ -846,6 +847,12 @@ return function(TransferManager)
         local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
         if not sellerOk then
             TransferManager._rejectBid(gameState, bid, sellerErr)
+            return
+        end
+
+        local sellOk, sellErr = TransferManager._canPermanentlySellPlayer(player)
+        if not sellOk then
+            TransferManager._rejectBid(gameState, bid, sellErr)
             return
         end
 

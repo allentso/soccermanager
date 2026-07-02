@@ -37,16 +37,40 @@ end
 -- 球探能力不足时，部分属性显示为 "?"
 -- 基于球探准确度和属性伪随机种子决定是否可见
 ------------------------------------------------------
+local function _hashPlayerId(playerId)
+    if type(playerId) == "number" then return playerId end
+    local s = tostring(playerId)
+    local hash = 0
+    for i = 1, #s do
+        hash = hash * 31 + string.byte(s, i)
+    end
+    return hash
+end
+
+local function _isOwnManagedPlayer(gameState, playerId)
+    if not gameState then return false end
+    local player = gameState.players[playerId]
+    if not player then return false end
+    if player.teamId == gameState.playerTeamId then return true end
+    if player._isVirtual then return true end
+    local ntCoach = gameState.nationalTeamCoach
+    if gameState.currentRole == "national_team" and ntCoach then
+        for _, pid in ipairs(ntCoach.squad or {}) do
+            if pid == playerId then return true end
+        end
+    end
+    return false
+end
+
 local function _isAttrRevealed(playerId, attrKey, scoutAccuracy)
-    -- 本队球员总是全部可见
     local gs = _G.gameState
-    if gs and gs.players[playerId] and gs.players[playerId].teamId == gs.playerTeamId then
+    if _isOwnManagedPlayer(gs, playerId) then
         return true
     end
     -- 准确度 >= 0.95 时全部可见
     if scoutAccuracy >= 0.95 then return true end
     -- 用 playerId + attrKey 生成伪随机种子，确保同一球员同一属性结果一致
-    local seed = playerId * 31 + string.byte(attrKey, 1) * 7 + (string.byte(attrKey, 2) or 0) * 3
+    local seed = _hashPlayerId(playerId) * 31 + string.byte(attrKey, 1) * 7 + (string.byte(attrKey, 2) or 0) * 3
     local pseudoRand = (math.sin(seed) * 10000) % 1.0
     -- 准确度越高，越多属性可见（例如 accuracy=0.7 → 70% 概率可见）
     return pseudoRand < scoutAccuracy
@@ -895,8 +919,9 @@ function PlayerDetail._buildIncomingSaleBidRow(player, gameState, bid)
     local buyerName = buyerTeam and buyerTeam.name or "未知球队"
     local statusText, statusColor = PlayerDetail._incomingSaleBidStatusMeta(bid)
     local actionChildren = {}
+    local canHandleSale = not TransferManager.isPlayerOnLoan(player)
 
-    if bid.status == "pending" then
+    if canHandleSale and bid.status == "pending" then
         table.insert(actionChildren, UI.Button {
             text = "接受",
             flexGrow = 1, height = 34,
@@ -932,7 +957,21 @@ function PlayerDetail._buildIncomingSaleBidRow(player, gameState, bid)
                 Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
             end,
         })
-    elseif bid.status == "awaiting_sale_confirmation" then
+    elseif not canHandleSale and bid.status == "pending" then
+        table.insert(actionChildren, UI.Button {
+            text = "拒绝",
+            width = "100%", height = 34,
+            backgroundColor = {60, 40, 40, 255},
+            borderRadius = 7,
+            fontSize = 12,
+            color = Theme.COLORS.DANGER,
+            onClick = function()
+                local ok = TransferManager.rejectIncomingBid(gameState, bid.id)
+                UI.Toast.Show({ message = ok and "已拒绝报价" or "无法拒绝该报价", variant = ok and "info" or "warning" })
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+            end,
+        })
+    elseif canHandleSale and bid.status == "awaiting_sale_confirmation" then
         table.insert(actionChildren, UI.Button {
             text = "确认出售",
             flexGrow = 1, height = 34,
@@ -1148,6 +1187,14 @@ function PlayerDetail._buildTransferAndOffersCard(player, gameState, loanRecord,
     }
 
     if #bids > 0 then
+        if TransferManager.isPlayerOnLoan(player) then
+            table.insert(children, UI.Label {
+                text = "租借球员无法永久出售；如有误发报价请拒绝。",
+                fontSize = 12,
+                color = Theme.COLORS.WARNING,
+                marginTop = 10,
+            })
+        end
         table.insert(children, UI.Label {
             text = string.format("收到 %d 份报价 · 最高 %s", #bids, FinanceManager.formatMoney(highestAmount)),
             fontSize = 13,
@@ -1963,6 +2010,64 @@ local function _careerHistoryRow(label, teamName, apps, goals, assists, rating, 
     }
 end
 
+function PlayerDetail._buildCareerHonorsCard(player, gameState)
+    local honors = HistoryManager.getPlayerIndividualAwards(gameState, player.id)
+    if #honors == 0 then return nil end
+
+    local maxRows = 15
+    local rows = {}
+    for i, h in ipairs(honors) do
+        if i > maxRows then break end
+        local subtitleParts = {}
+        if h.leagueName then table.insert(subtitleParts, h.leagueName) end
+        if h.teamName then table.insert(subtitleParts, h.teamName) end
+        if h.detailText then table.insert(subtitleParts, h.detailText) end
+        local subtitle = #subtitleParts > 0 and table.concat(subtitleParts, " · ") or nil
+
+        table.insert(rows, UI.Panel {
+            width = "100%", minHeight = 36,
+            flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, paddingVertical = 4,
+            borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+            children = {
+                UI.Label {
+                    text = tostring(h.season or "?"),
+                    width = 48, fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
+                },
+                UI.Label {
+                    text = (h.icon or "🏅") .. " " .. (h.label or "奖项"),
+                    width = 96, fontSize = 11, fontWeight = "bold",
+                    color = h.key == "ballonDor" and Theme.COLORS.WARNING or Theme.COLORS.ACCENT,
+                },
+                UI.Label {
+                    text = subtitle or "—",
+                    flex = 1, fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY,
+                },
+            },
+        })
+    end
+
+    local children = {
+        Theme.Subtitle { text = "个人荣誉" },
+        UI.Label {
+            text = string.format("共 %d 项个人奖项", #honors),
+            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4, marginBottom = 6,
+        },
+        table.unpack(rows),
+    }
+    if #honors > maxRows then
+        table.insert(children, UI.Label {
+            text = string.format("另有 %d 项更早荣誉未展开", #honors - maxRows),
+            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 6,
+        })
+    end
+
+    return Theme.HeroCard {
+        accentColor = Theme.COLORS.WARNING,
+        children = children,
+    }
+end
+
 function PlayerDetail._buildCareerStatsCards(player, gameState)
     local totals = _sumPlayerCareerStats(player)
     local cards = {}
@@ -2201,6 +2306,11 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
 
             for _, card in ipairs(PlayerDetail._buildCareerStatsCards(player, gameState)) do
                 table.insert(children, card)
+            end
+
+            local honorsCard = PlayerDetail._buildCareerHonorsCard(player, gameState)
+            if honorsCard then
+                table.insert(children, honorsCard)
             end
 
             table.insert(children,

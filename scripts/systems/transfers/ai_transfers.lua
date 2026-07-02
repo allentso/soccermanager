@@ -1082,6 +1082,7 @@ return function(TransferManager)
         opts = opts or {}
         if not gameState or not buyerTeam or not player then return false end
         if player.teamId ~= gameState.playerTeamId or player.listedForSale then return false end
+        if TransferManager.isPlayerOnLoan(player) then return false end
         if not opts.blockbuster and not opts.upgradeMode then return false end
         if not TransferManager._canAICreatePlayerPoachBid(gameState, buyerTeam, player) then return false end
 
@@ -1402,6 +1403,7 @@ return function(TransferManager)
         opts = opts or {}
         -- 预签约锁定检查：已被预签约的球员不可再交易
         if player.preContractLockedBy then return false end
+        if TransferManager.isPlayerOnLoan(player) then return false end
         local moveOk = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
         if not moveOk then return false end
 

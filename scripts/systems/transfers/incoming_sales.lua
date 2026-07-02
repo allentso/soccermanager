@@ -103,6 +103,10 @@ return function(TransferManager)
                 bid.status = "rejected"
                 bid.rejectedDate = date
                 stats.stale = stats.stale + 1
+            elseif TransferManager.isPlayerOnLoan(player) then
+                bid.status = "rejected"
+                bid.rejectedDate = date
+                stats.stale = stats.stale + 1
             end
             ::continueStale::
         end
@@ -562,6 +566,8 @@ return function(TransferManager)
     function TransferManager._createIncomingBid(gameState, buyerTeam, player, offerAmount, opts)
         TransferManager._ensureData(gameState)
         if TransferManager.isPlayerRejectingAllOffers(player) then return nil end
+        local sellOk, sellErr = TransferManager._canPermanentlySellPlayer(player)
+        if not sellOk then return nil end
         opts = opts or {}
 
         local bid = {
@@ -623,6 +629,9 @@ return function(TransferManager)
         TransferManager._ensureData(gameState)
         for _, bid in ipairs(gameState.transfers.bids) do
             if _bidIdsEqual(bid.id, bidId) and bid.status == "pending" and bid.isIncomingBid then
+                local player = gameState.players[bid.playerId]
+                local sellOk, sellErr = TransferManager._canPermanentlySellPlayer(player)
+                if not sellOk then return false, sellErr end
                 -- 进入"球员考虑中"状态，球员需要时间决定是否接受转会
                 bid.status = "player_considering_sale"
                 bid.playerConsiderSaleDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
@@ -814,6 +823,13 @@ return function(TransferManager)
             bid.status = "rejected"
             bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
             return false, moveErr
+        end
+
+        local sellOk, sellErr = TransferManager._canPermanentlySellPlayer(player)
+        if not sellOk then
+            bid.status = "rejected"
+            bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            return false, sellErr
         end
 
         local assignOpts = TransferManager.isInTransferWindow(gameState) and { allowOverCap = true } or nil
