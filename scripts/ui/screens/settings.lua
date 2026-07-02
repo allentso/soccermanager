@@ -1866,14 +1866,29 @@ function Settings._showLegendCloudAttachDialog(gameState)
         cancelText = "稍后",
         confirmColor = Theme.COLORS.PRIMARY,
         onConfirm = function()
-            local ok, err = YouthManager.acceptLegendGachaAccountLedger(gameState)
-            if ok then
-                SaveManager.save(gameState, "auto")
-                UI.Toast.Show({ message = "已同步账号传奇云存档", variant = "success" })
-                Router.replaceWith("settings")
-            else
-                UI.Toast.Show({ message = "同步失败: " .. tostring(err), variant = "error" })
+            local function doAttach()
+                local ok, err = YouthManager.acceptLegendGachaAccountLedger(gameState)
+                if ok then
+                    SaveManager.save(gameState, "auto")
+                    UI.Toast.Show({ message = "已同步账号传奇云存档", variant = "success" })
+                    Router.replaceWith("settings")
+                else
+                    UI.Toast.Show({ message = "同步失败: " .. tostring(err), variant = "error" })
+                end
             end
+            if LegendGachaCloud.hasPendingRemoteEnvelope() then
+                doAttach()
+                return
+            end
+            LegendGachaCloud.probeAccountLedger({
+                ok = doAttach,
+                error = function()
+                    UI.Toast.Show({ message = "同步失败: 无法读取云端账本", variant = "error" })
+                end,
+                timeout = function()
+                    UI.Toast.Show({ message = "同步失败: 读取云端超时", variant = "error" })
+                end,
+            })
         end,
     })
     return true
@@ -1904,9 +1919,11 @@ function Settings._showLegendCloudConflictDialog(gameState)
     return true
 end
 
-function Settings._probeLegendCloudThen(onDone)
-    if YouthManager.getLegendGachaPendingAccountAttach()
-        or LegendGachaCloud.hasPendingConflict() then
+function Settings._probeLegendCloudThen(onDone, opts)
+    opts = opts or {}
+    if not opts.forceProbe
+        and (YouthManager.getLegendGachaPendingAccountAttach()
+            or LegendGachaCloud.hasPendingConflict()) then
         onDone()
         return
     end
@@ -1922,7 +1939,7 @@ function Settings._promptLegendCloudAttach(gameState)
         if Settings._showLegendCloudAttachDialog(gameState) then return end
         UI.Toast.Show({ message = "未检测到账号传奇云存档", variant = "info" })
         Router.replaceWith("settings")
-    end)
+    end, { forceProbe = true })
 end
 
 function Settings._promptLegendCloudConflict(gameState)
@@ -1943,6 +1960,23 @@ function Settings._getLegendCloudSaveUiState()
         }
     end
     if YouthManager.getLegendGachaPendingAccountAttach() then
+        local canPush, pushReason = LegendGachaCloud.canReseedFromCurrentSave()
+        if canPush then
+            return {
+                hint = "检测到账号已有云端账本；若云端为空或需以当前存档为准，请用本地镜像覆盖云端",
+                buttonText = "用当前存档覆盖云端",
+                enabled = true,
+                action = "reseed",
+            }
+        end
+        if pushReason == "legend_cloud_syncing" then
+            return {
+                hint = "检测到账号已有传奇存档，云同步完成后可操作",
+                buttonText = "同步账号传奇存档",
+                enabled = false,
+                action = "attach",
+            }
+        end
         return {
             hint = "检测到账号已有传奇存档，可同步到当前存档",
             buttonText = "同步账号传奇存档",

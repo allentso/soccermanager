@@ -57,14 +57,29 @@ local function showLegendAccountAttachDialog(gameState)
         cancelText = "稍后",
         confirmColor = Theme.COLORS.PRIMARY,
         onConfirm = function()
-            local ok, err = YouthManager.acceptLegendGachaAccountLedger(gameState)
-            if ok then
-                SaveManager.save(gameState, "auto")
-                UI.Toast.Show({ message = "已同步账号传奇云存档", variant = "success" })
-                refreshLegendTab()
-            else
-                UI.Toast.Show({ message = "同步失败: " .. tostring(err), variant = "error" })
+            local function doAttach()
+                local ok, err = YouthManager.acceptLegendGachaAccountLedger(gameState)
+                if ok then
+                    SaveManager.save(gameState, "auto")
+                    UI.Toast.Show({ message = "已同步账号传奇云存档", variant = "success" })
+                    refreshLegendTab()
+                else
+                    UI.Toast.Show({ message = "同步失败: " .. tostring(err), variant = "error" })
+                end
             end
+            if LegendGachaCloud.hasPendingRemoteEnvelope() then
+                doAttach()
+                return
+            end
+            LegendGachaCloud.probeAccountLedger({
+                ok = doAttach,
+                error = function()
+                    UI.Toast.Show({ message = "同步失败: 无法读取云端账本", variant = "error" })
+                end,
+                timeout = function()
+                    UI.Toast.Show({ message = "同步失败: 读取云端超时", variant = "error" })
+                end,
+            })
         end,
     })
 end

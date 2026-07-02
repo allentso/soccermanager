@@ -444,6 +444,10 @@ function LegendGachaCloud.hasPendingAccountAttach()
     return cache.pendingAccountAttach == true and not cache.enabled
 end
 
+function LegendGachaCloud.hasPendingRemoteEnvelope()
+    return pendingRemoteEnvelope_ ~= nil
+end
+
 function LegendGachaCloud.hasPendingConflict()
     local cache = ensureLoaded()
     return cache.pendingConflict == true
@@ -911,15 +915,16 @@ function LegendGachaCloud.enableAndSeedFromCurrentSave(gameState, events)
     return LegendGachaCloud.syncToCloud(events)
 end
 
---- 是否可用当前存档覆盖已开启的云端账本（非首次 seed 入口）
+--- 是否可用当前存档本地镜像覆盖云端（已开启云存档，或待接入云端账本）
 ---@return boolean ok
 ---@return string|nil reason not_enabled|legend_cloud_conflict|legend_cloud_syncing
 function LegendGachaCloud.canReseedFromCurrentSave()
     local cache = ensureLoaded()
-    if not cache.enabled then return false, "not_enabled" end
     if cache.pendingConflict then return false, "legend_cloud_conflict" end
     if syncInFlight_ or bootstrapping_ then return false, "legend_cloud_syncing" end
-    return true
+    if cache.enabled then return true end
+    if cache.pendingAccountAttach then return true end
+    return false, "not_enabled"
 end
 
 --- 用当前存档本地 _legendGacha 镜像清零并覆盖云端账本（不合并场上传奇实体）
@@ -931,8 +936,14 @@ function LegendGachaCloud.reseedFromCurrentSave(gameState, events)
     seedState.updatedAt = nowSeconds()
 
     local cache = ensureLoaded()
+    cache.enabled = true
     cache.pendingConflict = false
     cache.pendingAccountAttach = false
+    if pendingRemoteEnvelope_ and pendingRemoteEnvelope_.ledgerId then
+        cache.ledgerId = pendingRemoteEnvelope_.ledgerId
+    elseif not cache.ledgerId or cache.ledgerId == "" then
+        cache.ledgerId = generateLedgerId()
+    end
     pendingRemoteEnvelope_ = nil
     cache.dirty = true
     cache.seedFromSaveUsed = true
